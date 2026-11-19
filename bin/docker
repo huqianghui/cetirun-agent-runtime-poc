@@ -7,7 +7,14 @@ if [ "${1:-}" = buildx ] && [ "${2:-}" = imagetools ] && [ "${3:-}" = inspect ] 
   tmp=$(mktemp); trap 'rm -f "$tmp"' EXIT
   creds=()
   if [[ "$host" == *.azurecr.io ]]; then   # 私有 ACR：用 Azure CLI 换一个仓库令牌
-    t=$(az acr login -n "${host%%.*}" --expose-token --query accessToken -o tsv 2>/dev/null)
+    # make deploy 要逐个检查几十个镜像，每次都换令牌要 8 秒左右；令牌有效 3 小时，缓存 10 分钟复用
+    cache="${TMPDIR:-/tmp}/cetirun-acr-token-${host%%.*}"
+    if [ -s "$cache" ] && [ $(( $(date +%s) - $(stat -f %m "$cache" 2>/dev/null || stat -c %Y "$cache") )) -lt 600 ]; then
+      t=$(cat "$cache")
+    else
+      t=$(az acr login -n "${host%%.*}" --expose-token --query accessToken -o tsv 2>/dev/null)
+      (umask 077; printf '%s' "$t" > "$cache")
+    fi
     creds=(--creds "00000000-0000-0000-0000-000000000000:$t")
   fi
   # 原样落盘：命令替换和 <<< 都会改动末尾换行，digest 就不对了
