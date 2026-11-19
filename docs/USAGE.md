@@ -115,7 +115,7 @@ Sandbox 被 Team 引用时删不掉，要先让 Team 不再引用它。
 
 ### 2. 工作区
 
-点开实例进入工作区。**Overview** 显示类型、镜像、用户名、端口、Agent UI 的登录凭据（**Hermes API / Webapp Key**，点眼睛显示、点复制按钮复制），以及这个 agent 能用的模型。
+点开实例进入工作区。**Overview** 显示类型、镜像、用户名、端口、Agent UI 的登录凭据（**Hermes API / Webapp Key**，点眼睛显示、点复制按钮复制），以及这个 agent 能用的模型。**Limits** 列出这个 agent 自己那把 key 上的限额（并发、RPM、TPM），来自 Team 的 Agent Policy，超了会返回 429；Policy 允许 GitHub Copilot 时，这里可以用自己的 GitHub 账号登录接入。
 
 ![工作区 Overview](images/screens/workspace-overview.png)
 
@@ -161,6 +161,9 @@ Desktop 用来处理 agent 自己过不了的关，比如需要验证码或 MFA 
 ### 6. Connections：让 agent 代表你访问 Microsoft 服务
 
 **Connections** 页管理委托连接，授权 agent 以你的身份访问 Microsoft Graph 或 Azure ARM。连接从 agent 侧发起：在工作区 Overview 的 **Identities → Add identity** 里完成授权后，会出现在这里，并显示被哪些 agent 用着。这个功能需要租户管理员同意后才能用。
+
+> [!NOTE]
+> 跑在 Kata 沙箱里的 agent（Team 绑定了 Sandbox），工作区的 Identities 会显示 **Binding storage is unavailable**。原因是沙箱里的 agent 要用委托连接，operator 需要开启 `connectionsMCP.nativeEnabled`，并在平台登记里加上 connections-mcp 作为受管 peer。当前部署没有开启，operator 就不给 agent-broker 授予这个 agent 命名空间里的权限。不在沙箱里跑的 agent（如 CetiAdmin）不受影响。
 
 ![Connections](images/screens/connections.png)
 
@@ -291,6 +294,7 @@ Team 详情页的 Rate Limits、Budget 都是 Unlimited，Models 是 All proxy m
 
 ## 已知限制
 
+- **沙箱里的 agent 暂不支持委托连接**：见第三节第 6 小节；
 - **建实例时不要开 Agent Identity**：operator 删除身份所需的 Graph 权限还没验证；
 - **删实例会删 HOME 盘**，数据不可恢复；
 - **改了源码要先重新构建再部署**：AI Gateway 页面要门户镜像和 Istio 入口规则都是新版才能用。`56-local-deploy.sh` 部署的是 ACR 里 `BUILD_VERSION` 那一版，不重跑 `46` 就部署，会把两者打回旧版，AI Gateway 菜单消失、嵌入的控制台报 refused to connect；
