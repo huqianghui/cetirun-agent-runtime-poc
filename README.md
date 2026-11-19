@@ -70,7 +70,7 @@ cp config.env.example config.env    # 填订阅、模型账号名、门户域名
 
 ## 使用
 
-门户的完整操作步骤和截图见 [使用指南](docs/USAGE.md)，涵盖：
+门户的完整操作步骤和各功能的说明见 [使用指南](docs/USAGE.md)，涵盖：
 
 1. **创建自己的 agent**：选团队和 agent 类型（OpenClaw、Hermes、自定义 runtime），几分钟后实例就绪
 2. **三个入口**：Agent UI 聊天、Terminal 网页终端、Desktop 远程桌面，都在实例的工作区页里
