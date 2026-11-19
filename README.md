@@ -116,4 +116,4 @@ kubectl get secret -n cetirun-system cetirun-ai-gateway-auth -o jsonpath='{.data
 - [12：常驻实例与会话调度](https://github.com/huqianghui/mindforge/blob/main/Azure/Azure-Kubernetes-Service/AKS-Agent-Runtime%E7%B3%BB%E5%88%9712%EF%BC%9A%E5%B8%B8%E9%A9%BB%E5%AE%9E%E4%BE%8B%E4%B8%8E%E4%BC%9A%E8%AF%9D%E8%B0%83%E5%BA%A6.md)
 - [13：Runtime 管控台与 LiteLLM 的分工](https://github.com/huqianghui/mindforge/blob/main/Azure/Azure-Kubernetes-Service/AKS-Agent-Runtime%E7%B3%BB%E5%88%9713%EF%BC%9ARuntime%E7%AE%A1%E6%8E%A7%E5%8F%B0%E4%B8%8ELiteLLM%E7%9A%84%E5%88%86%E5%B7%A5.md)
 
-会话型 runtime（Turn + OpenSandbox）在另一个仓库 [aks-sandbox-poc](https://github.com/huqianghui/aks-sandbox-poc)。
+会话型 runtime（Turn + OpenSandbox）的代码暂未公开，它的设计和实测见同一系列的 [01：Sandbox 之外的三个平面](https://github.com/huqianghui/mindforge/blob/main/Azure/Azure-Kubernetes-Service/AKS-Agent-Runtime%E7%B3%BB%E5%88%9701%EF%BC%9ASandbox%E4%B9%8B%E5%A4%96%E7%9A%84%E4%B8%89%E4%B8%AA%E5%B9%B3%E9%9D%A2.md) 到 11 篇。
