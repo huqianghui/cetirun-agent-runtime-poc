@@ -54,6 +54,8 @@ op["customRuntime"] = {"approvedImages": [f"{e['REGISTRY']}/cetirun-pi-agent@{e[
                        "storageClass": "default", "storageSize": "20Gi", "accessMode": "ReadWriteOnce", "fsGroup": 1024}
 ai = cfg["platform"]["values"]["cetirun-ai-gateway"]
 ai["postgresql"]["bundled"]["persistence"] = {"storageClass": "default", "size": "20Gi"}
+# 控制台挂在门户域名的 /ai-gateway/ui/ 下（路由见 58）；写进部署配置，重新部署时不会被打回 /ui
+ai.setdefault("auth", {}).setdefault("adminUI", {})["rootPath"] = "/ai-gateway"
 endpoint = f"https://{e['AI_ACCOUNT']}.cognitiveservices.azure.com/"
 def model(name, cin, cout):
     return {"model_name": name,

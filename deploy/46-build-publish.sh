@@ -6,7 +6,7 @@
 source "$(dirname "$0")/lib.sh"
 # shellcheck disable=SC1091
 source "$ROOT/state/registry.env"
-BUILD_VERSION=0.1.1-src.20261111
+BUILD_VERSION=0.1.1-src.20261119
 VM=vm-cetirun-build
 KEY="$ROOT/state/ssh/id_ed25519"
 
