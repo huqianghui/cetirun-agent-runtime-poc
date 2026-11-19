@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "images": [
+    {"name": "cetirun-base", "script": "scripts/cetirun-docker-build.sh", "env": {"BUILD_BASE": "true"}},
+    {"name": "openclaw-gateway", "script": "scripts/cetirun-docker-build.sh", "env": {"BUILD_IMAGE": "true"}},
+    {"name": "hermes-gateway", "script": "scripts/cetirun-docker-build.sh", "env": {"BUILD_HERMES": "true"}},
+    {"name": "cetirun-desktop", "script": "scripts/cetirun-docker-build.sh", "env": {"BUILD_DESKTOP": "true"}},
+    {"name": "cetirun-operator", "script": "scripts/operator-docker-build.sh"},
+    {"name": "cetirun-ai-gateway", "script": "scripts/ai-gateway-docker-build.sh"},
+    {"name": "cetirun-agent-broker", "script": "scripts/agent-broker-docker-build.sh"},
+    {"name": "cetirun-connections-mcp", "script": "scripts/cetirun-connections-mcp-docker-build.sh"},
+    {"name": "cetirun-terminal", "script": "scripts/terminal-docker-build.sh"},
+    {"name": "cetirun-memory-context", "script": "scripts/memory-context-docker-build.sh"},
+    {"name": "cetirun-portal", "script": "scripts/portal-docker-build.sh"},
+    {"name": "cetirun-vscode", "script": "scripts/vscode-docker-build.sh", "optional": true},
+    {"name": "cetirun-observability", "script": "scripts/cetirun-observability-docker-build.sh"},
+    {"name": "cetirun-pi-agent", "script": "scripts/pi-agent-docker-build.sh"}
+  ],
+  "charts": [
+    {"name": "cetirun", "path": "app/cetirun-chart", "lintValues": {"secrets.openclawGatewayToken": "lint-token", "secrets.model": "lint-model", "aiGateway.keySecretName": "lint-model-key", "secrets.apiBase": "http://gateway.example.com/v1", "hermes.env.HERMES_WEBAPP_PUBLIC_URL": "https://agents.example.com/ui/validation"}},
+    {"name": "cetirun-istio", "path": "infra/istio", "lintValues": {"clientId": "11111111-1111-1111-1111-111111111111", "tenantId": "22222222-2222-2222-2222-222222222222", "allowedGroups": "33333333-3333-3333-3333-333333333333"}},
+    {"name": "cetirun-operator", "path": "app/cetirun-operator/chart", "lintValues": {"cetiadmin.enabled": "false"}},
+    {"name": "cetirun-portal", "path": "app/cetirun-portal/chart", "lintValues": {"istio.host": "portal.example.invalid"}},
+    {"name": "cetirun-platform", "path": "app/cetirun-platform", "namespace": "cetirun-system", "lintValues": {"istio.enabled": "true", "cetirun-operator.cetiadmin.enabled": "false", "cetirun-operator.domainSuffix": "platform.example.invalid", "cetirun-portal.istio.host": "portal.example.invalid"}},
+    {"name": "cetirun-ai-gateway", "path": "app/cetirun-ai-gateway/chart", "lintValues": {"models[0].model_name": "lint-model", "models[0].litellm_params.model": "openai/lint-model"}},
+    {"name": "cetirun-agent-broker", "path": "app/cetirun-agent-broker/chart", "lintValues": {"agentIdentity.tenantId": "11111111-1111-1111-1111-111111111111", "agentIdentity.blueprintClientId": "22222222-2222-2222-2222-222222222222", "agentIdentity.authorizationClientId": "33333333-3333-3333-3333-333333333333", "agentIdentity.encryptionClientId": "44444444-4444-4444-4444-444444444444", "agentIdentity.keyVaultKeyUrl": "https://example.vault.azure.net/keys/cache", "agentIdentity.redirectUri": "https://portal.example.invalid/api/v1/connections/callback", "agentIdentity.portalOrigin": "https://portal.example.invalid", "agentIdentity.portalBaseUrl": "https://portal.example.invalid", "istio.sidecarInjection": "true", "istio.revision": "asm-example"}},
+    {"name": "cetirun-connections-mcp", "path": "app/cetirun-connections-mcp/chart", "valuesFile": "app/cetirun-connections-mcp/chart/ci/render-values.yaml"},
+    {"name": "cetirun-observability", "path": "app/cetirun-observability/chart", "lintValues": {"clusterName": "lint", "adx.endpoint": "https://lint.example.invalid", "ingestor.clientId": "66666666-6666-6666-6666-666666666666"}}
+  ]
+}

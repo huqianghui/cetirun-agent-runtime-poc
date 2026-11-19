@@ -1,0 +1,18 @@
+# Synthetic publicTLS fragment. Merge it into a complete environment file.
+# Configure the DNS A/CNAME record before deployment.
+publicTLS:
+  enabled: true
+  dns:
+    mode: custom
+    domain: portal.example.com
+  ingressService: aks-istio-ingressgateway-external
+  gatewayName: cetirun-acme-http
+  certManager:
+    # Reuse the explicitly selected, compatible, ready Helm installation.
+    mode: existing
+    namespace: cert-manager
+    release: cert-manager
+  acme:
+    email: ""
+  stateDirectory: /absolute/private/cetirun-public-tls
+  timeoutSeconds: 600

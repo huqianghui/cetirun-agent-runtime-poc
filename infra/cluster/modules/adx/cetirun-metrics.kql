@@ -1,0 +1,17 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+//
+// Query functions of the CetiRun metrics database. The ADX module of the
+// cluster template runs this script. The ADX-Mon ingestor runs
+// CountCardinality every minute and stores its result in
+// AdxmonIngestorTableCardinalityCount; the body is upstream's
+// (build/k8s/cardinality-function.yaml).
+.create-or-alter function with (folder = "ADX-Mon", docstring = "Distinct series of each metric table in the last hour, for the ingestor's cardinality metric.", skipvalidation = "true") CountCardinality() {
+    union withsource=table *
+    | where Timestamp >= ago(1h) and Timestamp < ago(5m)
+    | summarize Value=toreal(dcount(SeriesId)) by table
+    | extend SeriesId=hash_xxhash64(table)
+    | extend Timestamp=bin(now(), 1m)
+    | extend Labels=bag_pack_columns(table)
+    | project Timestamp, SeriesId, Labels, Value
+}

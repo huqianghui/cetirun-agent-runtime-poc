@@ -1,0 +1,209 @@
+{{- if default false ((.Values.features).agentToolsEnabled) }}
+{{- if empty .Values.agentTools.runtimeTypes }}{{ fail "agentTools.runtimeTypes must not be empty when Agent Tools is enabled" }}{{ end }}
+{{- range .Values.agentTools.runtimeTypes }}
+{{- if not (has . (list "hermes" "openclaw" "custom")) }}{{ fail "agentTools.runtimeTypes supports only hermes, openclaw and governed custom" }}{{ end }}
+{{- end }}
+{{- end }}
+{{- $sharedChat := .Values.global.portalChat | default dict -}}
+{{- $chatEnabled := or .Values.chat.enabled (default false $sharedChat.enabled) -}}
+{{- $chatRealm := default .Values.chat.identityRealm $sharedChat.identityRealm -}}
+{{- if and (hasKey .Values "sandboxRuntimeDefaultsFromController") (not (kindIs "bool" .Values.sandboxRuntimeDefaultsFromController)) -}}
+{{- fail "sandboxRuntimeDefaultsFromController must be a boolean" -}}
+{{- end -}}
+{{- $skillMarketplace := .Values.skillMarketplace | default dict -}}
+{{- if and (hasKey $skillMarketplace "enabled") (not (kindIs "bool" $skillMarketplace.enabled)) -}}
+{{- fail "skillMarketplace.enabled must be a boolean" -}}
+{{- end -}}
+{{- $sandboxStorage := .Values.sandboxStorage | default dict -}}
+{{- if not (kindIs "map" $sandboxStorage) -}}
+{{- fail "sandboxStorage must be an object" -}}
+{{- end -}}
+{{- range $field := list "platformNamespace" "platformConfigMapName" "defaultStorageClassName" -}}
+{{- if not (kindIs "string" (get $sandboxStorage $field)) -}}
+{{- fail (printf "sandboxStorage.%s must be a string" $field) -}}
+{{- end -}}
+{{- end -}}
+{{- if ne (empty $sandboxStorage.platformNamespace) (empty $sandboxStorage.platformConfigMapName) -}}
+{{- fail "sandboxStorage.platformNamespace and sandboxStorage.platformConfigMapName must be configured together" -}}
+{{- end -}}
+{{- if $sandboxStorage.platformConfigMapName -}}
+{{- if or (gt (len $sandboxStorage.platformNamespace) 63) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" $sandboxStorage.platformNamespace)) -}}
+{{- fail "sandboxStorage.platformNamespace must be a valid namespace name" -}}
+{{- end -}}
+{{- if or (gt (len $sandboxStorage.platformConfigMapName) 253) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$" $sandboxStorage.platformConfigMapName)) -}}
+{{- fail "sandboxStorage.platformConfigMapName must be a valid ConfigMap name" -}}
+{{- end -}}
+{{- end -}}
+{{- if and $sandboxStorage.defaultStorageClassName (or (gt (len $sandboxStorage.defaultStorageClassName) 253) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$" $sandboxStorage.defaultStorageClassName))) -}}
+{{- fail "sandboxStorage.defaultStorageClassName must be a valid StorageClass name" -}}
+{{- end -}}
+{{- if $chatEnabled }}
+{{- $_ := required "chat.identityRealm is required for Custom Chat" $chatRealm -}}
+{{- $_ := required "istio.host is required for Custom Chat" .Values.istio.host -}}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cetirun-portal.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cetirun-portal.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "cetirun-portal.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "cetirun-portal.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: portal
+          image: "{{ include "cetirun-portal.image" . }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: http-internal
+              containerPort: 8081
+              protocol: TCP
+          env:
+            - name: FEATURE_CUSTOM_CHAT_ENABLED
+              value: {{ $chatEnabled | quote }}
+            - name: CHAT_IDENTITY_REALM
+              value: {{ $chatRealm | quote }}
+            - name: CHAT_CALLER_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: CHAT_CALLER_LABELS
+              value: {{ include "cetirun-portal.selectorLabels" . | fromYaml | toJson | quote }}
+            - name: REGISTRY_CREDENTIAL_NAMESPACE
+              value: {{ default .Values.registryCredentials.namespace .Values.global.registryCredentialNamespace | quote }}
+            - name: SANDBOX_STATE_NAMESPACE
+              value: {{ default .Values.aiGateway.catalogNamespace .Values.chat.sandboxStateNamespace | quote }}
+            {{- if $sandboxStorage.platformConfigMapName }}
+            - name: SANDBOX_STORAGE_PLATFORM_NAMESPACE
+              value: {{ $sandboxStorage.platformNamespace | quote }}
+            - name: SANDBOX_STORAGE_PLATFORM_CONFIG_MAP_NAME
+              value: {{ $sandboxStorage.platformConfigMapName | quote }}
+            - name: SANDBOX_STORAGE_DEFAULT_CLASS_NAME
+              value: {{ $sandboxStorage.defaultStorageClassName | quote }}
+            {{- end }}
+            {{- if .Values.istio.host }}
+            - name: PORTAL_ORIGIN
+              value: {{ printf "https://%s" .Values.istio.host | quote }}
+            {{- end }}
+            - name: LISTEN_ADDR
+              value: ":8080"
+            - name: INTERNAL_LISTEN_ADDR
+              value: ":8081"
+            - name: FEATURE_TAILSCALE_ENABLED
+              value: {{ default false ((.Values.features).tailscaleEnabled) | quote }}
+            - name: MAX_INSTANCES_PER_USER
+              value: {{ if hasKey ((.Values.features) | default dict) "maxInstancesPerUser" }}{{ .Values.features.maxInstancesPerUser | quote }}{{ else }}"1"{{ end }}
+            - name: ALLOWED_AGENT_TYPES
+              value: {{ join "," (default (list "hermes" "openclaw" "custom") ((.Values.features).allowedAgentTypes)) | quote }}
+            - name: SANDBOX_RUNTIME_PROFILES
+              value: {{ .Values.sandboxRuntimeProfiles | toJson | quote }}
+            {{- if .Values.sandboxRuntimeDefaultsFromController }}
+            - name: SANDBOX_RUNTIME_DEFAULTS_FROM_CONTROLLER
+              value: "true"
+            {{- end }}
+            - name: FEATURE_AGENT_IDENTITY_ENABLED
+              value: {{ default false ((.Values.features).agentIdentityEnabled) | quote }}
+            {{- if default false ((.Values.features).agentToolsEnabled) }}
+            - name: CONNECTIONS_MCP_RUNTIME_TYPES
+              value: {{ join "," .Values.agentTools.runtimeTypes | quote }}
+            {{- end }}
+            - name: FEATURE_AGENT_TOOLS_ENABLED
+              value: {{ default false ((.Values.features).agentToolsEnabled) | quote }}
+            - name: FEATURE_AI_GATEWAY_ENABLED
+              value: {{ default false ((.Values.features).aiGatewayEnabled) | quote }}
+            {{- if default false ((.Values.features).aiGatewayEnabled) }}
+            - name: AI_GATEWAY_CATALOG_NAMESPACE
+              value: {{ default "cetirun-system" ((.Values.aiGateway).catalogNamespace) | quote }}
+            {{- end }}
+            {{- if $skillMarketplace.enabled }}
+            - name: SKILL_MARKETPLACE_ENABLED
+              value: "true"
+            - name: SKILL_MARKETPLACE_CATALOG_NAMESPACE
+              value: {{ default "cetirun-system" $skillMarketplace.catalogNamespace | quote }}
+            {{- end }}
+            {{- if .Values.configurationCoordination.name }}
+            - name: CONFIGURATION_COORDINATION_NAMESPACE
+              value: {{ .Values.configurationCoordination.namespace | quote }}
+            - name: CONFIGURATION_COORDINATION_NAME
+              value: {{ .Values.configurationCoordination.name | quote }}
+            - name: CONFIGURATION_COORDINATION_UID
+              value: {{ .Values.configurationCoordination.uid | quote }}
+            {{- end }}
+            {{- if or .Values.istio.internalAuthMTLS (default false ((.Values.features).agentIdentityEnabled)) (default false ((.Values.features).agentToolsEnabled)) }}
+            - name: ENTRA_TENANT_ID
+              value: {{ required "agentIdentity.tenantId is required when verified Portal identity is enabled" .Values.agentIdentity.tenantId | quote }}
+            - name: PORTAL_OIDC_CLIENT_ID
+              value: {{ required "agentIdentity.portalClientId is required when verified Portal identity is enabled" .Values.agentIdentity.portalClientId | quote }}
+            {{- $_ := required "istio.host is required when verified Portal identity is enabled" .Values.istio.host }}
+            {{- end }}
+            {{- if default false ((.Values.features).agentToolsEnabled) }}
+            - name: AGENT_TOOLS_BROKER_URL
+              value: {{ required "agentTools.brokerURL is required when Agent Tools is enabled" .Values.agentTools.brokerURL | quote }}
+            {{- end }}
+            - name: ADMIN_ALIASES_FILE
+              value: /etc/cetirun-portal/admins/aliases
+            {{- if .Values.noticeBanner }}
+            - name: NOTICE_BANNER
+              value: {{ .Values.noticeBanner | quote }}
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: admins
+              mountPath: /etc/cetirun-portal/admins
+              readOnly: true
+      volumes:
+        - name: admins
+          configMap:
+            name: {{ include "cetirun-portal.fullname" . }}-admins
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

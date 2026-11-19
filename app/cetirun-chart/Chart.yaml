@@ -1,0 +1,20 @@
+apiVersion: v2
+description: Helm chart for CetiRun, an open-source managed runtime for hosting AI agents and AI applications
+keywords:
+  - cetirun
+  - openclaw
+  - hermes
+  - ai
+  - managed-runtime
+  - gateway
+  - websocket
+name: cetirun
+type: application
+version: 0.1.1-src.20261111
+appVersion: "0.1.1-src.20261111"
+maintainers: []
+annotations:
+  cetirun.microsoft.com/custom-copilot: v1
+  cetirun.microsoft.com/custom-skill-marketplace: v1
+  cetirun.microsoft.com/portal-chat: v1
+  cetirun.microsoft.com/registry-credentials: v1

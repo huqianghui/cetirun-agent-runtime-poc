@@ -1,0 +1,212 @@
+{{- if include "cetirun-operator.cetiadminAdmission" . -}}
+{{- $admission := .Values.sandboxAdmission -}}
+{{- if not (semverCompare ">=1.37.0-0" .Capabilities.KubeVersion.Version) -}}{{- fail "cetiadmin requires Kubernetes >= 1.37" -}}{{- end -}}
+{{- if or (not (regexMatch "^[0-9]+$" (toString $admission.timeoutSeconds))) (lt (int64 $admission.timeoutSeconds) 1) (gt (int64 $admission.timeoutSeconds) 30) -}}{{- fail "sandboxAdmission.timeoutSeconds must be an integer between 1 and 30" -}}{{- end -}}
+{{- $encodedCA := include "cetirun-operator.admissionCA" . -}}
+{{- $caller := include "cetirun-operator.cetiadminUsername" . -}}
+{{- range $name := list .Values.namespace (printf "cetirun-%s" .Values.cetiadmin.instanceName) -}}
+{{- $namespace := lookup "v1" "Namespace" "" $name -}}
+{{- $labels := dig "metadata" "labels" (dict) $namespace -}}
+{{- if or (eq (get $labels "control-plane") "true") (eq (get $labels "kubernetes.azure.com/managedby") "aks") -}}
+{{- fail (printf "CetiAdmin authority namespace %s is excluded from admission by managed-cluster labels" $name) -}}
+{{- end -}}
+{{- end -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cetirun-cetiadmin-admission
+  namespace: {{ .Values.namespace | quote }}
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: [{{ include "cetirun-operator.cetiadminConfigName" . | quote }}, {{ include "cetirun-operator.cetiadminBindingName" . | quote }}]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cetirun-cetiadmin-admission
+  namespace: {{ .Values.namespace | quote }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cetirun-cetiadmin-admission
+subjects:
+  - kind: ServiceAccount
+    name: cetirun-sandbox-admission
+    namespace: {{ .Values.namespace | quote }}
+---
+# The Operator binds this reader only in confirmed runtime namespaces. There
+# is deliberately no cluster-wide Secret binding. Non-default Secret names
+# require a per-target Role naming the actual gatewayTokenSecretRef.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cetirun-cetiadmin-admission-native-auth
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["gateway-token"]
+    verbs: ["get"]
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: cetirun-cetiadmin-namespace
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    matchPolicy: Equivalent
+    resourceRules:
+      - operations: ["CREATE", "UPDATE"]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["namespaces", "namespaces/status", "namespaces/finalize"]
+        scope: Cluster
+  validations:
+    - expression: >-
+        !(object.metadata.name in [{{ .Values.namespace | toJson }}, {{ printf "cetirun-%s" .Values.cetiadmin.instanceName | toJson }}] ||
+          (has(object.metadata.labels) && "app.kubernetes.io/managed-by" in object.metadata.labels &&
+           object.metadata.labels["app.kubernetes.io/managed-by"] == "cetirun-operator") ||
+          (oldObject != null && has(oldObject.metadata.labels) && "app.kubernetes.io/managed-by" in oldObject.metadata.labels &&
+           oldObject.metadata.labels["app.kubernetes.io/managed-by"] == "cetirun-operator")) ||
+        (!has(object.metadata.labels) ||
+         ((!("control-plane" in object.metadata.labels) || object.metadata.labels["control-plane"] != "true") &&
+          (!("kubernetes.azure.com/managedby" in object.metadata.labels) || object.metadata.labels["kubernetes.azure.com/managedby"] != "aks")))
+      message: "CetiAdmin authority and managed Agent namespaces cannot use labels that bypass admission."
+      reason: Forbidden
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: cetirun-cetiadmin-namespace
+spec:
+  policyName: cetirun-cetiadmin-namespace
+  validationActions: ["Deny"]
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: cetirun-cetiadmin-admission
+webhooks:
+  {{- range $kind := list "configuration" "workloads" "operations" }}
+  - name: cetiadmin-{{ $kind }}.cetirun.microsoft.com
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    failurePolicy: Fail
+    timeoutSeconds: {{ int64 $admission.timeoutSeconds }}
+    matchPolicy: Equivalent
+    clientConfig:
+      caBundle: {{ $encodedCA | quote }}
+      service:
+        name: cetirun-sandbox-admission
+        namespace: {{ $.Values.namespace | quote }}
+        path: /validate-cetiadmin
+        port: 443
+    rules:
+      {{- if eq $kind "configuration" }}
+      - operations: ["CREATE", "UPDATE", "DELETE"]
+        apiGroups: ["cetirun.microsoft.com"]
+        apiVersions: ["v1alpha1"]
+        resources: ["agents", "agents/status", "agents/finalizers", "teams", "teams/status", "sandboxes", "agentpolicies"]
+        scope: Cluster
+      - operations: ["CREATE", "UPDATE", "DELETE"]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["namespaces", "namespaces/status", "namespaces/finalize", "configmaps", "serviceaccounts"]
+        scope: "*"
+    matchConditions:
+      - name: cetiadmin-configuration-scope
+        expression: >-
+          request.resource.group == "cetirun.microsoft.com" ||
+          request.userInfo.username == {{ $caller | toJson }} ||
+          (request.resource.group == "" && request.resource.resource == "configmaps" && request.namespace == {{ $.Values.namespace | toJson }} && (request.name in [{{ include "cetirun-operator.cetiadminConfigName" $ | toJson }}, {{ include "cetirun-operator.cetiadminBindingName" $ | toJson }}] || request.name.startsWith("cetiadmin-maintenance-"))) ||
+          (request.resource.group == "" && request.resource.resource == "namespaces" && (request.name == {{ printf "cetirun-%s" $.Values.cetiadmin.instanceName | toJson }} || {{ include "cetirun-operator.cetiadminManagedNamespace" $ | replace "\n" " " }})) ||
+          (request.resource.group == "" && request.resource.resource == "serviceaccounts" && request.namespace == {{ printf "cetirun-%s" $.Values.cetiadmin.instanceName | toJson }} && request.name == {{ include "cetirun-operator.cetiadminServiceAccountName" $ | toJson }}) ||
+          {{ include "cetirun-operator.cetiadminMarked" $ | nindent 10 | trim }}
+      {{- else if eq $kind "workloads" }}
+      - operations: ["CREATE", "UPDATE", "DELETE"]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["configmaps"]
+        scope: Namespaced
+      - operations: ["CREATE", "UPDATE", "DELETE", "CONNECT"]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods", "pods/exec", "pods/attach", "pods/portforward", "pods/ephemeralcontainers", "pods/binding"]
+        scope: Namespaced
+      - operations: ["CREATE", "UPDATE", "DELETE"]
+        apiGroups: ["apps"]
+        apiVersions: ["v1"]
+        resources: ["statefulsets", "statefulsets/scale", "deployments", "deployments/scale", "replicasets", "replicasets/scale", "daemonsets"]
+        scope: Namespaced
+      - operations: ["CREATE", "UPDATE", "DELETE"]
+        apiGroups: ["batch"]
+        apiVersions: ["v1"]
+        resources: ["jobs", "cronjobs"]
+        scope: Namespaced
+    namespaceSelector:
+      matchLabels:
+        app.kubernetes.io/managed-by: cetirun-operator
+    matchConditions:
+      # The shared admission Deployment must be able to bootstrap/recover.
+      # Platform namespaces are never Helm-maintenance targets. The machine
+      # caller and any protected markers are still checked in this namespace.
+      - name: target-or-protected-workload
+        expression: >-
+          request.namespace != {{ $.Values.namespace | toJson }} ||
+          request.userInfo.username == {{ $caller | toJson }} ||
+          {{ include "cetirun-operator.cetiadminMarked" $ | nindent 10 | trim }}
+      {{- else }}
+      - operations: ["CREATE", "UPDATE", "DELETE"]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["secrets", "services", "persistentvolumeclaims", "events"]
+        scope: Namespaced
+      - operations: ["CREATE", "UPDATE", "DELETE"]
+        apiGroups: ["events.k8s.io"]
+        apiVersions: ["v1"]
+        resources: ["events"]
+        scope: Namespaced
+      - operations: ["CREATE", "UPDATE", "DELETE"]
+        apiGroups: ["rbac.authorization.k8s.io"]
+        apiVersions: ["v1"]
+        resources: ["roles", "rolebindings", "clusterroles", "clusterrolebindings"]
+        scope: "*"
+    matchConditions:
+      - name: cetiadmin-or-protected-marker
+        expression: >-
+          request.userInfo.username == {{ $caller | toJson }} ||
+          {{ include "cetirun-operator.cetiadminMarked" $ | nindent 10 | trim }}
+      {{- end }}
+  {{- end }}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: cetirun-cetiadmin-admission
+webhooks:
+  - name: cetiadmin-agent.cetirun.microsoft.com
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    failurePolicy: Fail
+    reinvocationPolicy: Never
+    timeoutSeconds: {{ int64 $admission.timeoutSeconds }}
+    matchPolicy: Equivalent
+    clientConfig:
+      caBundle: {{ $encodedCA | quote }}
+      service:
+        name: cetirun-sandbox-admission
+        namespace: {{ .Values.namespace | quote }}
+        path: /mutate-sandbox-agent
+        port: 443
+    rules:
+      - operations: ["CREATE", "UPDATE"]
+        apiGroups: ["cetirun.microsoft.com"]
+        apiVersions: ["v1alpha1"]
+        resources: ["agents"]
+        scope: Cluster
+    matchConditions:
+      - name: cetiadmin-caller
+        expression: {{ printf "request.userInfo.username == %s" ($caller | toJson) | quote }}
+{{- end }}

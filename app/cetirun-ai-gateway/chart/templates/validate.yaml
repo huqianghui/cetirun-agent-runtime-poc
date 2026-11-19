@@ -1,0 +1,17 @@
+{{/*
+Render-time preconditions. This template produces no output; it exists so that
+invalid configurations fail at install or upgrade with a message naming the
+offending value, rather than producing a Gateway that starts and misbehaves.
+*/}}
+{{- if or .Release.IsInstall .Release.IsUpgrade -}}
+{{- include "cetirun-ai-gateway.validateModels" . -}}
+{{- include "cetirun-ai-gateway.validateRouting" . -}}
+{{- include "cetirun-ai-gateway.validateRouters" . -}}
+{{- include "cetirun-ai-gateway.validateLimits" . -}}
+{{- include "cetirun-ai-gateway.validatePriceTable" . -}}
+{{- include "cetirun-ai-gateway.validateRedis" . -}}
+{{- include "cetirun-ai-gateway.validateDatabase" . -}}
+{{- include "cetirun-ai-gateway.validateProviderCredentials" . -}}
+{{- include "cetirun-ai-gateway.validateMetrics" . -}}
+{{- include "cetirun-ai-gateway.validateRequestRecords" . -}}
+{{- end -}}

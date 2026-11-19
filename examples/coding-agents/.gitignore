@@ -1,0 +1,20 @@
+__pycache__/
+*.pyc
+.DS_Store
+upstream/
+.deployment/
+.venv/
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+*.kubeconfig
+
+# Native role templates are example source, not local CLI configuration.
+!app/profiles/.claude/
+!app/profiles/.codex/
+!examples/coding-runtime/workspace/.claude/
+!examples/coding-runtime/workspace/.codex/

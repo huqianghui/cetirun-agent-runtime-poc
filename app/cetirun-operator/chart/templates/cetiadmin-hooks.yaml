@@ -1,0 +1,163 @@
+{{- $config := include "cetirun-operator.cetiadminConfig" . -}}
+{{- $source := include "cetirun-operator.cetiadminConfigName" . -}}
+{{- $state := include "cetirun-operator.cetiadminBindingName" . -}}
+{{- range $mode := list "check" "stop" }}
+{{- $name := printf "cetirun-cetiadmin-%s" $mode -}}
+{{- if has $.Values.serviceAccount.name (list $name "cetirun-sandbox-admission") -}}
+{{- fail "CetiAdmin hooks, admission and Operator must use separate ServiceAccounts" -}}
+{{- end }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace | quote }}
+automountServiceAccountToken: true
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace | quote }}
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: [{{ $source | quote }}, {{ $state | quote }}]
+    verbs: ["get"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    resourceNames: ["cetirun-operator", "cetirun-sandbox-admission"]
+    verbs: ["get"]
+  {{- if eq $mode "stop" }}
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: [{{ $source | quote }}]
+    verbs: ["patch"]
+  {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace | quote }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $name }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $name }}
+    namespace: {{ $.Values.namespace | quote }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $name }}
+rules:
+  - apiGroups: ["cetirun.microsoft.com"]
+    resources: ["agents"]
+    verbs: ["get", "list"]
+  - apiGroups: ["cetirun.microsoft.com"]
+    resources: ["teams"]
+    resourceNames: [{{ $.Values.cetiadmin.instanceName | quote }}]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["serviceaccounts"]
+    resourceNames: [{{ include "cetirun-operator.cetiadminServiceAccountName" $ | quote }}]
+    verbs: ["get"]
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources: ["validatingwebhookconfigurations", "mutatingwebhookconfigurations"]
+    resourceNames: ["cetirun-cetiadmin-admission"]
+    verbs: ["get"]
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources: ["validatingadmissionpolicies", "validatingadmissionpolicybindings"]
+    resourceNames: ["cetirun-cetiadmin-namespace"]
+    verbs: ["get"]
+  # Both modes must verify disabled installations after an upgrade as well.
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["list"]
+  - apiGroups: ["apps"]
+    resources: ["statefulsets", "deployments", "replicasets", "daemonsets"]
+    verbs: ["list"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["list"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["rolebindings", "clusterrolebindings"]
+    verbs: ["list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $name }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ $name }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $name }}
+    namespace: {{ $.Values.namespace | quote }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace | quote }}
+  labels:
+    app.kubernetes.io/managed-by: {{ $.Release.Service }}
+  annotations:
+    meta.helm.sh/release-name: {{ $.Release.Name | quote }}
+    meta.helm.sh/release-namespace: {{ $.Release.Namespace | quote }}
+    helm.sh/hook: {{ ternary "pre-delete" "post-install,post-upgrade" (eq $mode "stop") | quote }}
+    helm.sh/hook-weight: "10"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: {{ add (int64 $.Values.cetiadmin.hookTimeoutSeconds) 30 }}
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: {{ $name }}
+      automountServiceAccountToken: true
+      enableServiceLinks: false
+      restartPolicy: Never
+      {{- with $.Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: {{ $mode }}
+          image: {{ include "cetirun-operator.image" $ | quote }}
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          args:
+            - --mode=cetiadmin-{{ $mode }}
+            - {{ printf "--cetiadmin-namespace=%s" $.Values.namespace | quote }}
+            - {{ printf "--cetiadmin-config-map=%s" $source | quote }}
+            - {{ printf "--cetiadmin-config-hash=%s" ($config | sha256sum) | quote }}
+            - {{ printf "--cetiadmin-timeout=%ds" (int64 $.Values.cetiadmin.hookTimeoutSeconds) | quote }}
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+{{- end }}

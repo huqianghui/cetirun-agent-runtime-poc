@@ -1,0 +1,39 @@
+{{- $admission := .Values.sandboxAdmission -}}
+{{- if and $admission.enforce $admission.placementConfigMapName -}}
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: cetirun-sandbox-placement
+webhooks:
+  - name: sandbox-placement.cetirun.microsoft.com
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    failurePolicy: Fail
+    timeoutSeconds: {{ int64 $admission.timeoutSeconds }}
+    matchPolicy: Equivalent
+    matchConditions:
+      {{- include "cetirun-operator.sandboxPodCleanupMatch" . | nindent 6 }}
+    clientConfig:
+      caBundle: {{ regexReplaceAll "[\\r\\n]" $admission.caBundle "" | quote }}
+      service:
+        name: cetirun-sandbox-admission
+        namespace: {{ .Values.namespace | quote }}
+        path: /validate-sandbox-placement
+        port: 443
+    rules:
+      - operations: ["CREATE", "UPDATE"]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods", "pods/ephemeralcontainers", "pods/resize"]
+        scope: Namespaced
+      - operations: ["CREATE"]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods/binding", "bindings"]
+        scope: Namespaced
+      - operations: ["UPDATE", "DELETE"]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["nodes"]
+        scope: Cluster
+{{- end }}

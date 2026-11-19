@@ -1,0 +1,39 @@
+{{- /*
+NetworkPolicy: restrict access to portal port 8081 (/internal/auth) to the
+ingress gateway namespace only.
+
+Port 8081 uses DISABLE mTLS (Envoy Lua httpCall cannot do mTLS), so
+network-layer isolation is the primary security control preventing openclaw
+pods or other workloads from calling /internal/auth and enumerating instance
+ownership.
+*/ -}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "cetirun-portal.fullname" . }}-internal-auth
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cetirun-portal.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "cetirun-portal.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    # Port 8080: allow from ingress gateway only (enforced by mTLS + AuthorizationPolicy)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.istio.gatewayNamespace }}
+      ports:
+        - port: 8080
+          protocol: TCP
+    # Port 8081: allow from ingress gateway only (mTLS disabled; NetworkPolicy is the guard)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.istio.gatewayNamespace }}
+      ports:
+        - port: 8081
+          protocol: TCP

@@ -1,0 +1,270 @@
+{{- /*
+The Skill Marketplace worker: the second binary of the operator image, in its
+own Pod. It parses repository content, holds the repository credentials and
+mounts the release storage read-write, so it runs apart from the operator. Its
+Kubernetes access is two ConfigMaps of the operator namespace: it reads the
+operator's Teams document and updates the catalog that the operator creates.
+The operator reconciles Teams and Agents, and creates the Agents' read-only
+skills claims.
+*/ -}}
+{{- $config := include "cetirun-operator.skillMarketplaceConfig" . -}}
+{{- if $config }}
+{{- $marketplace := .Values.skillMarketplace -}}
+{{- $repository := $marketplace.repository -}}
+{{- $storage := $marketplace.storage -}}
+{{- $limits := $marketplace.limits -}}
+{{- $worker := $marketplace.worker | default dict -}}
+{{- $name := "cetirun-skill-marketplace" -}}
+{{- /* Kubernetes cannot change the source of a volume, or the class and
+size of a bound claim. The storage is part of the names of the worker's
+volume and claim: when it changes, Helm creates new ones and removes the
+earlier ones. */ -}}
+{{- $storageHash := printf "%s/%s/%s/%s/%s" $storage.resourceGroup $storage.storageAccount $storage.containerName $storage.storageClassName (toString $storage.size) | sha256sum | trunc 10 -}}
+{{- $volume := printf "%s-%s-%s" $name .Values.namespace $storageHash -}}
+{{- $claim := printf "%s-storage-%s" $name $storageHash -}}
+{{- $version := include "cetirun-operator.version" . | default .Chart.AppVersion -}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/version: {{ $version | quote }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $name }}-catalog
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/version: {{ $version | quote }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+rules:
+  # The operator writes the Teams document.
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["cetirun-skill-marketplace-teams"]
+    verbs: ["get"]
+  # The operator creates the catalog; the worker writes its content.
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["cetirun-skill-marketplace"]
+    verbs: ["get", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $name }}-catalog
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/version: {{ $version | quote }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $name }}-catalog
+subjects:
+  - kind: ServiceAccount
+    name: {{ $name }}
+    namespace: {{ .Values.namespace }}
+---
+# The worker's own read-write mount of the release container. Agents get
+# separate read-only claims, which the operator creates. Deleting these
+# objects leaves the container and its data: the volume is static, with the
+# Retain policy.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ $volume }}
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/version: {{ $version | quote }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  capacity:
+    storage: {{ $storage.size | quote }}
+  accessModes: ["ReadWriteMany"]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: {{ $storage.storageClassName | quote }}
+  volumeMode: Filesystem
+  claimRef:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    namespace: {{ .Values.namespace }}
+    name: {{ $claim }}
+  csi:
+    driver: blob.csi.azure.com
+    volumeHandle: {{ $volume }}
+    volumeAttributes:
+      resourceGroup: {{ $storage.resourceGroup | quote }}
+      storageAccount: {{ $storage.storageAccount | quote }}
+      containerName: {{ $storage.containerName | quote }}
+      protocol: nfs
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $claim }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/version: {{ $version | quote }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  accessModes: ["ReadWriteMany"]
+  storageClassName: {{ $storage.storageClassName | quote }}
+  volumeMode: Filesystem
+  volumeName: {{ $volume }}
+  resources:
+    requests:
+      storage: {{ $storage.size | quote }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/version: {{ $version | quote }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $name }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ $name }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+      annotations:
+        sidecar.istio.io/inject: "false"
+        adx-mon/scrape: "true"
+        adx-mon/port: "8080"
+        adx-mon/path: /metrics
+        {{- with $worker.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ $name }}
+      automountServiceAccountToken: true
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        # Lets the non-root process read the 0440 credentials Secret files. The
+        # Blob CSI driver applies fsGroup only to ReadWriteOnce volumes, so the
+        # shared NFS container keeps its ownership.
+        fsGroup: 65532
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: skill-marketplace
+          image: "{{ include "cetirun-operator.image" . }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/skill-marketplace"]
+          args:
+            - --repository-url={{ $repository.url }}
+            - --repository-ref={{ $repository.ref }}
+            - --repository-path={{ $repository.path }}
+            - --auth={{ $repository.auth }}
+            - --token-username={{ $repository.tokenUsername }}
+            - --allow-insecure-http={{ $repository.allowInsecureHTTP }}
+            - --sync-interval={{ $repository.syncInterval }}
+            - --storage-root=/var/lib/cetirun-skills
+            - --namespace={{ .Values.namespace }}
+            - --reserved-names={{ join "," $marketplace.reservedNames }}
+            - --team-gc-grace={{ $marketplace.teamGCGrace }}
+            - --max-repository-size={{ $limits.maxRepositorySize }}
+            - --max-repository-objects={{ $limits.maxRepositoryObjects }}
+            - --max-skill-files={{ $limits.maxSkillFiles }}
+            - --max-skill-size={{ $limits.maxSkillSize }}
+            - --max-skill-md-size={{ $limits.maxSkillMDSize }}
+            - --max-skill-depth={{ $limits.maxSkillDepth }}
+            - --max-description-length={{ $limits.maxDescriptionLength }}
+          ports:
+            - name: metrics
+              containerPort: 8080
+            - name: health
+              containerPort: 8081
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: health
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml $worker.resources | nindent 12 }}
+          volumeMounts:
+            - name: storage
+              mountPath: /var/lib/cetirun-skills
+            - name: tmp
+              mountPath: /tmp
+            {{- if ne $repository.auth "none" }}
+            - name: credentials
+              mountPath: /var/run/cetirun/git
+              readOnly: true
+            {{- end }}
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: {{ $claim }}
+        # Holds the pack of one fetch while the worker checks it: at most
+        # limits.maxRepositorySize, removed after the fetch.
+        - name: tmp
+          emptyDir:
+            sizeLimit: {{ add (include "cetirun-operator.skillMarketplaceBytes" $limits.maxRepositorySize | atoi) 67108864 }}
+        {{- if ne $repository.auth "none" }}
+        - name: credentials
+          secret:
+            secretName: {{ $repository.existingSecret }}
+            defaultMode: 0440
+            items:
+              {{- if eq $repository.auth "token" }}
+              - key: token
+                path: token
+              {{- else }}
+              - key: ssh-privatekey
+                path: ssh-privatekey
+              - key: known_hosts
+                path: known_hosts
+              {{- end }}
+        {{- end }}
+      {{- with $worker.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $worker.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $worker.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

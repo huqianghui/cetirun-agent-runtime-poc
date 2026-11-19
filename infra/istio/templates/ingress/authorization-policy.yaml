@@ -1,0 +1,66 @@
+{{- include "cetirun-istio.validateOAuthCallback" . -}}
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: cetirun-auth-wildcard
+  namespace: {{ .Values.gateway.namespace }}
+  labels:
+    {{- include "cetirun-istio.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- toYaml .Values.gateway.selector | nindent 6 }}
+  action: CUSTOM
+  provider:
+    name: oauth2-proxy
+  rules:
+    # Subdomain hosts authenticate unless explicitly exempted.
+    - to:
+        - operation:
+            ports: ["443"]
+            hosts:
+              - "*.{{ .Values.domain }}"
+            {{- if .Values.authPolicy.authExemptPrefixes }}
+            notHosts:
+            {{- range .Values.authPolicy.authExemptPrefixes }}
+              - "{{ . }}.{{ $.Values.domain }}"
+            {{- end }}
+            {{- end }}
+    # Apex traffic authenticates except health, sign-in, and configured callbacks.
+    - to:
+        - operation:
+            ports: ["443"]
+            hosts:
+              - "{{ .Values.domain }}"
+            notPaths:
+              - "/oauth2/*"
+              - "/healthz"
+              - "/readyz"
+              {{- range .Values.authPolicy.apexPostBypassPaths }}
+              - "{{ . }}"
+              {{- end }}
+              {{- with .Values.authPolicy.oauthCallbackPath }}
+              - {{ . | quote }}
+              {{- end }}
+    {{- if .Values.authPolicy.apexPostBypassPaths }}
+    # Apex host method guard: only POST bypasses these paths.
+    - to:
+        - operation:
+            ports: ["443"]
+            hosts:
+              - "{{ .Values.domain }}"
+            paths:
+            {{- range .Values.authPolicy.apexPostBypassPaths }}
+              - "{{ . }}"
+            {{- end }}
+            notMethods:
+              - "POST"
+    {{- end }}
+    {{- with .Values.authPolicy.oauthCallbackPath }}
+    - to:
+        - operation:
+            ports: ["443"]
+            hosts: [{{ $.Values.domain | quote }}]
+            paths: [{{ . | quote }}]
+            notMethods: ["GET", "POST"]
+    {{- end }}

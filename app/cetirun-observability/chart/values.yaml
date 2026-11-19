@@ -1,0 +1,206 @@
+# Default values for cetirun-observability: ADX-Mon collection of CetiRun
+# logs, Kubernetes events and metrics into Azure Data Explorer.
+
+# -- Image of the ADX-Mon collector and ingestor, which CetiRun builds from
+# pinned upstream source.
+image:
+  repository: mcr.microsoft.com/aks/ai-runtime/cetirun/cetirun-observability
+  # -- Empty uses global.version, then the chart appVersion.
+  tag: ""
+  digest: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+# -- Name of this CetiRun cluster, in the Cluster column of every row. Several
+# CetiRun clusters can share one Kusto cluster. Required.
+clusterName: ""
+
+adx:
+  # -- Query URI of the Kusto cluster, such as
+  # https://<name>.<region>.kusto.windows.net. The ingestor derives the
+  # ingestion URI from it. Required.
+  endpoint: ""
+  databases:
+    # -- Platform logs, AI Gateway request logs, Kubernetes events and the
+    # Agent inventory.
+    logs: CetiRunLogs
+    # -- Metrics: one table for each metric.
+    metrics: CetiRunMetrics
+    # -- Agent workload logs, which can hold conversation content. Grant this
+    # database to a smaller group of readers.
+    agentLogs: CetiRunAgents
+
+logs:
+  # -- Namespaces of the platform, whose Pods' logs go to the Platform table.
+  # The release namespace is always included.
+  platformNamespaces:
+    - cetirun-credentials
+    - cetirun-istio
+    - aks-istio-system
+  # -- Namespace of the Istio ingress gateway, whose access log goes to the
+  # Ingress table. Empty leaves its logs out.
+  ingressNamespace: aks-istio-ingress
+  agents:
+    # -- Collect the logs of every Agent Pod, Custom terminal and GitHub
+    # Copilot proxy into the Agent logs database. Agent logs can hold
+    # conversation content.
+    enabled: true
+
+metrics:
+  # -- Seconds between two scrapes of a target.
+  scrapeInterval: 60
+  # -- Regular expressions of the metrics that are kept, matched against the
+  # metric name; every other metric is dropped. Each kept metric is a table.
+  keep:
+    # AI Gateway (LiteLLM)
+    - ^litellm_
+    # CetiRun operator, Sandbox admission and Skill Marketplace worker
+    - ^cetirun_
+    - ^controller_runtime_reconcile_(total|errors_total)$
+    - ^workqueue_(depth|retries_total|longest_running_processor_seconds)$
+    # Kubernetes objects (kube-state-metrics): Pod phase, readiness, restarts
+    # and termination reasons, requests and limits, node conditions and
+    # capacity, workload replicas, volume claims and failed Jobs. Other
+    # kube-state-metrics series repeat the Pod spec once per Pod and minute.
+    - ^kube_pod_status_(phase|reason|ready)$
+    - ^kube_pod_(info|owner)$
+    - ^kube_pod_container_status_(restarts_total|waiting_reason|terminated_reason|last_terminated_reason)$
+    - ^kube_pod_container_resource_(requests|limits)$
+    - ^kube_node_(info|spec_unschedulable|status_condition|status_allocatable|status_capacity)$
+    - ^kube_deployment_(spec_replicas|status_replicas_available)$
+    - ^kube_statefulset_(replicas|status_replicas_ready)$
+    - ^kube_daemonset_status_(number_ready|desired_number_scheduled|number_unavailable)$
+    - ^kube_persistentvolumeclaim_(status_phase|resource_requests_storage_bytes)$
+    - ^kube_job_status_failed$
+    # Containers (kubelet cAdvisor and resource metrics). Kata Pods report
+    # their containers too. Network metrics are left out: Pods on the host
+    # network report every interface of the node.
+    - ^container_(cpu_usage_seconds_total|memory_working_set_bytes|memory_rss|oom_events_total|spec_memory_limit_bytes|cpu_cfs_throttled_periods_total|cpu_cfs_periods_total)$
+    - ^(node|pod)_(cpu_usage_seconds_total|memory_working_set_bytes)$
+    - ^kubelet_volume_stats_(used_bytes|capacity_bytes|available_bytes)$
+    # Every process: CPU, memory, restarts
+    - ^process_(cpu_seconds_total|resident_memory_bytes|start_time_seconds)$
+    # ADX-Mon itself: backlog, drops and upload failures
+    - ^adxmon_
+  # -- Regular expressions of metric names that are dropped even when a keep
+  # expression matches them. By default, ADX-Mon's per-table backlog series,
+  # one set for every destination table, except the refused records and bytes
+  # and the age of the oldest unsent data, which CollectionHealth() reads.
+  drop:
+    - ^adxmon_table_backlog_(bytes|segments|would_reject|throttled|throttled_seconds|limit_bytes|limit_segments|enforced)$
+
+collector:
+  # -- Host directory of the collector's write-ahead log and log file
+  # cursors. It outlives the Pod, so a new Pod continues where the previous
+  # one stopped instead of reading every log file again.
+  hostPath: /var/lib/cetirun-adx-mon
+  # -- Largest size of the write-ahead log on a node, in bytes. When it is
+  # full, the collector drops new data rather than stop any workload.
+  maxDiskUsage: 2147483648
+  # -- Runs the collector on every node, the Kata pools and the tainted
+  # system pool included.
+  tolerations:
+    - operator: Exists
+  nodeSelector: {}
+  priorityClassName: ""
+  podAnnotations: {}
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+ingestor:
+  replicas: 1
+  serviceAccount:
+    name: cetirun-adx-mon-ingestor
+  # -- Client ID of the Azure managed identity that the ingestor uses through
+  # workload identity. The identity needs the User and Ingestor roles on the
+  # three databases. Required.
+  clientId: ""
+  storage:
+    # -- Size of the ingestor's write-ahead log volume.
+    size: 16Gi
+    # -- Empty uses the cluster's default StorageClass.
+    storageClassName: ""
+  # -- Largest size of the write-ahead log, in bytes; below storage.size.
+  maxDiskUsage: 12884901888
+  # -- Longest time the ingestor collects a table's data before it uploads
+  # them. ADX then waits up to its own batching time.
+  maxSegmentAge: 30s
+  tls:
+    # -- Existing Secret with tls.crt, tls.key and ca.crt for the ingestor's
+    # transfer endpoint. Empty: the chart creates a CA and a certificate on
+    # the first installation and keeps them.
+    secretName: ""
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+
+kubeStateMetrics:
+  # -- Run kube-state-metrics for the state of Pods, Deployments,
+  # StatefulSets, DaemonSets, Jobs, nodes and volume claims.
+  enabled: true
+  image:
+    repository: mcr.microsoft.com/oss/kubernetes/kube-state-metrics
+    tag: v2.14.0
+    digest: sha256:0a050f9ca8dc6f9495755478916e8a1103332a0592bad98f7326e9a64d8758c9
+    pullPolicy: IfNotPresent
+  # -- The kinds of objects it reads and reports, its --resources flag. It
+  # never reads Secrets or ConfigMaps.
+  objects: pods,nodes,deployments,statefulsets,daemonsets,jobs,persistentvolumeclaims,namespaces
+  nodeSelector: {}
+  tolerations: []
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+telemetry:
+  # -- Run the telemetry program: it writes the Agent inventory (namespace,
+  # owner, Team, policy) and Kubernetes events as JSON lines, which the
+  # collector stores in the Telemetry table.
+  enabled: true
+  # -- The program is part of the operator image.
+  image:
+    repository: mcr.microsoft.com/aks/ai-runtime/cetirun/cetirun-operator
+    # -- Empty uses global.version, then the chart appVersion.
+    tag: ""
+    digest: ""
+    pullPolicy: IfNotPresent
+  # -- Events that are written: all, warnings-and-cetirun (warnings, and
+  # events about CetiRun resources or in cetirun- namespaces) or none.
+  events: warnings-and-cetirun
+  # -- How often every Agent, Team, AgentPolicy and Sandbox is written again.
+  snapshotInterval: 1h
+  nodeSelector: {}
+  tolerations: []
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+crds:
+  # -- Install the ADX-Mon custom resource definitions: Function,
+  # ManagementCommand and SummaryRule. The chart creates none of these
+  # resources. The ingestor runs their Kusto commands with its identity, so
+  # only cluster administrators may create them. Without the definitions the
+  # ingestor logs a failed list every few minutes.
+  install: true

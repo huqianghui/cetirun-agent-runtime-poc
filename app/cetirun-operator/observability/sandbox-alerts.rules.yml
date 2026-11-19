@@ -1,0 +1,87 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+# Opt-in examples only. Replace the synthetic job and expected-target inventory.
+# Keep every population/target identity label in every join; see README.md.
+groups:
+  - name: cetirun-sandbox-reported-status-examples
+    interval: 1m
+    rules:
+      - alert: CetiRunSandboxTargetIdentityMissing
+        expr: |
+          group without (__name__) (
+            {__name__=~"up|cetirun_sandbox_metrics_collection_success|cetirun_sandbox_agents", job="example-cetirun-operator", cluster=""}
+            or
+            {__name__=~"up|cetirun_sandbox_metrics_collection_success|cetirun_sandbox_agents", job="example-cetirun-operator", fleet=""}
+            or
+            {__name__=~"up|cetirun_sandbox_metrics_collection_success|cetirun_sandbox_agents", job="example-cetirun-operator", instance=""}
+          )
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Sandbox metric target identity labels are missing"
+          description: "The examples require nonempty cluster, fleet and instance labels on up and both Sandbox metrics. Repair labeling before interpreting reports."
+
+      - alert: CetiRunSandboxTargetMissing
+        expr: |
+          absent(up{job="example-cetirun-operator", cluster="example-a", fleet="example-blue", instance="operator-0.example.com:8080"})
+          or
+          absent(up{job="example-cetirun-operator", cluster="example-a", fleet="example-blue", instance="operator-1.example.com:8080"})
+          or
+          absent(up{job="example-cetirun-operator", cluster="example-b", fleet="example-green", instance="operator-0.example.com:8080"})
+          or
+          absent(up{job="example-cetirun-operator", cluster="example-b", fleet="example-green", instance="operator-1.example.com:8080"})
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Expected operator target has no up series"
+          description: "The explicit expected-target selector has no up series. Check target discovery, relabeling and monitoring availability; this is not an empty population."
+
+      - alert: CetiRunSandboxScrapeFailed
+        expr: up{job="example-cetirun-operator"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Operator scrape failed; Sandbox reports are unavailable"
+          description: "up is 0 for this target. Inspect its scrape error through the authorized monitoring path; cached reports cannot establish current enforcement."
+
+      - alert: CetiRunSandboxCollectionMetricMissing
+        expr: |
+          (up{job="example-cetirun-operator", cluster!="", fleet!="", instance!=""} == 1)
+          unless on (cluster, fleet, job, instance)
+          cetirun_sandbox_metrics_collection_success{job="example-cetirun-operator", cluster!="", fleet!="", instance!=""}
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Scrape succeeded but Sandbox collection gauge is missing"
+          description: "up is 1 but collection_success is absent for this identity. Check endpoint/version and label or metric filtering; do not treat counts as zero."
+
+      - alert: CetiRunSandboxCollectionUnavailable
+        expr: |
+          (cetirun_sandbox_metrics_collection_success{job="example-cetirun-operator", cluster!="", fleet!="", instance!=""} == 0)
+          and on (cluster, fleet, job, instance)
+          (up{job="example-cetirun-operator", cluster!="", fleet!="", instance!=""} == 1)
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Sandbox cached-status collection is unavailable"
+          description: "collection_success is 0 while up is 1. Inspect operator/cache health and authorized API connectivity; omitted counts do not mean zero."
+
+      - alert: CetiRunSandboxReportedEnforcementLost
+        expr: |
+          (cetirun_sandbox_agents{job="example-cetirun-operator", cluster!="", fleet!="", instance!="", status=~"False|Unknown", reason="EnforcementLost"} > 0)
+          and on (cluster, fleet, job, instance)
+          (cetirun_sandbox_metrics_collection_success{job="example-cetirun-operator", cluster!="", fleet!="", instance!=""} == 1)
+          and on (cluster, fleet, job, instance)
+          (up{job="example-cetirun-operator", cluster!="", fleet!="", instance!=""} == 1)
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Operator reports Sandbox enforcement loss"
+          description: "{{ $value }} Agent(s) have a non-True report with reason EnforcementLost. Cached reports do not establish current enforcement or containment."

@@ -1,0 +1,44 @@
+apiVersion: cetirun.microsoft.com/v1alpha1
+kind: Agent
+metadata:
+  name: alice
+spec:
+  agent:
+    type: hermes
+  gatewayTokenSecretRef: "gateway-token"
+  user:
+    alias: alice
+    displayName: "Alice Smith"
+    email: alice@example.com
+
+  # team references a Team by name.
+  # The operator merges the team's user context, AI provider defaults, and skills
+  # into this instance. Per-instance fields take precedence.
+  team: aks
+  sandboxRef: standard
+
+  # skillOverrides customizes the set of skills relative to the team defaults.
+  # Effective skills = (team.skills ∪ add) ∖ remove
+  skillOverrides:
+    # add installs extra skills on top of what the team defines.
+    # Supported formats:
+    #   @scope/name       - ClawHub package
+    #   npm:@scope/name   - npm package
+    add:
+      - "npm:@openclaw/matrix"
+    # remove opts out of specific team-default skills for this instance.
+    remove:
+      - "@anthropic/fetch"
+
+  # Uncomment to enable Tailscale mesh VPN:
+  # tailscale:
+  #   authKeySecretRef: "tailscale-auth-alice"
+  helm:
+    values:
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "256Mi"
+        limits:
+          cpu: "1"
+          memory: "2Gi"

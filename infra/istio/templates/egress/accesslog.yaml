@@ -1,0 +1,73 @@
+{{- if .Values.egress.accessLog.enabled }}
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: {{ printf "%s-accesslog-format" .Release.Name | trunc 63 | trimSuffix "-" }}
+  namespace: {{ .Values.egress.namespace }}
+spec:
+  configPatches:
+  - applyTo: NETWORK_FILTER
+    match:
+      listener:
+        filterChain:
+          filter:
+            name: envoy.filters.network.tcp_proxy
+    patch:
+      operation: MERGE
+      value:
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+          access_log:
+          - name: envoy.access_loggers.file
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.access_loggers.file.v3.FileAccessLog
+              path: /dev/stdout
+              log_format:
+                json_format:
+                  start_time: "%START_TIME%"
+                  authority: "%REQ(:AUTHORITY)%"
+                  method: "%REQ(:METHOD)%"
+                  path: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"
+                  protocol: "%PROTOCOL%"
+                  response_code: "%RESPONSE_CODE%"
+                  response_flags: "%RESPONSE_FLAGS%"
+                  bytes_sent: "%BYTES_SENT%"
+                  bytes_received: "%BYTES_RECEIVED%"
+                  duration_ms: "%DURATION%"
+                  upstream_host: "%UPSTREAM_HOST%"
+                  upstream_cluster: "%UPSTREAM_CLUSTER%"
+                  downstream_remote_address: "%DOWNSTREAM_REMOTE_ADDRESS%"
+                  requested_server_name: "%REQUESTED_SERVER_NAME%"
+  - applyTo: NETWORK_FILTER
+    match:
+      listener:
+        filterChain:
+          filter:
+            name: envoy.filters.network.http_connection_manager
+    patch:
+      operation: MERGE
+      value:
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          access_log:
+          - name: envoy.access_loggers.file
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.access_loggers.file.v3.FileAccessLog
+              path: /dev/stdout
+              log_format:
+                json_format:
+                  start_time: "%START_TIME%"
+                  authority: "%REQ(:AUTHORITY)%"
+                  method: "%REQ(:METHOD)%"
+                  path: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"
+                  protocol: "%PROTOCOL%"
+                  response_code: "%RESPONSE_CODE%"
+                  response_flags: "%RESPONSE_FLAGS%"
+                  bytes_sent: "%BYTES_SENT%"
+                  bytes_received: "%BYTES_RECEIVED%"
+                  duration_ms: "%DURATION%"
+                  upstream_host: "%UPSTREAM_HOST%"
+                  upstream_cluster: "%UPSTREAM_CLUSTER%"
+                  downstream_remote_address: "%DOWNSTREAM_REMOTE_ADDRESS%"
+                  requested_server_name: "%REQUESTED_SERVER_NAME%"
+{{- end }}

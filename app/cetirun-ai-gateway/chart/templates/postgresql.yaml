@@ -1,0 +1,142 @@
+{{/*
+  Bundled PostgreSQL: one instance on a persistent volume.
+
+  A StatefulSet so the volume claim belongs to the workload rather than the
+  release: helm uninstall leaves it, and a later install under the same name
+  finds its data again, with the kept password (secret-dependencies.yaml).
+
+  Runs as the image's postgres user, with the data on the claim's data/
+  subdirectory, mounted at the image's own data directory:
+
+  - It must be mounted exactly there. The image declares that path a volume,
+    and the container runtime gives any declared path left without a mount an
+    anonymous volume of its own, discarded with the container. With the claim
+    mounted one level up, every restart of this pod started from an empty
+    database while the claim sat unused.
+  - It must be a subdirectory. initdb refuses a directory that is not empty,
+    and a formatted disk's root holds lost+found.
+  - PostgreSQL insists on owning its data directory, so the init container
+    creates it as the postgres user before the subPath mount, which would
+    otherwise be created by the kubelet as root.
+*/}}
+{{- if .Values.postgresql.bundled.enabled }}
+{{- $name := include "cetirun-ai-gateway.postgresqlName" . }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "cetirun-ai-gateway.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql
+spec:
+  type: ClusterIP
+  ports:
+    - name: postgresql
+      port: 5432
+      targetPort: postgresql
+  selector:
+    {{- include "cetirun-ai-gateway.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "cetirun-ai-gateway.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql
+spec:
+  serviceName: {{ $name }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "cetirun-ai-gateway.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: postgresql
+  template:
+    metadata:
+      labels:
+        {{- include "cetirun-ai-gateway.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: postgresql
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+      initContainers:
+        - name: data-directory
+          image: {{ include "cetirun-ai-gateway.dependencyImage" .Values.postgresql.bundled.image }}
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          command: ["sh", "-c", "mkdir -p /volume/data && chmod 700 /volume/data"]
+          volumeMounts:
+            - name: data
+              mountPath: /volume
+      containers:
+        - name: postgresql
+          image: {{ include "cetirun-ai-gateway.dependencyImage" .Values.postgresql.bundled.image }}
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          env:
+            {{- include "cetirun-ai-gateway.monitoringEnv" . | nindent 12 }}
+            - name: POSTGRES_USER
+              value: litellm
+            - name: POSTGRES_DB
+              value: litellm
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $name }}
+                  key: password
+          ports:
+            - name: postgresql
+              containerPort: 5432
+              protocol: TCP
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "litellm", "-d", "litellm", "-h", "127.0.0.1"]
+            periodSeconds: 5
+            timeoutSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "litellm", "-d", "litellm", "-h", "127.0.0.1"]
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            {{- toYaml .Values.postgresql.bundled.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+              subPath: data
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          {{- include "cetirun-ai-gateway.selectorLabels" . | nindent 10 }}
+          app.kubernetes.io/component: postgresql
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- with .Values.postgresql.bundled.persistence.storageClass }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.postgresql.bundled.persistence.size }}
+{{- end }}

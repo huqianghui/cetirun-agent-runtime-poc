@@ -1,0 +1,31 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: {{ include "cetirun-portal.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cetirun-portal.labels" . | nindent 4 }}
+spec:
+  hosts:
+    - {{ required "istio.host is required (e.g. <your-domain>)" .Values.istio.host | quote }}
+  gateways:
+    - {{ .Values.istio.gateway }}
+  http:
+    {{- if or .Values.chat.enabled (default false ((.Values.global.portalChat | default dict).enabled)) }}
+    - match:
+        - uri:
+            regex: /api/v1/instances/[^/]+/chat(/v1/(models|chat/completions))?
+      timeout: 610s
+      retries:
+        attempts: 0
+      route:
+        - destination:
+            host: {{ include "cetirun-portal.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local
+            port:
+              number: 8080
+    {{- end }}
+    - route:
+        - destination:
+            host: {{ include "cetirun-portal.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local
+            port:
+              number: 8080

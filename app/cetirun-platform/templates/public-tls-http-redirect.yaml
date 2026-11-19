@@ -1,0 +1,24 @@
+{{- if .Values.publicTLS.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: cetirun-http-redirect
+  namespace: {{ .Values.publicTLS.ingressNamespace }}
+  labels:
+    {{- include "cetirun-platform.publicTLS.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ .Values.publicTLS.gateway.name }}
+      namespace: {{ .Values.publicTLS.ingressNamespace }}
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      sectionName: acme-http
+  hostnames:
+    - {{ .Values.publicTLS.domain | quote }}
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            statusCode: 301
+{{- end }}

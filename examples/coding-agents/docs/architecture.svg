@@ -1,0 +1,202 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1520" viewBox="0 0 1440 1520" role="img" aria-labelledby="title description">
+  <title id="title">CetiRun architecture with three independent Coding Agent Runtimes</title>
+  <desc id="description">Users access the Portal and owner-bound terminals through Istio and Keycloak OIDC. Kubernetes CRDs, strict admission and the Operator manage three isolated namespaces. Each Agent has a single-runtime main container, a separate terminal workload, Memory init and a private HOME PVC. Per-Agent Virtual Keys route model requests through AI Gateway. Copilot uses an in-namespace private proxy to GitHub; Claude and Codex use Ali Token Plan for Qwen and DeepSeek. Ordinary runc containers do not provide VM isolation. Model execution and complete user sessions still require acceptance testing.</desc>
+  <defs>
+    <marker id="blue-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 Z" fill="#2563eb"/>
+    </marker>
+    <marker id="purple-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 Z" fill="#7c3aed"/>
+    </marker>
+    <marker id="slate-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 Z" fill="#475569"/>
+    </marker>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #172554; }
+      .title { font-size: 30px; font-weight: 700; }
+      .subtitle { font-size: 16px; fill: #475569; }
+      .section { font-size: 18px; font-weight: 700; }
+      .heading { font-size: 18px; font-weight: 650; }
+      .body { font-size: 15px; }
+      .small { font-size: 13px; fill: #475569; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 14px; }
+      .access { fill: #eff6ff; stroke: #bfdbfe; stroke-width: 1.5; }
+      .control { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 1.5; }
+      .node { fill: #fff; stroke: #94a3b8; stroke-width: 1.5; }
+      .runtime { fill: #fff; stroke: #2563eb; stroke-width: 1.5; }
+      .storage { fill: #f0fdf4; stroke: #86efac; stroke-width: 1.5; }
+      .gateway { fill: #f5f3ff; stroke: #a78bfa; stroke-width: 1.5; }
+      .data { fill: none; stroke: #2563eb; stroke-width: 2; marker-end: url(#blue-arrow); }
+      .model { fill: none; stroke: #7c3aed; stroke-width: 2; marker-end: url(#purple-arrow); }
+      .manage { fill: none; stroke: #475569; stroke-width: 2; stroke-dasharray: 6 5; marker-end: url(#slate-arrow); }
+      .store { fill: none; stroke: #475569; stroke-width: 1.5; marker-start: url(#slate-arrow); marker-end: url(#slate-arrow); }
+    </style>
+  </defs>
+
+  <rect width="1440" height="1520" fill="#fff"/>
+  <text x="32" y="44" class="title">CetiRun / GitHub Copilot / Claude Code / Codex</text>
+  <text x="32" y="75" class="subtitle">Deployed topology | Three managed Agents, three independent runtime containers | End-to-end acceptance pending</text>
+
+  <g aria-label="Authentication and owner access">
+    <rect x="32" y="96" width="1376" height="248" rx="16" class="access"/>
+    <text x="56" y="128" class="section">01  Authentication and owner access</text>
+    <rect x="64" y="148" width="190" height="116" rx="10" class="node"/>
+    <text x="80" y="177" class="heading">User browser</text>
+    <text x="80" y="205" class="body">Owner sign-in</text>
+    <text x="80" y="232" class="small">Manage and code</text>
+
+    <rect x="288" y="148" width="230" height="116" rx="10" class="node"/>
+    <text x="304" y="177" class="heading">Istio Ingress</text>
+    <text x="304" y="205" class="body">HTTPS / owner routing</text>
+    <text x="304" y="232" class="small">Public TLS via cert-manager</text>
+
+    <rect x="550" y="148" width="250" height="116" rx="10" class="node"/>
+    <text x="566" y="177" class="heading">OAuth2 Proxy</text>
+    <text x="566" y="205" class="body">OIDC / controlled claims</text>
+    <text x="566" y="232" class="small">Dedicated session Valkey</text>
+
+    <rect x="832" y="148" width="270" height="116" rx="10" class="node"/>
+    <text x="848" y="177" class="heading">CetiRun Portal</text>
+    <text x="848" y="205" class="body">Instances / owner authorization</text>
+    <text x="848" y="232" class="small">Owner GitHub device-code sign-in</text>
+
+    <rect x="1134" y="148" width="242" height="116" rx="10" class="node"/>
+    <text x="1150" y="177" class="heading">Keycloak</text>
+    <text x="1150" y="205" class="body">Fixed account / login group</text>
+    <text x="1150" y="232" class="small">Dedicated PostgreSQL / ingress</text>
+
+    <path d="M254 206 H288" class="data"/>
+    <path d="M518 206 H550" class="data"/>
+    <path d="M800 206 H832" class="data"/>
+    <path d="M675 264 V292 H1255 V264" class="data" marker-start="url(#blue-arrow)"/>
+    <text x="56" y="315" class="small">Owner terminal access: authenticated ingress -&gt; Terminal -&gt; main container</text>
+    <text x="794" y="315" class="small">OIDC / PKCE / offline_access; Portal login is not Copilot authorization</text>
+  </g>
+
+  <g aria-label="Kubernetes control plane">
+    <rect x="32" y="368" width="1376" height="192" rx="16" class="control"/>
+    <text x="56" y="400" class="section">02  CetiRun control plane | Component Helm / pinned image digests / private ACR and Runtime Chart</text>
+    <rect x="64" y="416" width="520" height="104" rx="10" class="node"/>
+    <text x="80" y="445" class="heading">Kubernetes API / managed Agent CRs</text>
+    <text x="80" y="477" class="mono">Agent / Team / AgentPolicy / Sandbox</text>
+    <text x="80" y="503" class="small">Controller-verified state and policy; not standalone Deployments</text>
+
+    <rect x="616" y="416" width="330" height="104" rx="10" class="node"/>
+    <text x="632" y="445" class="heading">Strict Admission</text>
+    <text x="632" y="477" class="body">UID / sources / policy / protected Pods</text>
+    <text x="632" y="503" class="small">Fail closed; protections remain enforced</text>
+
+    <rect x="978" y="416" width="398" height="104" rx="10" class="node"/>
+    <text x="994" y="445" class="heading">CetiRun Operator</text>
+    <text x="994" y="477" class="body">Workloads / PVCs / network policy / lifecycle</text>
+    <text x="994" y="503" class="small">Reconciles Gateway Virtual Keys and model access groups</text>
+
+    <path d="M967 148 V140 H1392 V354 H48 V468 H64" class="data"/>
+    <path d="M584 462 H616" class="data" marker-start="url(#blue-arrow)"/>
+    <path d="M324 520 V538 H1177 V520" class="manage"/>
+    <path d="M1177 520 V576 H248 V600" class="manage"/>
+    <path d="M720 576 V600" class="manage"/>
+    <path d="M1192 576 V600" class="manage"/>
+  </g>
+
+  <g aria-label="Three isolated Agent namespaces and persistent HOME volumes">
+    <rect x="32" y="600" width="432" height="424" rx="16" class="access"/>
+    <rect x="504" y="600" width="432" height="424" rx="16" fill="#f0fdfa" stroke="#99f6e4" stroke-width="1.5"/>
+    <rect x="976" y="600" width="432" height="424" rx="16" fill="#fff7ed" stroke="#fed7aa" stroke-width="1.5"/>
+    <text x="56" y="630" class="section">03-A  Copilot | isolated namespace</text>
+    <text x="528" y="630" class="section">03-B  Claude | isolated namespace</text>
+    <text x="1000" y="630" class="section">03-C  Codex | isolated namespace</text>
+
+    <path d="M403 264 V280 H8 V642 H1192 V650" class="data"/>
+    <path d="M248 642 V650" class="data"/>
+    <path d="M720 642 V650" class="data"/>
+    <rect x="56" y="650" width="384" height="66" rx="10" class="node"/>
+    <rect x="528" y="650" width="384" height="66" rx="10" class="node"/>
+    <rect x="1000" y="650" width="384" height="66" rx="10" class="node"/>
+    <text x="72" y="676" class="heading">Separate Terminal workload</text>
+    <text x="72" y="701" class="small">/coding-copilot/term/ | owner / session bound</text>
+    <text x="544" y="676" class="heading">Separate Terminal workload</text>
+    <text x="544" y="701" class="small">/coding-claude/term/ | owner / session bound</text>
+    <text x="1016" y="676" class="heading">Separate Terminal workload</text>
+    <text x="1016" y="701" class="small">/coding-codex/term/ | owner / session bound</text>
+
+    <rect x="56" y="746" width="384" height="112" rx="10" class="runtime"/>
+    <rect x="528" y="746" width="384" height="112" rx="10" class="runtime"/>
+    <rect x="1000" y="746" width="384" height="112" rx="10" class="runtime"/>
+    <text x="72" y="775" class="heading">GitHub Copilot CLI | single runtime</text>
+    <text x="72" y="805" class="body">coding-tui / native Custom Agent</text>
+    <text x="72" y="832" class="small">BYOK to Gateway; private HTTP/SSE adapter</text>
+    <text x="544" y="775" class="heading">Claude Code CLI | single runtime</text>
+    <text x="544" y="805" class="body">coding-tui / native Subagents</text>
+    <text x="544" y="832" class="small">Messages to Gateway; private HTTP/SSE adapter</text>
+    <text x="1016" y="775" class="heading">Codex CLI | single runtime</text>
+    <text x="1016" y="805" class="body">coding-tui / native Agents</text>
+    <text x="1016" y="832" class="small">Responses to Gateway; private HTTP/SSE adapter</text>
+
+    <path d="M248 716 V746" class="data"/>
+    <path d="M720 716 V746" class="data"/>
+    <path d="M1192 716 V746" class="data"/>
+    <text x="262" y="736" class="small">Restricted exec</text>
+    <text x="734" y="736" class="small">Restricted exec</text>
+    <text x="1206" y="736" class="small">Restricted exec</text>
+
+    <rect x="56" y="878" width="384" height="66" rx="10" class="gateway"/>
+    <text x="72" y="904" class="heading">Per-Agent Copilot Proxy</text>
+    <text x="72" y="930" class="small">Separate workload in this namespace; Gateway hop</text>
+    <text x="544" y="904" class="body">Own Virtual Key / authorized models only</text>
+    <text x="544" y="930" class="small">No raw provider Key in the Runtime</text>
+    <text x="1016" y="904" class="body">Own Virtual Key / authorized models only</text>
+    <text x="1016" y="930" class="small">No raw provider Key in the Runtime</text>
+
+    <rect x="56" y="958" width="384" height="46" rx="8" class="storage"/>
+    <rect x="528" y="958" width="384" height="46" rx="8" class="storage"/>
+    <rect x="1000" y="958" width="384" height="46" rx="8" class="storage"/>
+    <text x="72" y="987" class="body">Memory init / private HOME / Azure Disk RWO 20Gi</text>
+    <text x="544" y="987" class="body">Memory init / private HOME / Azure Disk RWO 20Gi</text>
+    <text x="1016" y="987" class="body">Memory init / private HOME / Azure Disk RWO 20Gi</text>
+    <path d="M440 858 H452 V981 H440" class="store"/>
+    <path d="M912 858 V958" class="store"/>
+    <path d="M1384 858 V958" class="store"/>
+  </g>
+
+  <g aria-label="Model Gateway and upstream providers">
+    <path d="M440 800 H480 V1056 H720 V1092" class="model"/>
+    <path d="M912 800 H952 V1056 H720" class="model"/>
+    <path d="M1384 800 H1424 V1056 H720" class="model"/>
+    <text x="512" y="1080" class="small">Native CLI model requests; per-Agent Virtual Key / authorized catalog</text>
+
+    <rect x="32" y="1092" width="1376" height="128" rx="16" class="gateway"/>
+    <text x="56" y="1127" class="section">04  CetiRun AI Gateway | Shared governance, separate Agent keys</text>
+    <text x="56" y="1161" class="body">Responses / Messages | Model access groups | USD 10 / Agent / month reference budget | Rate limits</text>
+    <text x="56" y="1194" class="small">Copilot and Qwen / DeepSeek groups are separate; inference, tools and streaming still require acceptance testing</text>
+    <rect x="1160" y="1112" width="224" height="88" rx="10" class="node"/>
+    <text x="1176" y="1140" class="heading">Gateway data layer</text>
+    <text x="1176" y="1168" class="body">PostgreSQL + Valkey</text>
+    <text x="1176" y="1190" class="small">Separate from OIDC sessions</text>
+
+    <rect x="32" y="1256" width="432" height="124" rx="16" class="gateway"/>
+    <text x="56" y="1290" class="heading">GitHub Copilot model source</text>
+    <text x="56" y="1322" class="body">Gateway -&gt; private Copilot proxy -&gt; GitHub</text>
+    <text x="56" y="1354" class="small">Owner sign-in / entitlement / actual model catalog</text>
+
+    <rect x="504" y="1256" width="904" height="124" rx="16" class="gateway"/>
+    <text x="528" y="1290" class="heading">Ali Token Plan | Actual billing in Credits</text>
+    <text x="528" y="1322" class="body">Claude / Qwen: Anthropic Messages-compatible route</text>
+    <text x="528" y="1354" class="body">Codex / DeepSeek: Gateway Responses-to-provider translation</text>
+    <path d="M32 1150 H16 V910 H56" class="model"/>
+    <path d="M56 927 H24 V1318 H32" class="model"/>
+    <path d="M952 1220 V1256" class="model"/>
+    <text x="970" y="1244" class="small">Provider Key held only by Gateway</text>
+  </g>
+
+  <g aria-label="Legend and security boundaries">
+    <path d="M48 1411 H94" class="data"/>
+    <text x="108" y="1416" class="small">Solid: access / models / storage</text>
+    <path d="M316 1411 H362" class="manage"/>
+    <text x="376" y="1416" class="small">Dashed: reconciliation</text>
+    <text x="596" y="1416" class="small">Terminals serve authenticated owners and connect only to their own runtime container</text>
+    <text x="32" y="1450" class="body">Limits: shared-kernel runc; RWO is not physical fencing; no full adapter qualification, node ingress isolation or end-to-end HA claim.</text>
+    <text x="32" y="1478" class="small">Disabled: Agent Identity / Entra delegation / Broker / Connections MCP. webUI: false; no public native Chat endpoint.</text>
+    <text x="32" y="1505" class="small">Set your own AZURE_RESOURCE_GROUP / AKS_NAME. No account names, passwords, keys or actual Azure deployment names are shown.</text>
+  </g>
+</svg>

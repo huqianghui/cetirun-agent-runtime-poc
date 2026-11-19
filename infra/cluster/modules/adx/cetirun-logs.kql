@@ -1,0 +1,122 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+//
+// Query functions of the CetiRun logs database. The ADX module of the
+// cluster template runs this script; for another Kusto cluster, run it as
+// .execute database script <| (this file without the comment lines).
+// skipvalidation lets the functions exist before the first rows create their
+// tables.
+.create-or-alter function with (folder = "CetiRun", docstring = "AI Gateway calls, one row per call, from the Gateway request log. No request or response content.", skipvalidation = "true") GatewayRequests() {
+    Gateway
+    | where Container == "gateway" and tostring(Body['log_type']) == "cetirun.ai_gateway.request"
+    | extend Metadata = Body['key_metadata']
+    | project
+        Timestamp = todatetime(Body['time']),
+        StartTime = todatetime(Body['start_time']),
+        Cluster,
+        Pod,
+        Status = tostring(Body['status']),
+        Route = tostring(Body['route']),
+        CallType = tostring(Body['call_type']),
+        // A call LiteLLM makes itself: health_check for its background probes,
+        // or a router's classifier call. Empty for a client's call.
+        CallOrigin = tostring(Body['call_origin']),
+        RoutingTier = tostring(Body['routing_tier']),
+        RoutingCause = tostring(Body['routing_cause']),
+        FallbackFrom = tostring(Body['fallback_from']),
+        Stream = tobool(Body['stream']),
+        Model = tostring(Body['model']),
+        ProviderModel = tostring(Body['provider_model']),
+        Provider = tostring(Body['provider']),
+        DeploymentId = tostring(Body['deployment_id']),
+        ApiBase = tostring(Body['api_base']),
+        DurationMs = toreal(Body['duration_ms']),
+        TimeToFirstTokenMs = toreal(Body['time_to_first_token_ms']),
+        PromptTokens = tolong(Body['prompt_tokens']),
+        CompletionTokens = tolong(Body['completion_tokens']),
+        TotalTokens = tolong(Body['total_tokens']),
+        CachedTokens = tolong(Body['cached_tokens']),
+        CacheCreationTokens = tolong(Body['cache_creation_tokens']),
+        ReasoningTokens = tolong(Body['reasoning_tokens']),
+        Spend = toreal(Body['spend']),
+        ResponseCacheHit = tobool(Body['response_cache_hit']),
+        Agent = tostring(Metadata['cetirun_agent']),
+        AgentUid = tostring(Metadata['cetirun_agent_uid']),
+        Owner = tostring(Metadata['cetirun_user']),
+        Team = tostring(Metadata['cetirun_team']),
+        KeyAlias = tostring(Body['key_alias']),
+        KeyHash = tostring(Body['key_hash']),
+        UserId = tostring(Body['user_id']),
+        TeamId = tostring(Body['team_id']),
+        EndUser = tostring(Body['end_user']),
+        ClientIp = tostring(Body['client_ip']),
+        UserAgent = tostring(Body['user_agent']),
+        RequestTags = Body['request_tags'],
+        RequestId = tostring(Body['request_id']),
+        CallId = tostring(Body['call_id']),
+        TraceId = tostring(Body['trace_id']),
+        ErrorClass = tostring(Body['error_class']),
+        ErrorCode = tostring(Body['error_code']),
+        ErrorProvider = tostring(Body['error_provider']),
+        ErrorMessage = tostring(Body['error_message']),
+        RateLimitType = tostring(Body['rate_limit_type']),
+        BudgetEntityType = tostring(Body['budget_entity_type']),
+        Truncated = tobool(Body['truncated'])
+}
+
+.create-or-alter function with (folder = "CetiRun", docstring = "Kubernetes events from the telemetry program, one row per event version.", skipvalidation = "true") KubeEvents() {
+    Telemetry
+    | where Container == "telemetry" and tostring(Body['log_type']) == "cetirun.k8s.event"
+    | extend Event = Body['event']
+    | project
+        Timestamp = todatetime(Event['last_time']),
+        Cluster,
+        Type = tostring(Event['type']),
+        Reason = tostring(Event['reason']),
+        Message = tostring(Event['message']),
+        ObjectKind = tostring(Event['object']['kind']),
+        ObjectNamespace = tostring(Event['object']['namespace']),
+        ObjectName = tostring(Event['object']['name']),
+        ObjectUid = tostring(Event['object']['uid']),
+        Count = tolong(Event["count"]),
+        FirstTime = todatetime(Event['first_time']),
+        Source = tostring(Event['source']),
+        EventNamespace = tostring(Event['namespace']),
+        EventName = tostring(Event['name']),
+        EventUid = tostring(Event['uid']),
+        ResourceVersion = tostring(Event['resource_version']),
+        RecordTime = todatetime(Body['time'])
+    | summarize arg_max(RecordTime, *) by Cluster, EventUid, ResourceVersion
+}
+
+.create-or-alter function with (folder = "CetiRun", docstring = "Every inventory record of the Agents: which namespace, owner, Team and policy an Agent had, and when.", skipvalidation = "true") AgentInventoryHistory() {
+    Telemetry
+    | where Container == "telemetry" and tostring(Body['log_type']) == "cetirun.inventory.agent"
+    | extend Agent = Body['agent']
+    | project
+        RecordTime = todatetime(Body['time']),
+        Cluster,
+        Action = tostring(Body['action']),
+        AgentName = tostring(Agent['name']),
+        AgentUid = tostring(Agent['uid']),
+        AgentNamespace = tostring(Agent['namespace']),
+        AgentType = tostring(Agent['type']),
+        Owner = tostring(Agent['owner']['alias']),
+        OwnerDisplayName = tostring(Agent['owner']['display_name']),
+        OwnerEmail = tostring(Agent['owner']['email']),
+        OwnerTenantId = tostring(Agent['owner']['tenant_id']),
+        OwnerObjectId = tostring(Agent['owner']['object_id']),
+        Team = tostring(Agent['team']),
+        Policy = tostring(Agent['policy']),
+        Sandbox = tostring(Agent['sandbox']),
+        Phase = tostring(Agent['phase']),
+        Suspended = tobool(Agent['suspended']),
+        Deleting = tobool(Agent['deleting']),
+        Created = todatetime(Agent['created'])
+}
+
+.create-or-alter function with (folder = "CetiRun", docstring = "The current Agents: the latest inventory record of each Agent that is not deleted.", skipvalidation = "true") AgentInventory() {
+    AgentInventoryHistory()
+    | summarize arg_max(RecordTime, *) by Cluster, AgentUid
+    | where Action != "delete"
+}

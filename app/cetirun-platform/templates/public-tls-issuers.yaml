@@ -1,0 +1,36 @@
+{{- if .Values.publicTLS.enabled }}
+{{- range $name, $server := dict .Values.publicTLS.acme.stagingIssuerName "https://acme-staging-v02.api.letsencrypt.org/directory" .Values.publicTLS.acme.productionIssuerName "https://acme-v02.api.letsencrypt.org/directory" }}
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.publicTLS.ingressNamespace }}
+  annotations:
+    {{- include "cetirun-platform.publicTLS.keep" $ | nindent 4 }}
+  labels:
+    {{- include "cetirun-platform.publicTLS.labels" $ | nindent 4 }}
+spec:
+  acme:
+    {{- with $.Values.publicTLS.acme.email }}
+    email: {{ . | quote }}
+    {{- end }}
+    server: {{ $server | quote }}
+    privateKeySecretRef:
+      name: {{ printf "%s-account" $name | quote }}
+    solvers:
+      - http01:
+          gatewayHTTPRoute:
+            parentRefs:
+              - name: {{ $.Values.publicTLS.gateway.name }}
+                namespace: {{ $.Values.publicTLS.ingressNamespace }}
+                group: gateway.networking.k8s.io
+                sectionName: acme-http
+                kind: Gateway
+                port: 80
+            podTemplate:
+              metadata:
+                annotations:
+                  sidecar.istio.io/inject: "false"
+{{- end }}
+{{- end }}

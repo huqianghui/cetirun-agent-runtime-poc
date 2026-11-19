@@ -1,0 +1,432 @@
+NOTICES
+
+This repository incorporates material as listed below or described in the code.
+
+CetiRun
+Copyright (c) Microsoft Corporation.
+
+First-party CetiRun material is licensed under the MIT License in LICENSE.
+Third-party and adapted material remains subject to its own copyright and
+license terms. A CetiRun source header or container image label does not
+relicense dependencies, bundled programs, artwork, or external services.
+
+This repository notice covers incorporated source and adaptations. Dependencies
+referenced only through package managers are not additional incorporated source.
+Their notices must accompany the artifacts that actually redistribute them.
+
+The optional examples/vscode-server image downloads Microsoft's official VS
+Code CLI and Web Server under the Microsoft Visual Studio Code Server license:
+https://code.visualstudio.com/license/server
+The first-party installer and path adapter are MIT-licensed; this does not
+relicense the official binaries or authorize hosting or redistribution. The
+build requires explicit license acceptance and retains the server notices.
+Copilot and user-installed extensions remain subject to their own service and
+license terms. This example is not included in platform publishing targets.
+
+The Portal frontend build generates THIRD_PARTY_LICENSES.txt from its installed
+production dependency graph, using
+app/cetirun-portal/web/scripts/production-licenses.mjs. This contains package
+versions and upstream license/copyright text, is included in web/dist, and is
+embedded and served with the Portal at /THIRD_PARTY_LICENSES.txt. Install the
+locked dependencies with npm ci before generating it. The generator fails when
+required packages or their license files are missing.
+
+Some npm tarballs omit their upstream license text. Version-specific copies for
+Fluent UI System Icons, Embla Carousel, and the Rollup Linux x64 native package
+are retained under app/cetirun-portal/web/licenses/, with immutable source URLs
+and SHA-256 digests in supplements.json. The generator uses these only for the
+exact reviewed package versions. The upstream notices remain:
+
+    Fluent UI System Icons: Copyright (c) 2020 Microsoft Corporation
+    Embla Carousel: Copyright (c) David Jerleke.
+
+Their license texts and additional upstream notices are in that directory and
+included in the generated Portal notice when those packages are present.
+
+This notice and the Portal JavaScript notice are not complete per-image
+inventories or certifications that distributed images satisfy all redistribution
+requirements. The unresolved items below must be addressed for each artifact.
+
+INCORPORATED SOURCE AND PROVENANCE
+================================
+
+Component: OpenClaw workspace templates
+
+Included material: app/cetirun-chart/agents/openclaw/personality/ contains workspace
+templates adapted for CetiRun. HEARTBEAT.md matches the upstream template text;
+SOUL.md, TOOLS.md, USER.md, IDENTITY.md, and BOOTSTRAP.md contain template
+structure and/or adapted wording. These files are not assigned a new
+Microsoft-only source header.
+
+Reference source:
+https://github.com/openclaw/openclaw/tree/v2026.2.3/docs/reference/templates
+https://github.com/openclaw/openclaw/blob/v2026.2.3/LICENSE
+
+The exact revision originally used for each local template is not recorded.
+The reference above establishes the matching template family, not an exact
+import revision. Preserve the upstream notice:
+
+    Copyright (c) 2025 Peter Steinberger
+
+The OpenClaw runtime version selected by agents/openclaw/Dockerfile has a separate
+notice, which must accompany that runtime and its own incorporated material:
+https://github.com/openclaw/openclaw/blob/v2026.9.6/LICENSE
+
+    Copyright (c) 2026 OpenClaw Foundation
+
+Both reference licenses use the following MIT terms:
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+
+Component: Helm scaffold-derived chart material
+
+The name, fullname, chart, label, selector, and service-account helpers in
+app/cetirun-chart/templates/_helpers.tpl contain adapted Helm chart scaffolding.
+Related Helm-style helpers are present in:
+
+    app/cetirun-ai-gateway/chart/templates/_helpers.tpl
+    app/cetirun-operator/chart/templates/_helpers.tpl
+    app/cetirun-portal/chart/templates/_helpers.tpl
+    infra/istio/templates/_helpers.tpl
+
+Reference implementation and license:
+https://github.com/helm/helm/blob/v3.17.3/pkg/chartutil/create.go
+https://github.com/helm/helm/blob/v3.17.3/LICENSE
+
+    Copyright The Helm Authors.
+    Licensed under the Apache License, Version 2.0.
+
+Local variants use CetiRun names and application-specific additions. The exact
+scaffolding version and derivation history of every template are not recorded;
+the reference version is a comparison source, not an asserted import version.
+All five helpers are excluded from automatic Microsoft/MIT header insertion.
+Chart YAML and NOTES.txt are not covered by the source-header checker; their
+scaffold provenance also needs preservation when packaging charts. The Apache
+License text is reproduced below.
+
+Generated code, scaffolding, and artwork requiring provenance review
+
+The following source-header exceptions do not assert Microsoft ownership:
+
+    app/cetirun-operator/api/v1alpha1/groupversion_info.go
+        Kubebuilder-style group registration scaffold; original generator
+        version and template provenance are not recorded.
+    app/cetirun-operator/api/v1alpha1/zz_generated.deepcopy.go
+        Marked as controller-gen output; do not hand-edit generated code.
+    app/cetirun-portal/web/src/vite-env.d.ts
+        Vite client type-reference scaffold.
+
+Generated CRD YAML in app/cetirun-operator/config/crd/bases is also outside the
+source-header check. An exclusion preserves uncertainty; it is not a finding
+that the material has no license obligations.
+
+Raster assets, including portal branding, are not
+relicensed by source headers. The repository does not contain a per-asset
+authorship/license inventory for these files. Verify that provenance and any
+trademark permissions before redistributing them.
+
+The license-header helpers and Portal production-license generator are licensed
+under the MIT License. Copyright (c) Microsoft Corporation. The MIT terms are
+provided in LICENSE.
+
+RUNTIME AND BUILD DEPENDENCIES
+==============================
+
+The following is an inventory of dependency boundaries visible in source,
+not a resolved bill of materials. Build arguments and unpinned dependencies
+can change the contents of an image. Preserve each component's own license,
+copyright, attribution, and source-distribution obligations where applicable.
+
+* app/cetirun-chart/Dockerfile.base installs Azure Linux system packages,
+  Node.js/npm, GitHub CLI, kubectl, Azure CLI, ripgrep, supervisor, ttyd,
+  Tailscale, Oh My Zsh, Codex CLI, OpenCode, uv/uvx, Claude Code, and their
+  dependencies. Source-built tools copied as binaries still need their
+  applicable notices; a binary COPY is not evidence that those notices ship.
+  Commercial/service terms for installed tools are not granted by CetiRun's MIT
+  license.
+* agents/openclaw/Dockerfile adds OpenClaw, ClawHub, the OpenClaw ACP, Brave,
+  Discord, Feishu, Perplexity, and Slack extensions.
+* agents/hermes/Dockerfile installs the checksum-pinned Hermes Agent
+  v2026.9.24 source release, its checked-in uv/npm dependency locks, and the
+  upstream-pinned SQLite compatibility library.
+* Dockerfile.desktop builds or installs Xorg/Xvfb, Fluxbox, LibVNCServer,
+  x11vnc, supervisor, websockify, noVNC, Noto CJK fonts, Google Chrome, and
+  system libraries. This is not an MIT-only software stack. In particular,
+  x11vnc includes GPLv2 terms and noVNC contains MPL 2.0 core code plus
+  differently licensed web assets. Google Chrome is distributed under its own
+  terms. Review corresponding-source and notice requirements for the actual
+  desktop image, including source modifications made by the Dockerfile.
+* app/cetirun-ai-gateway/Dockerfile installs LiteLLM (MIT) and the Python
+  packages pinned in app/cetirun-ai-gateway/requirements.txt, Node.js, and
+  the Prisma CLI and engines fetched at build time. It deliberately omits
+  litellm-enterprise, which carries the BerriAI Enterprise License. The
+  bundled PostgreSQL and Valkey run their own Azure Linux images from MCR.
+* app/cetirun-observability/Dockerfile builds the ADX-Mon collector and
+  ingestor (MIT, Copyright (c) Microsoft Corporation) from a checksum-pinned
+  upstream commit with the Go modules vendored in that source, and ships its
+  license as /licenses/adx-mon.LICENSE. The cetirun-observability chart also
+  runs kube-state-metrics (Apache-2.0) from its MCR image, pinned by digest,
+  and installs the ADX-Mon custom resource definitions from the same
+  upstream commit.
+* The portal binary embeds a frontend bundle built from
+  app/cetirun-portal/web/package-lock.json. Its generated JavaScript notice
+  accompanies that bundle and includes installed production dependencies and
+  upstream license files. This conservative inventory can include packages
+  removed by tree shaking. Go dependencies, container packages, and assets
+  copied outside that dependency graph still need separate review.
+* The operator and portal link Go dependencies identified by their respective
+  go.mod/go.sum files, including Kubernetes, controller-runtime, Helm, and
+  Azure SDK packages as applicable. Their runtime images also contain the
+  selected base image's packages.
+* The infrastructure/chart configuration can deploy OAuth2 Proxy and use
+  Istio, monitoring agents, storage drivers, and user-selected images or skill
+  packages. These are independent distributions, not relicensed CetiRun source.
+
+Desktop license reference examples:
+https://github.com/LibVNC/x11vnc/blob/0.9.16/COPYING
+https://github.com/novnc/noVNC/blob/v1.5.0/LICENSE.txt
+
+Open distribution work: resolve licenses and required notices for every built
+artifact and transitive dependency; verify that the resulting images, embedded
+frontend, and chart packages actually carry those notices; supply any required
+corresponding source; verify proprietary-package redistribution terms; and
+resolve the source/artwork provenance gaps described above. This repository
+notice does not claim those steps have been completed.
+
+SOURCE-HEADER CHECK SCOPE
+========================
+
+scripts/check-license-headers.py checks supported first-party source and Makefiles
+across the repository, including release/E2E scripts and source under docs/,
+site/, and .github/ when present. scripts/add-license-headers.py offers a dry run and
+requires explicit authorship confirmation before adding missing headers. Both
+accept --root PATH for a checkout or source export. Existing notices and
+unrecognized generated files require review rather than automatic replacement.
+
+The named provenance exceptions above are encoded in scripts/license_headers.py.
+Markdown, YAML, JSON, lockfiles, module manifests, binary assets, hidden paths
+other than .github/, dependencies, and build outputs are not assigned comment
+headers. Third-party and generated/scaffold exceptions retain their existing
+notices and require provenance review. These scope boundaries are not exemptions
+from their underlying licenses.
+
+APACHE LICENSE, VERSION 2.0
+==========================
+
+                                 Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
+
+   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+   1. Definitions.
+
+      "License" shall mean the terms and conditions for use, reproduction,
+      and distribution as defined by Sections 1 through 9 of this document.
+
+      "Licensor" shall mean the copyright owner or entity authorized by
+      the copyright owner that is granting the License.
+
+      "Legal Entity" shall mean the union of the acting entity and all
+      other entities that control, are controlled by, or are under common
+      control with that entity. For the purposes of this definition,
+      "control" means (i) the power, direct or indirect, to cause the
+      direction or management of such entity, whether by contract or
+      otherwise, or (ii) ownership of fifty percent (50%) or more of the
+      outstanding shares, or (iii) beneficial ownership of such entity.
+
+      "You" (or "Your") shall mean an individual or Legal Entity
+      exercising permissions granted by this License.
+
+      "Source" form shall mean the preferred form for making modifications,
+      including but not limited to software source code, documentation
+      source, and configuration files.
+
+      "Object" form shall mean any form resulting from mechanical
+      transformation or translation of a Source form, including but
+      not limited to compiled object code, generated documentation,
+      and conversions to other media types.
+
+      "Work" shall mean the work of authorship, whether in Source or
+      Object form, made available under the License, as indicated by a
+      copyright notice that is included in or attached to the work
+      (an example is provided in the Appendix below).
+
+      "Derivative Works" shall mean any work, whether in Source or Object
+      form, that is based on (or derived from) the Work and for which the
+      editorial revisions, annotations, elaborations, or other modifications
+      represent, as a whole, an original work of authorship. For the purposes
+      of this License, Derivative Works shall not include works that remain
+      separable from, or merely link (or bind by name) to the interfaces of,
+      the Work and Derivative Works thereof.
+
+      "Contribution" shall mean any work of authorship, including
+      the original version of the Work and any modifications or additions
+      to that Work or Derivative Works thereof, that is intentionally
+      submitted to Licensor for inclusion in the Work by the copyright owner
+      or by an individual or Legal Entity authorized to submit on behalf of
+      the copyright owner. For the purposes of this definition, "submitted"
+      means any form of electronic, verbal, or written communication sent
+      to the Licensor or its representatives, including but not limited to
+      communication on electronic mailing lists, source code control systems,
+      and issue tracking systems that are managed by, or on behalf of, the
+      Licensor for the purpose of discussing and improving the Work, but
+      excluding communication that is conspicuously marked or otherwise
+      designated in writing by the copyright owner as "Not a Contribution."
+
+      "Contributor" shall mean Licensor and any individual or Legal Entity
+      on behalf of whom a Contribution has been received by Licensor and
+      subsequently incorporated within the Work.
+
+   2. Grant of Copyright License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      copyright license to reproduce, prepare Derivative Works of,
+      publicly display, publicly perform, sublicense, and distribute the
+      Work and such Derivative Works in Source or Object form.
+
+   3. Grant of Patent License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      (except as stated in this section) patent license to make, have made,
+      use, offer to sell, sell, import, and otherwise transfer the Work,
+      where such license applies only to those patent claims licensable
+      by such Contributor that are necessarily infringed by their
+      Contribution(s) alone or by combination of their Contribution(s)
+      with the Work to which such Contribution(s) was submitted. If You
+      institute patent litigation against any entity (including a
+      cross-claim or counterclaim in a lawsuit) alleging that the Work
+      or a Contribution incorporated within the Work constitutes direct
+      or contributory patent infringement, then any patent licenses
+      granted to You under this License for that Work shall terminate
+      as of the date such litigation is filed.
+
+   4. Redistribution. You may reproduce and distribute copies of the
+      Work or Derivative Works thereof in any medium, with or without
+      modifications, and in Source or Object form, provided that You
+      meet the following conditions:
+
+      (a) You must give any other recipients of the Work or
+          Derivative Works a copy of this License; and
+
+      (b) You must cause any modified files to carry prominent notices
+          stating that You changed the files; and
+
+      (c) You must retain, in the Source form of any Derivative Works
+          that You distribute, all copyright, patent, trademark, and
+          attribution notices from the Source form of the Work,
+          excluding those notices that do not pertain to any part of
+          the Derivative Works; and
+
+      (d) If the Work includes a "NOTICE" text file as part of its
+          distribution, then any Derivative Works that You distribute must
+          include a readable copy of the attribution notices contained
+          within such NOTICE file, excluding those notices that do not
+          pertain to any part of the Derivative Works, in at least one
+          of the following places: within a NOTICE text file distributed
+          as part of the Derivative Works; within the Source form or
+          documentation, if provided along with the Derivative Works; or,
+          within a display generated by the Derivative Works, if and
+          wherever such third-party notices normally appear. The contents
+          of the NOTICE file are for informational purposes only and
+          do not modify the License. You may add Your own attribution
+          notices within Derivative Works that You distribute, alongside
+          or as an addendum to the NOTICE text from the Work, provided
+          that such additional attribution notices cannot be construed
+          as modifying the License.
+
+      You may add Your own copyright statement to Your modifications and
+      may provide additional or different license terms and conditions
+      for use, reproduction, or distribution of Your modifications, or
+      for any such Derivative Works as a whole, provided Your use,
+      reproduction, and distribution of the Work otherwise complies with
+      the conditions stated in this License.
+
+   5. Submission of Contributions. Unless You explicitly state otherwise,
+      any Contribution intentionally submitted for inclusion in the Work
+      by You to the Licensor shall be under the terms and conditions of
+      this License, without any additional terms or conditions.
+      Notwithstanding the above, nothing herein shall supersede or modify
+      the terms of any separate license agreement you may have executed
+      with Licensor regarding such Contributions.
+
+   6. Trademarks. This License does not grant permission to use the trade
+      names, trademarks, service marks, or product names of the Licensor,
+      except as required for reasonable and customary use in describing the
+      origin of the Work and reproducing the content of the NOTICE file.
+
+   7. Disclaimer of Warranty. Unless required by applicable law or
+      agreed to in writing, Licensor provides the Work (and each
+      Contributor provides its Contributions) on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+      implied, including, without limitation, any warranties or conditions
+      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+      PARTICULAR PURPOSE. You are solely responsible for determining the
+      appropriateness of using or redistributing the Work and assume any
+      risks associated with Your exercise of permissions under this License.
+
+   8. Limitation of Liability. In no event and under no legal theory,
+      whether in tort (including negligence), contract, or otherwise,
+      unless required by applicable law (such as deliberate and grossly
+      negligent acts) or agreed to in writing, shall any Contributor be
+      liable to You for damages, including any direct, indirect, special,
+      incidental, or consequential damages of any character arising as a
+      result of this License or out of the use or inability to use the
+      Work (including but not limited to damages for loss of goodwill,
+      work stoppage, computer failure or malfunction, or any and all
+      other commercial damages or losses), even if such Contributor
+      has been advised of the possibility of such damages.
+
+   9. Accepting Warranty or Additional Liability. While redistributing
+      the Work or Derivative Works thereof, You may choose to offer,
+      and charge a fee for, acceptance of support, warranty, indemnity,
+      or other liability obligations and/or rights consistent with this
+      License. However, in accepting such obligations, You may act only
+      on Your own behalf and on Your sole responsibility, not on behalf
+      of any other Contributor, and only if You agree to indemnify,
+      defend, and hold each Contributor harmless for any liability
+      incurred by, or claims asserted against, such Contributor by reason
+      of your accepting any such warranty or additional liability.
+
+   END OF TERMS AND CONDITIONS
+
+   APPENDIX: How to apply the Apache License to your work.
+
+      To apply the Apache License to your work, attach the following
+      boilerplate notice, with the fields enclosed by brackets "[]"
+      replaced with your own identifying information. (Don't include
+      the brackets!) The text should be enclosed in the appropriate
+      comment syntax for the file format. We also recommend that a
+      file or class name and description of purpose be included on the
+      same "printed page" as the copyright notice for easier
+      identification within third-party archives.
+
+   Copyright [yyyy] [name of copyright owner]
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.

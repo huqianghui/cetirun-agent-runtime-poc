@@ -1,0 +1,8 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+**
+!app/
+!app/cetirun-memory-context/
+!app/cetirun-memory-context/**
+app/cetirun-memory-context/bin/

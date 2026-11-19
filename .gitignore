@@ -1,0 +1,81 @@
+# ---- 部署运行时状态：kubeconfig、私钥、各资源 ID，绝不提交 ----
+/state/
+/generated/
+/config.env
+*.pem
+*.key
+*.log
+*.pptx
+~$*
+# bin/ 只提交 docker 替身；kubectl/kubelogin 首次运行时下载
+!/bin/
+/bin/*
+!/bin/docker
+
+# OS
+.DS_Store
+Thumbs.db
+*~
+
+# Editors / IDEs
+.idea
+.vscode
+*.swp
+*.swo
+
+# AI tools
+.claude
+.codex
+.opencode
+
+# Environment / secrets
+.env
+.env.*
+
+# Worktrees
+.worktrees
+
+# SST
+.sst
+
+# Go
+/app/**/bin/
+vendor/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+cover.out
+coverage.html
+
+# Node / frontend (app/cetirun-portal/web)
+node_modules
+dist
+ts-dist
+.turbo
+
+# Helm
+*.tgz
+charts/
+
+# Docker
+*.tar
+
+# Bicep / ARM
+*.json.bak
+azuredeploy.parameters.*.json
+
+# Terraform (if added later)
+.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+
+# Build output
+tmp/
+
+# Synthetic canonical context is an example asset, not local agent instructions.
+!examples/custom-agent/context/AGENTS.md

@@ -1,0 +1,186 @@
+{{- include "cetirun-observability.validate" . -}}
+{{- $name := include "cetirun-observability.collectorName" . -}}
+{{- $labels := dict "name" $name "context" . -}}
+{{- $config := include "cetirun-observability.collectorConfig" . -}}
+{{- /*
+The ADX-Mon collector: one Pod on every node. It reads the node's container
+log files and sends the logs of the Pods that the routes select; it scrapes the
+kubelet, and the platform Pods annotated for ADX-Mon on its node. It runs as
+root without any capability, because the container log files belong to root,
+and outside the mesh.
+*/}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cetirun-observability.labels" $labels | nindent 4 }}
+automountServiceAccountToken: false
+---
+# Pod discovery, and the kubelet's metrics endpoints: nothing else.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "cetirun-observability.labels" $labels | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["list", "watch"]
+  - apiGroups: [""]
+    resources: ["nodes/metrics"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "cetirun-observability.labels" $labels | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ $name }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $name }}
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cetirun-observability.labels" $labels | nindent 4 }}
+data:
+  config.toml: |
+    {{- $config | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cetirun-observability.labels" $labels | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "cetirun-observability.selectorLabels" $labels | nindent 6 }}
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+  template:
+    metadata:
+      labels:
+        {{- include "cetirun-observability.selectorLabels" $labels | nindent 8 }}
+      annotations:
+        sidecar.istio.io/inject: "false"
+        checksum/config: {{ $config | sha256sum }}
+        {{- with .Values.collector.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ $name }}
+      automountServiceAccountToken: true
+      {{- with .Values.collector.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: collector
+          image: {{ include "cetirun-observability.image" (dict "image" .Values.image "name" "cetirun-observability" "context" .) | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/collector"]
+          args:
+            - --config=/etc/cetirun-adx-mon/config.toml
+            - --hostname=$(NODE_NAME)
+            - --host-ip=$(HOST_IP)
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            # The ingestor's certificate is checked against the chart's CA only.
+            - name: SSL_CERT_FILE
+              value: /etc/cetirun-adx-mon/ca/ca.crt
+            - name: GODEBUG
+              value: http2client=0
+            # Container Insights, where it also runs, would copy the environment.
+            - name: AZMON_COLLECT_ENV
+              value: "False"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .Values.collector.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/cetirun-adx-mon/config.toml
+              subPath: config.toml
+              readOnly: true
+            - name: ca
+              mountPath: /etc/cetirun-adx-mon/ca
+              readOnly: true
+            - name: log
+              mountPath: /var/log
+              readOnly: true
+            - name: storage
+              mountPath: /var/lib/cetirun-adx-mon/collector
+      volumes:
+        - name: config
+          configMap:
+            name: {{ $name }}
+        - name: ca
+          secret:
+            secretName: {{ include "cetirun-observability.ingestorTLSSecret" . }}
+            items:
+              - key: ca.crt
+                path: ca.crt
+        - name: log
+          hostPath:
+            path: /var/log
+            type: Directory
+        - name: storage
+          hostPath:
+            path: {{ printf "%s/collector" (trimSuffix "/" .Values.collector.hostPath) }}
+            type: DirectoryOrCreate
+      tolerations:
+        {{- toYaml .Values.collector.tolerations | nindent 8 }}
+      {{- with .Values.collector.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+# Nothing connects to the collector: its listener binds the loopback address.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cetirun-observability.labels" $labels | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "cetirun-observability.selectorLabels" $labels | nindent 6 }}
+  policyTypes: [Ingress]

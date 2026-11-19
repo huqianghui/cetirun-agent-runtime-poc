@@ -1,0 +1,25 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+apiVersion: cetirun.microsoft.com/v1alpha1
+kind: Agent
+metadata:
+  name: native-example
+spec:
+  team: native-example
+  sandboxRef: native-example
+  agent:
+    type: openclaw
+    image: registry.example.com/cetirun:0.1.1
+    username: vibe
+    port: 18789
+  user:
+    alias: alice
+    displayName: Example Owner
+    email: alice@example.com
+  modelAccess:
+    sharedModels: true
+    githubCopilot: false
+  model: example-model
+  gatewayTokenSecretRef: gateway-token
+  helm:
+    version: 0.1.1

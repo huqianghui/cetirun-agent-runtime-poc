@@ -1,0 +1,213 @@
+# Synthetic offline fixture. Replace every environment coordinate before use.
+# No credentials, real owners, or runtime qualification are supplied here.
+target:
+  context: example-context
+  cluster: example-cluster
+  server: https://kubernetes.example.invalid:6443
+  clusterUID: 11111111-1111-1111-1111-111111111111
+release:
+  registry: registry.example.com
+  version: 0.1.1
+  gitSHA: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+domain: portal.example.invalid
+identityRealm: example-realm
+ownerAlias: example-owner
+identity:
+  tenantId: 11111111-1111-1111-1111-111111111111
+  portalClientId: 22222222-2222-2222-2222-222222222222
+  blueprintClientId: 33333333-3333-3333-3333-333333333333
+  authorizationClientId: 44444444-4444-4444-4444-444444444444
+  encryptionClientId: 55555555-5555-5555-5555-555555555555
+  keyVaultKeyUrl: https://example.vault.azure.net/keys/connection-records
+istio:
+  release: cetirun-istio
+  namespace: cetirun-istio
+  mode: manage
+  tlsMode: external
+  revision: asm-example
+  controlPlaneNamespace: aks-istio-system
+  controlPlaneDeployment: istiod-asm-example
+  ingressNamespace: aks-istio-ingress
+  ingressDeployment: aks-istio-ingressgateway-external-asm-example
+  ingressServiceAccount: aks-istio-ingressgateway-external
+  meshConfigMap: istio-shared-configmap-asm-example
+  values:
+    allowedGroups: 66666666-6666-6666-6666-666666666666
+    # Gateway certificate cetirun-tls is externally provisioned in ingressNamespace.
+    # No cookieSecret or TLS private key is copied into these values.
+    gateway:
+      includeWildcardHost: false
+    cookieSecretLegacyNamespace: ""
+    oauth2Proxy:
+      skipJwtBearerTokens: false
+      logging:
+        request: false
+        auth: false
+        standard: true
+broker:
+  release: cetirun-agent-broker
+  namespace: cetirun-credentials
+  values:
+    tls:
+      secretName: broker-tls
+    # Name a provider only after you register it. make deploy then requires
+    # its credentials Secret in the Broker namespace.
+    # providers:
+    #   github:
+    #     credentialsSecretName: github-oauth
+    #   google:
+    #     credentialsSecretName: google-oauth
+platform:
+  release: cetirun-platform
+  namespace: cetirun-system
+  values:
+    cetirun-operator:
+      # Enabled by default. Set enabled: false to opt out before installation.
+      cetiadmin:
+        enabled: true
+        owner:
+          alias: example-owner
+          tenantID: "11111111-1111-1111-1111-111111111111"
+          objectID: "88888888-8888-8888-8888-888888888888"
+        kubernetes:
+          apiServer: https://kubernetes.default.svc
+          apiAudience: https://kubernetes.default.svc.cluster.local
+          caConfigMapName: kube-root-ca.crt
+          # Replace with the target API endpoint addresses after Service DNAT.
+          apiEgressCIDRs: [192.0.2.10/32]
+        model:
+          default: auto
+          initialMonthlyBudgetUSD: "100"
+      # The Workload Identity client ID of the Operator ServiceAccount. Use the
+      # Blueprint client ID unless another Operator integration needs another
+      # identity. make deploy requires a value.
+      azure:
+        clientId: 33333333-3333-3333-3333-333333333333
+      # Set this when the Operator needs registry credentials for the runtime
+      # chart: a kubernetes.io/dockerconfigjson Secret in this namespace.
+      # acrDockerSecret: acr-helm-pull
+      sandboxAdmission:
+        tlsSecretName: cetirun-sandbox-admission-tls
+        # Render-only PEM framing, not a certificate and not valid for deployment.
+        caBundle: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tClFRPT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQ==
+        adminUsers: [platform-admin@example.invalid]
+      connectionsMCP:
+        caSecretName: connections-mcp-ca
+      customRuntime:
+        # Replace with the digests whose UID, HOME and model access you qualified.
+        # The Operator configures AI Gateway access for these images.
+        approvedImages:
+          - registry.example.com/cetirun-pi-agent@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          - registry.example.com/cetirun-vscode@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+        storageClass: example-home
+        storageSize: 100Gi
+        accessMode: ReadWriteOnce
+        fsGroup: 1024
+    cetirun-connections-mcp:
+      tls:
+        secretName: connections-mcp-tls
+      broker:
+        clientTLSSecretName: broker-client-tls
+    cetirun-ai-gateway:
+      providerCredentials:
+        existingSecret: gateway-provider-keys
+      auth:
+        masterKey:
+          existingSecret: cetirun-ai-gateway-auth
+        saltKey:
+          existingSecret: cetirun-ai-gateway-auth
+        adminUI:
+          passwordSecret:
+            existingSecret: cetirun-ai-gateway-auth
+      redis:
+        passwordSecret:
+          existingSecret: gateway-valkey-auth
+      postgresql:
+        bundled:
+          persistence:
+            storageClass: example-database
+            size: 100Gi
+      models:
+        - model_name: gpt-mini
+          litellm_params:
+            model: azure/example-mini-deployment
+            api_base: https://example.openai.azure.com/
+            api_key: os.environ/AZURE_OPENAI_KEY
+            api_version: 2025-04-01-preview
+          model_info:
+            base_model: azure/gpt-4o-mini
+        - model_name: gpt-main
+          litellm_params:
+            model: azure/example-main-deployment
+            api_base: https://example.openai.azure.com/
+            api_key: os.environ/AZURE_OPENAI_KEY
+            api_version: 2025-04-01-preview
+          model_info:
+            base_model: azure/gpt-4o
+        - model_name: decision-1
+          litellm_params:
+            # The logical alias is fixed; the real Azure deployment is not.
+            model: azure_ai/example-decision-deployment
+            api_base: https://example.services.ai.azure.com/models
+            api_key: os.environ/AZURE_DECISION_KEY
+            api_version: 2024-05-01-preview
+          model_info:
+            base_model: azure_ai/Microsoft-Decision-1
+            mode: evaluation
+        - model_name: auto
+          litellm_params:
+            model: auto_router/complexity_router
+            # Synthetic gate metadata, not an average route price. Set these to
+            # the highest real tier rates. Actual calls use the selected backend.
+            input_cost_per_token: 0.00001
+            output_cost_per_token: 0.00004
+            complexity_router_config:
+              classifier_type: jev
+              jev_classifier_config:
+                deployment_name: decision-1
+              tiers:
+                SIMPLE: gpt-mini
+                MEDIUM: gpt-main
+                COMPLEX: gpt-main
+                REASONING: gpt-main
+            complexity_router_default_model: gpt-main
+sharedSkills:
+  storageClassName: example-skills
+  resourceGroup: example-skills-rg
+  storageAccount: exampleskills
+  containerName: published-skills
+  protocol: nfs
+# Optional Skill Marketplace for policy-bound Teams. It needs native Sandbox
+# execution (platform.values.cetirun-operator.sandboxSources.enabled and
+# nativeExecution), which this example does not enable. Its container is not
+# the sharedSkills container.
+# skillMarketplace:
+#   repository:
+#     url: https://git.example.invalid/example/skills.git
+#     ref: main
+#     path: skills
+#     # none, token (Secret key token) or ssh (keys ssh-privatekey and known_hosts)
+#     auth: token
+#     existingSecret: skills-repository
+#     syncInterval: 5m
+#   storage:
+#     resourceGroup: example-marketplace-rg
+#     storageAccount: examplemarketplace
+#     containerName: marketplace
+#     storageClassName: example-skills
+
+# Optional ADX-Mon collection of the platform's and the Agents' logs, Kubernetes
+# events and metrics into Azure Data Explorer. The Kusto cluster, its databases
+# and the ingestor's managed identity exist before make deploy; the cluster
+# template creates them with adxMode (infra/cluster). The identity needs the
+# User and Ingestor roles on the three databases and a federated credential for
+# system:serviceaccount:<platform.namespace>:cetirun-adx-mon-ingestor.
+# observability:
+#   clusterName: example
+#   adx:
+#     endpoint: https://example.australiaeast.kusto.windows.net
+#     databases:
+#       logs: CetiRunLogs
+#       metrics: CetiRunMetrics
+#       agentLogs: CetiRunAgents
+#   ingestorClientId: 55555555-5555-5555-5555-555555555555

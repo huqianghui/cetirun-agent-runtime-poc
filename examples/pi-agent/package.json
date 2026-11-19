@@ -1,0 +1,15 @@
+{
+  "name": "cetirun-pi-agent",
+  "version": "0.1.1-src.20261111",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "check": "node --check server.mjs && node --check agent-api.mjs && node --check auth-api.mjs && node --check http.mjs && node --check pi-runtime.mjs && node --check gateway-runtime.mjs && node --check memory-runtime.mjs && node --check pi-resources.mjs && node --check pi-tui.mjs && node --check copilot-auth.mjs && node --check connections-runtime.mjs && node --check run-error.mjs"
+  },
+  "dependencies": {
+    "@earendil-works/pi-ai": "0.87.1",
+    "@earendil-works/pi-coding-agent": "1.5.0"
+  }
+}

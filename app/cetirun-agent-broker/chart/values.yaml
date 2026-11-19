@@ -1,0 +1,109 @@
+replicaCount: 2
+
+image:
+  repository: mcr.microsoft.com/aks/ai-runtime/cetirun/cetirun-agent-broker
+  # Empty defaults to .Chart.AppVersion.
+  tag: ""
+  # When set, produces repository:tag@digest.
+  digest: ""
+  pullPolicy: IfNotPresent
+
+authSDK:
+  repository: mcr.microsoft.com/entra-sdk/auth-sidecar
+  tag: 1.1.2-azurelinux3.0-distroless
+  # Pinned digest for the tag above. Update tag and digest together.
+  digest: sha256:73a8763100c93c3da1a3ed1ba3af2c6122c0517687354dceded30537a1aee97f
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  name: cetirun-agent-broker
+  annotations: {}
+
+service:
+  port: 8080
+
+tls:
+  enabled: false
+  secretName: ""
+  certKey: tls.crt
+  keyKey: tls.key
+  clientCAKey: ca.crt
+
+identityModes:
+  azureAgent:
+    enabled: true
+  microsoftDelegated:
+    enabled: true
+
+agentIdentity:
+  tenantId: ""
+  blueprintClientId: ""
+  authorizationClientId: ""
+  encryptionClientId: ""
+  keyVaultKeyUrl: ""
+  redirectUri: ""
+  portalOrigin: ""
+  portalBaseUrl: ""
+  armScopes:
+    - https://management.azure.com/user_impersonation
+  graphScopes:
+    - https://graph.microsoft.com/.default
+
+portal:
+  namespace: cetirun-portal
+  serviceAccount: cetirun-portal
+
+# Must match the MCP chart workloadTokenAudience and Operator connectionsMCP.audience.
+workloadTokenAudience: cetirun-connections-mcp
+
+toolService:
+  runtimeTypes: [hermes, openclaw]
+  namespace: cetirun-system
+  serviceAccount: cetirun-connections-mcp
+
+providers:
+  github:
+    # Standard GitHub OAuth App credentials for personal delegated connections.
+    credentialsSecretName: ""
+    clientIDKey: client-id
+    clientSecretKey: client-secret
+    app:
+      # Optional shared GitHub App; personal OAuth remains independently available.
+      id: ""
+      slug: ""
+      clientId: ""
+      credentialsSecretName: ""
+      clientSecretKey: client-secret
+      privateKeyKey: private-key.pem
+  google:
+    credentialsSecretName: ""
+    clientIDKey: client-id
+    clientSecretKey: client-secret
+
+operator:
+  namespace: cetirun-system
+  serviceAccount: cetirun-operator-controller-manager
+
+istio:
+  enabled: true
+  # Confirms that the release namespace is labeled for sidecar injection.
+  sidecarInjection: false
+  # AKS managed Istio revision selected for this workload and namespace.
+  revision: ""
+
+resources:
+  broker:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  authSDK:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi

@@ -1,0 +1,206 @@
+# Cloud used to derive the Entra issuer. Does not select the Azure CLI cloud.
+cloud: AzureCloud
+
+# Required for entra-id. In oidc mode, tenantId is needed only when issuerURL
+# is empty; the client ID comes from oauth2Proxy.oidc.clientID.
+clientId: ""
+tenantId: ""
+# Comma-separated Entra ID group object IDs allowed to access CetiRun.
+# Example: "oid1,oid2" or a single "oid".
+allowedGroups: ""
+
+# Cookie secret for OAuth2 Proxy session encryption.
+# If empty, the chart reuses any existing secret via lookup, or generates a new one
+# on first install. This prevents session invalidation on upgrades.
+cookieSecret: ""
+# Namespace of a pre-migration oauth2-proxy-credentials Secret. The current
+# release namespace always takes precedence. Empty disables the legacy lookup.
+cookieSecretLegacyNamespace: istio-system
+
+# Apex domain for the Portal and path-based CetiRun instances.
+domain: example.com
+
+# Allowed email domain for OAuth2 Proxy. Use "*" to allow any email domain.
+emailDomain: "*"
+
+# TLS certificate for the Istio Gateway.
+# Provide cert and key contents to have the chart manage the TLS secret.
+# If empty, the TLS secret must be created out-of-band.
+tls:
+  enabled: false
+  cert: ""
+  key: ""
+
+# Istio ingress gateway namespace and selector.
+gateway:
+  namespace: aks-istio-ingress
+  # Keep legacy instance subdomains reachable. Set false for apex-only routing.
+  includeWildcardHost: true
+  selector:
+    istio: aks-istio-ingressgateway-external
+
+# AuthorizationPolicy configuration for wildcard domain.
+authPolicy:
+  # Prefixes exempted from OAuth2 Proxy authentication.
+  # These hosts bypass authentication entirely (e.g., the oauth2 callback itself).
+  authExemptPrefixes:
+    - oauth2
+    - llmapi
+
+  # POST-only unauthenticated callbacks that are valid on the apex Portal host
+  # and must never be exempted on legacy instance subdomains.
+  apexPostBypassPaths:
+    []
+
+  # Exact apex-only OAuth callback, GET for GitHub/Google and form POST for Entra.
+  # The Broker validates one-time state and provider/account binding.
+  oauthCallbackPath: "/api/v1/connections/callback"
+
+  # Prefixes exempted from Lua alias validation but still require OAuth2 Proxy auth.
+  # Use for shared services that aren't tied to a specific user alias.
+  aliasExemptPrefixes:
+    - oauth2
+    - llmapi
+
+# Security response headers injected by the Istio gateway EnvoyFilter.
+# The filter also removes the server header to prevent technology disclosure.
+securityHeaders:
+  strictTransportSecurity: "max-age=31536000; includeSubDomains"
+  xContentTypeOptions: "nosniff"
+  xFrameOptions: "DENY"
+  referrerPolicy: "strict-origin-when-cross-origin"
+  # Applies outside /ui/<instance>/. Agent UIs retain their own CSP, if any.
+  contentSecurityPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' wss:; img-src 'self' data:; font-src 'self'"
+
+# Internal portal auth endpoint for instance ownership check
+portalAuth:
+  # The default preserves standalone Portal deployments. The platform umbrella
+  # deployment overrides this to cetirun-system through infra/istio/deploy.sh.
+  clusterHost: "cetirun-portal.cetirun-portal.svc.cluster.local"
+  clusterPort: 8081
+  path: "/internal/auth"
+  # The legacy internal ownership request uses alias/email only. Enabling mTLS
+  # creates a separate, TLS-only cluster and permits the trusted ID token to
+  # reach Portal's internal ownership endpoint.
+  mtls:
+    enabled: false
+    # Required when enabled. This is compared as an exact URI SAN.
+    serverIdentity: ""
+
+# OAuth2 Proxy configuration.
+oauth2Proxy:
+  # entra-id keeps federated-token login in AzureCloud. oidc uses a client
+  # secret, including for AzureChinaCloud. local-oidc is local development only.
+  # Both OIDC modes require Agent Identity/Tools disabled in the Portal.
+  mode: entra-id
+  # null preserves the mode default: true for entra-id, false for OIDC modes.
+  # false requires a browser session instead of accepting a validated OIDC JWT
+  # as authentication. true is not supported in OIDC modes.
+  skipJwtBearerTokens: null
+  # These match OAuth2 Proxy's logging defaults. Disable explicitly where the
+  # deployment's log collection policy requires it; standard logs aid diagnosis.
+  logging:
+    request: true
+    auth: true
+    standard: true
+  oidc:
+    # Empty derives https://<cloud authority>/<tenantId>/v2.0.
+    # An explicit issuer must use HTTPS; discovery and issuer checks stay on.
+    issuerURL: ""
+    clientID: ""
+    # Pre-create in the release namespace; do not pass the client secret itself.
+    existingSecret: ""
+    clientSecretKey: client-secret
+  localOIDC:
+    # Required in local-oidc mode. Register the existing HTTPS /oauth2/callback.
+    issuerURL: ""
+    clientID: ""
+    # Pre-create this Secret in the release namespace; never put credentials here.
+    existingSecret: ""
+    clientSecretKey: client-secret
+    # HTTPS is required unless explicitly enabled for a loopback or .localhost
+    # HTTP issuer. HTTPS callbacks and secure cookies remain required; no OIDC
+    # signature, issuer, audience or TLS certificate verification is skipped.
+    allowHTTP: false
+  image:
+    repository: quay.io/oauth2-proxy/oauth2-proxy
+    tag: v7.15.5
+    digest: sha256:0d989b27d90d5e527fb2b045d864c4001c3104bdd763b3211b7e9ba2110380ea
+  replicas: 2
+  # Entra ID does not guarantee an email claim for local tenant users. Use the
+  # tenant-facing UPN so those users can establish a Portal session. Set email
+  # only when the tenant is known to emit that claim for every allowed user.
+  # For local OIDC providers such as Dex, set email and emit a verified email claim.
+  emailClaim: preferred_username
+  # Keep refresh tokens server-side and a short session ticket in the browser.
+  # Explicit cookie mode retains the non-refreshing 45-minute behavior.
+  sessionStore:
+    type: redis
+    redis:
+      # An external URL takes precedence over the bundled server.
+      connectionURL: ""
+      # Used by both clients and the bundled server. Empty generates a password
+      # for the bundled server only; upgrades reuse the existing Secret.
+      existingSecret: ""
+      passwordKey: redis-password
+      bundled:
+        enabled: true
+        image:
+          repository: mcr.microsoft.com/azurelinux/base/valkey
+          tag: "8"
+          digest: sha256:1f9457e9e325de0301c85d0c18765777820e06290c03849545868b4d22781496
+        persistence:
+          enabled: true
+          size: 1Gi
+          # Empty uses the cluster's default StorageClass.
+          storageClass: ""
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 250m
+            memory: 256Mi
+  cookie:
+    expire: "45m"
+    # Each sign-in keeps its own CSRF cookie for up to 15 minutes. Starting a
+    # sign-in deletes the oldest of them beyond this number (about 200 bytes
+    # each; they are never forwarded to Agents).
+    csrfPerRequestLimit: 20
+  redis:
+    cookieExpire: "8h"
+    cookieRefresh: "30m"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  nodeSelector:
+    agentpool: system
+  tolerations:
+    - key: CriticalAddonsOnly
+      operator: Exists
+
+# ── Egress audit configuration ──
+# Deploys ServiceEntry and access logging to the Istio
+# root config namespace. These resources apply mesh-wide to all sidecar proxies.
+egress:
+  # Namespace for egress resources (Istio root config namespace).
+  namespace: aks-istio-system
+
+  # External services — ServiceEntry enables Istio SNI routing so FQDN appears in access logs.
+  # Without these, HTTPS traffic falls back to PassthroughCluster (IP only, no hostname).
+  externalServices:
+    - github.com
+    - api.github.com
+    - raw.githubusercontent.com
+    - api.githubcopilot.com
+    - copilot-proxy.githubusercontent.com
+    - dev.azure.com
+    - login.microsoftonline.com
+
+  # Access logging (via EnvoyFilter for JSON format with SNI field).
+  accessLog:
+    enabled: true

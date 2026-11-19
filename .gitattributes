@@ -1,0 +1,6 @@
+# Check out text files with LF line endings on every platform. Tests, chart
+# templates and image build contexts read files byte for byte, and a CRLF
+# checkout (core.autocrlf=true, the Git for Windows default) breaks them.
+* text=auto eol=lf
+*.png binary
+*.jpg binary

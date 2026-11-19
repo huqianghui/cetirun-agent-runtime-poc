@@ -1,0 +1,45 @@
+[
+  {
+    "packages": [
+      "@fluentui/react-icons@2.0.344"
+    ],
+    "files": [
+      {
+        "file": "fluentui-system-icons.LICENSE",
+        "sha256": "69bc45dc42b9acb96a69823adbc6ae538374e3c0bde169b855b32c48eaaef52f",
+        "source": "https://raw.githubusercontent.com/microsoft/fluentui-system-icons/f1260014e8a4fcfa6777182fd6cf082fc5e952d8/LICENSE"
+      },
+      {
+        "file": "fluentui-system-icons.NOTICE",
+        "sha256": "2fb367a84df52c8b6f8401119708014b327f595554d41712d7407151c9ce73ef",
+        "source": "https://raw.githubusercontent.com/microsoft/fluentui-system-icons/f1260014e8a4fcfa6777182fd6cf082fc5e952d8/NOTICE"
+      }
+    ]
+  },
+  {
+    "packages": [
+      "embla-carousel@8.6.0",
+      "embla-carousel-autoplay@8.6.0",
+      "embla-carousel-fade@8.6.0"
+    ],
+    "files": [
+      {
+        "file": "embla-carousel.LICENSE",
+        "sha256": "992490064b90ec94c302fe5f29dcc14cb44145857064e46f9ffe6c8f511c1093",
+        "source": "https://raw.githubusercontent.com/davidjerleke/embla-carousel/0fe65834136f1aa35e4c1a4a477e5ccb4bb5ee54/LICENSE"
+      }
+    ]
+  },
+  {
+    "packages": [
+      "@rollup/rollup-linux-x64-gnu@4.53.3"
+    ],
+    "files": [
+      {
+        "file": "rollup.LICENSE.md",
+        "sha256": "ad457a6619017a7f47cdbead25a8ec61907818be3e0834f1885bdf6c3ddfb668",
+        "source": "https://raw.githubusercontent.com/rollup/rollup/998b5950a6ea7cea1a7b994e8dab45472c3cbe7e/LICENSE.md"
+      }
+    ]
+  }
+]

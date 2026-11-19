@@ -1,0 +1,26 @@
+{
+  "version": "1.139.1",
+  "commit": "04c0d99f4fb0d8afe6ce4f0c58e31e183ac3e4b1",
+  "artifacts": {
+    "amd64": {
+      "cli": {
+        "file": "vscode_cli_linux_x64_cli.tar.gz",
+        "sha256": "e079ddb70377cca515ab0cf5ca1ee4095a14e1f510af4b10a75b01c6018f9f02"
+      },
+      "server": {
+        "file": "vscode-server-linux-x64-web.tar.gz",
+        "sha256": "72f486a55fe7c6303ce8b544eada3d6207a997a5079e4aa87752dd933cbd7345"
+      }
+    },
+    "arm64": {
+      "cli": {
+        "file": "vscode_cli_linux_arm64_cli.tar.gz",
+        "sha256": "5bc80c3622a628a8aee4be15967bdc7a039235d867c3d1bedf1b373d2d731dc7"
+      },
+      "server": {
+        "file": "vscode-server-linux-arm64-web.tar.gz",
+        "sha256": "16df3166e2ae7aa184e3bebd100af5620230fb1381197cd4c2726e28594b1c2c"
+      }
+    }
+  }
+}

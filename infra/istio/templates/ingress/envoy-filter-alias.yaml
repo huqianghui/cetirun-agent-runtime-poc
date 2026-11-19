@@ -1,0 +1,441 @@
+{{- $portalAuthMTLS := .Values.portalAuth.mtls | default dict -}}
+{{- if not (kindIs "map" $portalAuthMTLS) -}}
+{{- fail "portalAuth.mtls must be an object" -}}
+{{- end -}}
+{{- $portalAuthMTLSEnabled := get $portalAuthMTLS "enabled" | default false -}}
+{{- if not (kindIs "bool" $portalAuthMTLSEnabled) -}}
+{{- fail "portalAuth.mtls.enabled must be a boolean" -}}
+{{- end -}}
+{{- $portalAuthServerIdentity := get $portalAuthMTLS "serverIdentity" | default "" -}}
+{{- if $portalAuthMTLSEnabled -}}
+{{- $_ := required "portalAuth.mtls.serverIdentity is required when portalAuth.mtls.enabled is true" $portalAuthServerIdentity -}}
+{{- if not (regexMatch "^spiffe://[a-z0-9]([a-z0-9.-]*[a-z0-9])?/ns/[a-z0-9]([-a-z0-9]*[a-z0-9])?/sa/[a-z0-9]([-a-z0-9]*[a-z0-9])?$" $portalAuthServerIdentity) -}}
+{{- fail "portalAuth.mtls.serverIdentity must be an exact SPIFFE URI in spiffe://<trust-domain>/ns/<namespace>/sa/<service-account> form" -}}
+{{- end -}}
+{{- end -}}
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: cetirun-ownership-check
+  namespace: {{ .Values.gateway.namespace }}
+  labels:
+    {{- include "cetirun-istio.labels" . | nindent 4 }}
+spec:
+  workloadSelector:
+    labels:
+      {{- toYaml .Values.gateway.selector | nindent 6 }}
+  configPatches:
+    # Add a static cluster for the portal auth endpoint
+    - applyTo: CLUSTER
+      match:
+        context: GATEWAY
+      patch:
+        operation: ADD
+        value:
+          name: portal_auth_cluster
+          type: LOGICAL_DNS
+          connect_timeout: 1s
+          load_assignment:
+            cluster_name: portal_auth_cluster
+            endpoints:
+              - lb_endpoints:
+                  - endpoint:
+                      address:
+                        socket_address:
+                          address: "{{ .Values.portalAuth.clusterHost }}"
+                          port_value: {{ .Values.portalAuth.clusterPort }}
+
+    {{- if $portalAuthMTLSEnabled }}
+    # This distinct cluster prevents a non-atomic xDS update from sending an
+    # identity token over the legacy plaintext ownership cluster.
+    - applyTo: CLUSTER
+      match:
+        context: GATEWAY
+      patch:
+        operation: ADD
+        value:
+          name: portal_auth_mtls_cluster
+          type: LOGICAL_DNS
+          connect_timeout: 1s
+          load_assignment:
+            cluster_name: portal_auth_mtls_cluster
+            endpoints:
+              - lb_endpoints:
+                  - endpoint:
+                      address:
+                        socket_address:
+                          address: "{{ .Values.portalAuth.clusterHost }}"
+                          port_value: {{ .Values.portalAuth.clusterPort }}
+          transport_socket:
+            name: envoy.transport_sockets.tls
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+              common_tls_context:
+                tls_params:
+                  tls_minimum_protocol_version: TLSv1_2
+                  tls_maximum_protocol_version: TLSv1_3
+                alpn_protocols:
+                  - istio-peer-exchange
+                  - istio
+                tls_certificate_sds_secret_configs:
+                  - name: default
+                    sds_config:
+                      api_config_source:
+                        api_type: GRPC
+                        grpc_services:
+                          - envoy_grpc:
+                              cluster_name: sds-grpc
+                        set_node_on_first_message_only: true
+                        transport_api_version: V3
+                      initial_fetch_timeout: 0s
+                      resource_api_version: V3
+                combined_validation_context:
+                  default_validation_context:
+                    match_subject_alt_names:
+                      - exact: {{ $portalAuthServerIdentity | quote }}
+                  validation_context_sds_secret_config:
+                    name: ROOTCA
+                    sds_config:
+                      api_config_source:
+                        api_type: GRPC
+                        grpc_services:
+                          - envoy_grpc:
+                              cluster_name: sds-grpc
+                        set_node_on_first_message_only: true
+                        transport_api_version: V3
+                      initial_fetch_timeout: 0s
+                      resource_api_version: V3
+              sni: {{ printf "outbound_.%v_._.%s" .Values.portalAuth.clusterPort .Values.portalAuth.clusterHost | quote }}
+    {{- end }}
+
+    # HTTP filter: path-based ownership check
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          portNumber: 443
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+              subFilter:
+                name: envoy.filters.http.router
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: cetirun.ownership_check
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
+            inline_code: |
+              local EXEMPT_EXACT_PATHS = {"/healthz", "/readyz", "/favicon.ico", "/connections", "/connections/"}
+              local EXEMPT_PATH_PREFIXES = {"/oauth2", "/api", "/internal", "/assets", "/instances", "/admin"}
+              local APEX_POST_BYPASS_PATHS = {
+              {{- range .Values.authPolicy.apexPostBypassPaths }}
+                "{{ . }}",
+              {{- end }}
+              }
+              local OAUTH_CALLBACK_PATH = {{ .Values.authPolicy.oauthCallbackPath | default "" | toJson }}
+              local SHARED_HOST_PREFIXES = {
+              {{- range .Values.authPolicy.aliasExemptPrefixes }}
+                "{{ . }}",
+              {{- end }}
+              }
+              local PORTAL_DOMAIN = "{{ .Values.domain | lower }}"
+              local PORTAL_COOKIE_NAME = "_cetirun_oauth2"
+              local AGENT_API_KEY_HEADER = "x-cetirun-agent-api-key"
+              local PORTAL_AUTH_MTLS_ENABLED = {{ $portalAuthMTLSEnabled }}
+              local PORTAL_AUTH_CLUSTER = {{ if $portalAuthMTLSEnabled }}"portal_auth_mtls_cluster"{{ else }}"portal_auth_cluster"{{ end }}
+
+              -- The Portal session cookie, its chunks, and OAuth2 Proxy's
+              -- sign-in (CSRF) cookies, one per sign-in in progress.
+              function is_portal_cookie_name(name)
+                if not name then return false end
+                return name == PORTAL_COOKIE_NAME or
+                  name:match("^" .. PORTAL_COOKIE_NAME .. "_%d+$") ~= nil or
+                  name:match("^" .. PORTAL_COOKIE_NAME .. "_[%w_%-]*csrf$") ~= nil
+              end
+
+              function strip_portal_session_cookie(request_handle)
+                local headers = request_handle:headers()
+                local cookie_header = headers:get("cookie")
+                if not cookie_header or cookie_header == "" then return end
+                local retained = {}
+                local removed = false
+                for item in cookie_header:gmatch("[^;]+") do
+                  local cookie = item:match("^%s*(.-)%s*$")
+                  local name = cookie:match("^([^=]+)=")
+                  if name then name = name:match("^%s*(.-)%s*$") end
+                  if is_portal_cookie_name(name) then
+                    removed = true
+                  elseif cookie ~= "" then
+                    table.insert(retained, cookie)
+                  end
+                end
+                if not removed then return end
+                if #retained == 0 then
+                  headers:remove("cookie")
+                else
+                  headers:replace("cookie", table.concat(retained, "; "))
+                end
+              end
+
+              function is_native_agent_api_path(path, authority)
+                if request_host(authority) == PORTAL_DOMAIN then
+                  return path:match("^/ui/[^/]+/v1/models$") ~= nil or
+                    path:match("^/ui/[^/]+/v1/chat/completions$") ~= nil
+                end
+                return path == "/v1/models" or path == "/v1/chat/completions"
+              end
+
+              function is_native_ui_path(path, authority)
+                return request_host(authority) == PORTAL_DOMAIN and
+                  path:match("^/ui/[^/]+/") ~= nil
+              end
+
+              -- The Authorization header the client sent, before ext-auth
+              -- replaced it. The security headers filter records it.
+              function client_authorization(request_handle)
+                local meta = request_handle:streamInfo():dynamicMetadata():get("cetirun")
+                local value = meta and meta["client_authorization"]
+                if type(value) ~= "string" or value == "" then return nil end
+                return value
+              end
+
+              function bearer_token(value)
+                if not value then return nil end
+                return value:match("^%s*[Bb][Ee][Aa][Rr][Ee][Rr]%s+(%S+)%s*$")
+              end
+
+              function same_credential(a, b)
+                if not a or not b then return false end
+                if a == b then return true end
+                local token = bearer_token(a)
+                return token ~= nil and token == bearer_token(b)
+              end
+
+              -- OAuth2 Proxy replaces Authorization with the validated ID
+              -- token after ext-auth. The internal Portal endpoint accepts it
+              -- only on its dedicated header, not as workload credentials.
+              function trusted_portal_identity_token(value)
+                if not value then return nil end
+                if value:match("^Bearer%s+%S+$") then return value end
+                return nil
+              end
+
+              function request_host(authority)
+                local value = (authority or ""):lower()
+                local host = value:match("^([^:]+)$")
+                if not host then host = value:match("^([^:]+):%d+$") end
+                if not host then return "" end
+                if host:sub(-1) == "." then host = host:sub(1, -2) end
+                return host
+              end
+
+              function legacy_instance_name(authority)
+                local host = request_host(authority)
+                local suffix = "." .. PORTAL_DOMAIN
+                if host == PORTAL_DOMAIN or host:sub(-#suffix) ~= suffix then return nil end
+                local instance = host:sub(1, #host - #suffix)
+                if instance:find("%.") or not (
+                  instance:match("^[a-z0-9]$") or
+                  instance:match("^[a-z0-9][a-z0-9-]*[a-z0-9]$")
+                ) then return nil end
+                return instance
+              end
+
+              function is_shared_host(authority)
+                local host = request_host(authority)
+                for _, prefix in ipairs(SHARED_HOST_PREFIXES) do
+                  if host == prefix .. "." .. PORTAL_DOMAIN then return true end
+                end
+                return false
+              end
+
+              function has_path_segment_prefix(path, prefix)
+                return path == prefix or path:sub(1, #prefix + 1) == prefix .. "/"
+              end
+
+              function valid_instance_key(key)
+                return key and #key <= 128 and key:match("^[A-Za-z0-9_+/=-]+$") ~= nil
+              end
+
+              function forward_native_agent_api_key(request_handle, path, authority)
+                local headers = request_handle:headers()
+                local api_key = headers:get(AGENT_API_KEY_HEADER)
+                -- After ext-auth, Authorization carries the user's ID token.
+                local identity_token = headers:get("authorization")
+                headers:remove(AGENT_API_KEY_HEADER)
+                headers:remove("authorization")
+                if is_native_agent_api_path(path, authority) and valid_instance_key(api_key) then
+                  headers:replace("authorization", "Bearer " .. api_key)
+                elseif is_native_ui_path(path, authority) and not is_native_agent_api_path(path, authority) then
+                  -- Native Agent UIs, such as the OpenClaw Control UI,
+                  -- authenticate their own HTTP requests with Authorization.
+                  -- Restore the value the browser sent, unless OAuth2 Proxy
+                  -- accepted that credential as the user's identity. The
+                  -- native Agent API keeps its dedicated header only.
+                  local client = client_authorization(request_handle)
+                  if client and not same_credential(client, identity_token) then
+                    headers:replace("authorization", client)
+                  end
+                end
+              end
+
+              function is_exempt(path, authority)
+                if is_shared_host(authority) then return true end
+                if request_host(authority) ~= PORTAL_DOMAIN then
+                  return false
+                end
+                if path == "/" or path == "" then return true end
+                for _, exact_path in ipairs(EXEMPT_EXACT_PATHS) do
+                  if path == exact_path then return true end
+                end
+                -- Portal subtrees match only at a complete path-segment boundary.
+                -- Otherwise a valid instance such as healthz-demo or admin-tools
+                -- could bypass ownership verification and credential isolation.
+                for _, prefix in ipairs(EXEMPT_PATH_PREFIXES) do
+                  if has_path_segment_prefix(path, prefix) then return true end
+                end
+                return false
+              end
+
+              function is_anonymous_apex_bypass(path, method, authority)
+                if request_host(authority) ~= PORTAL_DOMAIN then return false end
+                if OAUTH_CALLBACK_PATH ~= "" and path == OAUTH_CALLBACK_PATH and (method == "GET" or method == "POST") then return true end
+                if path:match("^/oauth2/") or path == "/healthz" or path == "/readyz" then
+                  return true
+                end
+                if method ~= "POST" then return false end
+                for _, exact_path in ipairs(APEX_POST_BYPASS_PATHS) do
+                  if path == exact_path then return true end
+                end
+                return false
+              end
+
+              function envoy_on_request(request_handle)
+                local path = request_handle:headers():get(":path") or "/"
+                local method = request_handle:headers():get(":method") or ""
+                local authority = request_handle:headers():get(":authority") or ""
+                -- Strip query string for path matching
+                local path_only = path:match("^([^?]+)") or "/"
+
+                -- This filter runs after ext-auth (the X-Auth-Request-* headers
+                -- above are ext-auth response headers). Never trust a client-
+                -- supplied Portal token header. For Portal routes, move the
+                -- oauth2-proxy ID token out of Authorization; for Agent routes,
+                -- remove it before the router selects an instance workload.
+                request_handle:headers():remove("x-cetirun-portal-id-token")
+                -- The AI Gateway console under /ai-gateway/ is no Agent
+                -- instance and signs users in itself; ext-auth has already
+                -- required the Entra sign-in. Skip the ownership check, keep
+                -- Portal session cookies away from it, and restore the
+                -- browser's own Authorization, which the console sends on
+                -- its API calls.
+                if request_host(authority) == PORTAL_DOMAIN and has_path_segment_prefix(path_only, "/ai-gateway") then
+                  local identity_token = request_handle:headers():get("authorization")
+                  request_handle:headers():remove("authorization")
+                  request_handle:headers():remove(AGENT_API_KEY_HEADER)
+                  strip_portal_session_cookie(request_handle)
+                  local client = client_authorization(request_handle)
+                  if client and not same_credential(client, identity_token) then
+                    request_handle:headers():replace("authorization", client)
+                  end
+                  return
+                end
+                if is_exempt(path_only, authority) then
+                  if request_host(authority) == PORTAL_DOMAIN then
+                    if not is_anonymous_apex_bypass(path_only, method, authority) then
+                      local id_token = request_handle:headers():get("authorization")
+                      if id_token and id_token ~= "" then
+                        request_handle:headers():replace("x-cetirun-portal-id-token", id_token)
+                      end
+                    end
+                    request_handle:headers():remove("authorization")
+                    request_handle:headers():remove(AGENT_API_KEY_HEADER)
+                  else
+                    -- Shared service hosts have their own authentication
+                    -- contract. Never reinterpret their Authorization header
+                    -- as a Portal identity.
+                    request_handle:headers():remove(AGENT_API_KEY_HEADER)
+                  end
+                  return
+                end
+
+                -- Native agent UIs are namespaced below /ui/<instance>/.
+                -- All other instance services (terminal and desktop)
+                -- retain the instance name as their first path segment.
+                local host = request_host(authority)
+                local instance_name = nil
+                if host == PORTAL_DOMAIN then
+                  instance_name = path_only:match("^/ui/([^/]+)")
+                  if not instance_name then
+                    instance_name = path_only:match("^/([^/]+)")
+                  end
+                else
+                  instance_name = legacy_instance_name(authority)
+                  if not instance_name then
+                    request_handle:respond({[":status"] = "403"}, "Forbidden: invalid instance host")
+                    return
+                  end
+                end
+                if not instance_name or instance_name == "" then
+                  -- Do not let credentials reach a fallback route when a
+                  -- non-exempt request has no valid instance path segment.
+                  request_handle:headers():remove("authorization")
+                  request_handle:headers():remove(AGENT_API_KEY_HEADER)
+                  return
+                end
+
+                -- Extract both alias (email local part) and full email for ownership check.
+                -- Directory aliases do not always equal the email local part, so the
+                -- Portal accepts either verified representation.
+                local email = request_handle:headers():get("x-auth-request-email") or ""
+                if email == "" then
+                  email = request_handle:headers():get("x-auth-request-preferred-username") or ""
+                end
+                if email == "" then
+                  request_handle:respond({[":status"] = "403"}, "Forbidden: no identity")
+                  return
+                end
+                local alias = email:match("^([^@]+)") or ""
+
+                -- Call Portal ownership check.  The Authorization header at
+                -- this point was set by ext-auth to its validated ID token;
+                -- send it only to Portal's purpose-specific internal header.
+                -- It is never forwarded to an Agent workload.
+                local internal_auth_headers = {
+                  [":method"] = "GET",
+                  [":path"] = "{{ .Values.portalAuth.path }}",
+                  [":authority"] = "{{ .Values.portalAuth.clusterHost }}",
+                  ["x-internal-instance"] = instance_name,
+                  ["x-internal-alias"] = alias,
+                  ["x-internal-email"] = email,
+                }
+                if PORTAL_AUTH_MTLS_ENABLED then
+                  local identity_token = trusted_portal_identity_token(
+                    request_handle:headers():get("authorization"))
+                  if identity_token then
+                    internal_auth_headers["x-cetirun-portal-id-token"] = identity_token
+                  end
+                end
+                local headers, body = request_handle:httpCall(
+                  PORTAL_AUTH_CLUSTER,
+                  internal_auth_headers,
+                  "",
+                  5000
+                )
+                local status = headers and headers[":status"] or "500"
+                if status ~= "200" then
+                  request_handle:respond({[":status"] = "403"}, "Forbidden: " .. email .. " does not own " .. instance_name)
+                  return
+                end
+                -- Portal authentication is complete and ownership has been
+                -- verified. Remove only the Portal session and sign-in cookies
+                -- before routing to the instance; preserve cookies owned by the
+                -- Agent UI.
+                strip_portal_session_cookie(request_handle)
+                -- OAuth2 Proxy owns Authorization. Restore a workload bearer
+                -- from its purpose-specific transport header, or the browser's
+                -- own Authorization on a native Agent UI route, only after the
+                -- ownership check succeeds and only on its exact route family.
+                forward_native_agent_api_key(request_handle, path_only, authority)
+              end

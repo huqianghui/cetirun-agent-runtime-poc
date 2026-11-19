@@ -1,0 +1,3559 @@
+{
+  "sourceCommit": "6414494154151b2daf74d39d1e989ebeb7ea5020",
+  "description": "Synthetic old native runtime and receipt. The test hydrates only deterministic dummy Secret values and the empty-render checksum; no live cluster or credentials.",
+  "objectsSHA256": "eca2f123cceac637bf790def870da10aa97d23d2e0b1306ffc34d7b1842da0bc",
+  "revision": "77d5eda0888ff542218ee0054ba4bd1c710248b37ec6461939c423e0889906df",
+  "stateName": "sandbox-pod-3efb8338a42ec533e40ccc3d93efa116da2b45e4",
+  "receiptName": "sandbox-preparation-b5dd89d53043a9b43f4dc5744599ee048d9ec7dc",
+  "stageDigest": "13546fd0f0dd62fab7b295f92193634884b9a438388b409a724044428d9f1f0d",
+  "gatewayKeys": {
+    "63ee5b338a8b42c01be7991d0b62e66df6eac9f988f2cf6ae2a0f8f3c7331845": {
+      "Alias": "cetirun-example-agent-uid",
+      "Models": [
+        "cetirun-model-test-shared"
+      ],
+      "MaxBudget": 10,
+      "BudgetDuration": "1mo",
+      "Blocked": false,
+      "Spend": null,
+      "BudgetResetAt": null,
+      "TeamID": "cetirun-team-team-example",
+      "UserID": "example"
+    }
+  },
+  "objects": [
+    {
+      "apiVersion": "cilium.io/v2",
+      "kind": "CiliumNetworkPolicy",
+      "metadata": {
+        "annotations": {
+          "sandbox.cetirun.microsoft.com/binding": "{\"agentUID\":\"agent-uid\",\"teamUID\":\"team-uid\",\"sandboxUID\":\"sandbox-uid\",\"agentPolicyUID\":\"policy-uid\"}",
+          "sandbox.cetirun.microsoft.com/revision": "77d5eda0888ff542218ee0054ba4bd1c710248b37ec6461939c423e0889906df"
+        },
+        "labels": {
+          "sandbox.cetirun.microsoft.com/agent-uid": "agent-uid"
+        },
+        "name": "sandbox-2df65b1032bf78556f102b437fc53632",
+        "namespace": "cetirun-example",
+        "ownerReferences": [
+          {
+            "apiVersion": "cetirun.microsoft.com/v1alpha1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "Agent",
+            "name": "example",
+            "uid": "agent-uid"
+          }
+        ],
+        "resourceVersion": "1",
+        "uid": "native-synthetic-16"
+      },
+      "spec": {
+        "egress": [
+          {
+            "toCIDRSet": [
+              {
+                "cidr": "0.0.0.0/0",
+                "except": [
+                  "0.0.0.0/8",
+                  "10.0.0.0/8",
+                  "10.1.0.0/16",
+                  "10.244.0.0/16",
+                  "10.96.0.0/12",
+                  "100.64.0.0/10",
+                  "127.0.0.0/8",
+                  "168.63.129.16/32",
+                  "169.254.0.0/16",
+                  "169.254.169.254/32",
+                  "172.16.0.0/12",
+                  "192.168.0.0/16",
+                  "224.0.0.0/4",
+                  "240.0.0.0/4"
+                ]
+              }
+            ]
+          },
+          {
+            "toCIDRSet": [
+              {
+                "cidr": "10.96.0.10/32"
+              }
+            ],
+            "toPorts": [
+              {
+                "ports": [
+                  {
+                    "port": "53",
+                    "protocol": "TCP"
+                  },
+                  {
+                    "port": "53",
+                    "protocol": "UDP"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "toCIDRSet": [
+              {
+                "cidr": "10.96.1.50/32"
+              }
+            ],
+            "toPorts": [
+              {
+                "ports": [
+                  {
+                    "port": "4000",
+                    "protocol": "TCP"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "toEndpoints": [
+              {
+                "matchLabels": {
+                  "k8s:io.kubernetes.pod.namespace": "cetirun-system",
+                  "k8s:sandbox.cetirun.microsoft.com/peer-uid": "gateway-uid"
+                }
+              }
+            ],
+            "toPorts": [
+              {
+                "ports": [
+                  {
+                    "port": "4000",
+                    "protocol": "TCP"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "toEndpoints": [
+              {
+                "matchLabels": {
+                  "k8s:io.kubernetes.pod.namespace": "kube-system",
+                  "k8s:sandbox.cetirun.microsoft.com/peer-uid": "dns-uid"
+                }
+              }
+            ],
+            "toPorts": [
+              {
+                "ports": [
+                  {
+                    "port": "53",
+                    "protocol": "TCP"
+                  },
+                  {
+                    "port": "53",
+                    "protocol": "UDP"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "egressDeny": [
+          {
+            "toCIDRSet": [
+              {
+                "cidr": "0.0.0.0/0",
+                "except": [
+                  "10.96.0.10/32"
+                ]
+              }
+            ],
+            "toPorts": [
+              {
+                "ports": [
+                  {
+                    "port": "53",
+                    "protocol": "TCP"
+                  },
+                  {
+                    "port": "53",
+                    "protocol": "UDP"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "toCIDRSet": [
+              {
+                "cidr": "0.0.0.0/8"
+              },
+              {
+                "cidr": "10.1.0.0/16"
+              },
+              {
+                "cidr": "127.0.0.0/8"
+              },
+              {
+                "cidr": "168.63.129.16/32"
+              },
+              {
+                "cidr": "169.254.0.0/16"
+              },
+              {
+                "cidr": "169.254.169.254/32"
+              },
+              {
+                "cidr": "192.168.0.0/16"
+              },
+              {
+                "cidr": "224.0.0.0/4"
+              },
+              {
+                "cidr": "240.0.0.0/4"
+              }
+            ]
+          },
+          {
+            "toCIDRSet": [
+              {
+                "cidr": "0.0.0.0/8"
+              }
+            ]
+          },
+          {
+            "toCIDRSet": [
+              {
+                "cidr": "10.0.0.0/8",
+                "except": [
+                  "10.96.0.10/32",
+                  "10.96.1.50/32"
+                ]
+              }
+            ]
+          },
+          {
+            "toCIDRSet": [
+              {
+                "cidr": "10.1.0.0/16"
+              }
+            ]
+          },
+          {
+            "toCIDRSet": [
+              {
+                "cidr": "10.244.0.0/16"
+              }
+            ]
+          },
+          {
+            "toCIDRSet": [
+              {
+                "cidr": "10.96.0.0/12",
+                "except": [
+                  "10.96.0.10/32",
+                  "10.96.1.50/32"
+                ]
+              }
+            ]
+          },
+          {
+            "toCIDRSet": [
+              {
+                "cidr": "10.96.0.10/32"
+              }
+            ],
+            "toPorts": [
+              {
+                "ports": [
+                  {
+                    "endPort": 52,
+                    "port": "1",
+                    "protocol": "TCP"
+                  },
+                  {
+                    "endPort": 65535,
+                    "port": "54",
+                    "protocol": "TCP"
+                  },
+                  {
+                    "endPort": 52,
+                    "port": "1",
+                    "protocol": "UDP"
+                  },
+                  {
+                    "endPort": 65535,
+                    "port": "54",
+                    "protocol": "UDP"
+                  },
+                  {
+                    "endPort": 65535,
+                    "port": "1",
+                    "protocol": "SCTP"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "toCIDRSet": [
+              {
+                "cidr": "10.96.1.50/32"
+              }
+            ],
+            "toPorts": [
+              {
+                "ports": [
+                  {
+                    "endPort": 3999,
+                    "port": "1",
+                    "protocol": "TCP"
+                  },
+                  {
+                    "endPort": 65535,
+                    "port": "4001",
+                    "protocol": "TCP"
+                  },
+                  {
+                    "endPort": 65535,
+                    "port": "1",
+                    "protocol": "UDP"
+                  },
+                  {
+                    "endPort": 65535,
+                    "port": "1",
+                    "protocol": "SCTP"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "toCIDRSet": [
+              {
+                "cidr": "100.64.0.0/10"
+              }
+            ]
+          },
+          {
+            "toCIDRSet": [
+              {
+                "cidr": "127.0.0.0/8"
+              }
+            ]
+          },
+          {
+            "toCIDRSet": [
+              {
+                "cidr": "168.63.129.16/32"
+              }
+            ]
+          },
+          {
+            "toCIDRSet": [
+              {
+                "cidr": "169.254.0.0/16"
+              }
+            ]
+          },
+          {
+            "toCIDRSet": [
+              {
+                "cidr": "169.254.169.254/32"
+              }
+            ]
+          },
+          {
+            "toCIDRSet": [
+              {
+                "cidr": "172.16.0.0/12"
+              }
+            ]
+          },
+          {
+            "toCIDRSet": [
+              {
+                "cidr": "192.168.0.0/16"
+              }
+            ]
+          },
+          {
+            "toCIDRSet": [
+              {
+                "cidr": "224.0.0.0/4"
+              }
+            ]
+          },
+          {
+            "toCIDRSet": [
+              {
+                "cidr": "240.0.0.0/4"
+              }
+            ]
+          },
+          {
+            "toEndpoints": [
+              {
+                "matchExpressions": [
+                  {
+                    "key": "k8s:io.kubernetes.pod.namespace",
+                    "operator": "Exists"
+                  },
+                  {
+                    "key": "k8s:sandbox.cetirun.microsoft.com/peer-uid",
+                    "operator": "NotIn",
+                    "values": [
+                      "dns-uid",
+                      "gateway-uid"
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "toEndpoints": [
+              {
+                "matchExpressions": [
+                  {
+                    "key": "k8s:io.kubernetes.pod.namespace",
+                    "operator": "Exists"
+                  },
+                  {
+                    "key": "k8s:sandbox.cetirun.microsoft.com/peer-uid",
+                    "operator": "NotIn",
+                    "values": [
+                      "dns-uid"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "toPorts": [
+              {
+                "ports": [
+                  {
+                    "port": "53",
+                    "protocol": "TCP"
+                  },
+                  {
+                    "port": "53",
+                    "protocol": "UDP"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "toEndpoints": [
+              {
+                "matchLabels": {
+                  "k8s:io.kubernetes.pod.namespace": "cetirun-system",
+                  "k8s:sandbox.cetirun.microsoft.com/peer-uid": "gateway-uid"
+                }
+              }
+            ],
+            "toPorts": [
+              {
+                "ports": [
+                  {
+                    "endPort": 3999,
+                    "port": "1",
+                    "protocol": "TCP"
+                  },
+                  {
+                    "endPort": 65535,
+                    "port": "4001",
+                    "protocol": "TCP"
+                  },
+                  {
+                    "endPort": 65535,
+                    "port": "1",
+                    "protocol": "UDP"
+                  },
+                  {
+                    "endPort": 65535,
+                    "port": "1",
+                    "protocol": "SCTP"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "toEndpoints": [
+              {
+                "matchLabels": {
+                  "k8s:io.kubernetes.pod.namespace": "kube-system",
+                  "k8s:sandbox.cetirun.microsoft.com/peer-uid": "dns-uid"
+                }
+              }
+            ],
+            "toPorts": [
+              {
+                "ports": [
+                  {
+                    "endPort": 52,
+                    "port": "1",
+                    "protocol": "TCP"
+                  },
+                  {
+                    "endPort": 65535,
+                    "port": "54",
+                    "protocol": "TCP"
+                  },
+                  {
+                    "endPort": 52,
+                    "port": "1",
+                    "protocol": "UDP"
+                  },
+                  {
+                    "endPort": 65535,
+                    "port": "54",
+                    "protocol": "UDP"
+                  },
+                  {
+                    "endPort": 65535,
+                    "port": "1",
+                    "protocol": "SCTP"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "toEndpoints": [
+              {
+                "matchExpressions": [
+                  {
+                    "key": "k8s:io.kubernetes.pod.namespace",
+                    "operator": "NotIn",
+                    "values": [
+                      "kube-system"
+                    ]
+                  }
+                ],
+                "matchLabels": {
+                  "k8s:sandbox.cetirun.microsoft.com/peer-uid": "dns-uid"
+                }
+              }
+            ],
+            "toPorts": [
+              {
+                "ports": [
+                  {
+                    "port": "53",
+                    "protocol": "TCP"
+                  },
+                  {
+                    "port": "53",
+                    "protocol": "UDP"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "toEndpoints": [
+              {
+                "matchExpressions": [
+                  {
+                    "key": "k8s:io.kubernetes.pod.namespace",
+                    "operator": "NotIn",
+                    "values": [
+                      "kube-system"
+                    ]
+                  }
+                ],
+                "matchLabels": {
+                  "k8s:sandbox.cetirun.microsoft.com/peer-uid": "dns-uid"
+                }
+              }
+            ]
+          },
+          {
+            "toEndpoints": [
+              {
+                "matchExpressions": [
+                  {
+                    "key": "k8s:io.kubernetes.pod.namespace",
+                    "operator": "NotIn",
+                    "values": [
+                      "cetirun-system"
+                    ]
+                  }
+                ],
+                "matchLabels": {
+                  "k8s:sandbox.cetirun.microsoft.com/peer-uid": "gateway-uid"
+                }
+              }
+            ]
+          },
+          {
+            "toEntities": [
+              "host",
+              "remote-node"
+            ]
+          }
+        ],
+        "enableDefaultDeny": {
+          "egress": true,
+          "ingress": true
+        },
+        "endpointSelector": {
+          "matchLabels": {
+            "k8s:io.kubernetes.pod.namespace": "cetirun-example",
+            "k8s:sandbox.cetirun.microsoft.com/agent-uid": "agent-uid"
+          }
+        },
+        "ingress": [
+          {
+            "fromEndpoints": [
+              {
+                "matchLabels": {
+                  "k8s:io.kubernetes.pod.namespace": "platform",
+                  "k8s:sandbox.cetirun.microsoft.com/peer-uid": "ingress-uid"
+                }
+              }
+            ],
+            "toPorts": [
+              {
+                "ports": [
+                  {
+                    "port": "18789",
+                    "protocol": "TCP"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "ingressDeny": [
+          {
+            "fromEndpoints": [
+              {
+                "matchExpressions": [
+                  {
+                    "key": "k8s:io.kubernetes.pod.namespace",
+                    "operator": "Exists"
+                  },
+                  {
+                    "key": "k8s:sandbox.cetirun.microsoft.com/peer-uid",
+                    "operator": "NotIn",
+                    "values": [
+                      "ingress-uid"
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "fromEndpoints": [
+              {
+                "matchLabels": {
+                  "k8s:io.kubernetes.pod.namespace": "platform",
+                  "k8s:sandbox.cetirun.microsoft.com/peer-uid": "ingress-uid"
+                }
+              }
+            ],
+            "toPorts": [
+              {
+                "ports": [
+                  {
+                    "endPort": 18788,
+                    "port": "1",
+                    "protocol": "TCP"
+                  },
+                  {
+                    "endPort": 65535,
+                    "port": "18790",
+                    "protocol": "TCP"
+                  },
+                  {
+                    "endPort": 65535,
+                    "port": "1",
+                    "protocol": "UDP"
+                  },
+                  {
+                    "endPort": 65535,
+                    "port": "1",
+                    "protocol": "SCTP"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "fromEndpoints": [
+              {
+                "matchExpressions": [
+                  {
+                    "key": "k8s:io.kubernetes.pod.namespace",
+                    "operator": "NotIn",
+                    "values": [
+                      "platform"
+                    ]
+                  }
+                ],
+                "matchLabels": {
+                  "k8s:sandbox.cetirun.microsoft.com/peer-uid": "ingress-uid"
+                }
+              }
+            ]
+          },
+          {
+            "fromEntities": [
+              "world",
+              "host",
+              "remote-node"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "kind": "Agent",
+      "apiVersion": "cetirun.microsoft.com/v1alpha1",
+      "metadata": {
+        "name": "example",
+        "uid": "agent-uid",
+        "resourceVersion": "16",
+        "generation": 1,
+        "annotations": {
+          "cetirun.microsoft.com/sandbox-authorization": "{\"version\":\"v1\",\"team\":{\"name\":\"team-example\",\"uid\":\"team-uid\"},\"sandbox\":{\"name\":\"sandbox-example\",\"uid\":\"sandbox-uid\"},\"agentPolicy\":{\"name\":\"policy-example\",\"uid\":\"policy-uid\"}}"
+        },
+        "finalizers": [
+          "cetirun.microsoft.com/finalizer",
+          "cetirun.microsoft.com/sandbox-bootstrap",
+          "cetirun.microsoft.com/sandbox-preparation"
+        ]
+      },
+      "spec": {
+        "agent": {
+          "type": "openclaw",
+          "image": "registry.example.com/openclaw-gateway:0.1.1",
+          "port": 18789
+        },
+        "user": {
+          "alias": "example",
+          "displayName": "Example"
+        },
+        "team": "team-example",
+        "sandboxRef": "sandbox-example",
+        "modelAccess": {
+          "sharedModels": true,
+          "githubCopilot": false
+        },
+        "skillOverrides": {},
+        "gatewayTokenSecretRef": "runtime-secret",
+        "helm": {
+          "version": "0.1.1"
+        }
+      },
+      "status": {
+        "conditions": [
+          {
+            "type": "PolicyResolved",
+            "status": "True",
+            "lastTransitionTime": "2026-10-13T04:11:20Z",
+            "reason": "EffectivePolicyResolved",
+            "message": "The Team selection, requests, Sandbox, and effective AgentPolicy are valid"
+          },
+          {
+            "type": "PolicyApplied",
+            "status": "True",
+            "lastTransitionTime": "2026-10-13T04:11:21Z",
+            "reason": "RequiredEnforcementVerified",
+            "message": "Every required policy revision matches component evidence"
+          },
+          {
+            "type": "Ready",
+            "status": "True",
+            "observedGeneration": 1,
+            "lastTransitionTime": "2026-10-13T04:11:21Z",
+            "reason": "NativeSandboxReady",
+            "message": "The supported native workload is Ready and its Kubernetes configuration matches; physical failover fencing is not provided."
+          },
+          {
+            "type": "SandboxReady",
+            "status": "True",
+            "observedGeneration": 1,
+            "lastTransitionTime": "2026-10-13T04:11:21Z",
+            "reason": "NativeSandboxReady",
+            "message": "The supported native workload is Ready and its Kubernetes configuration matches; physical failover fencing is not provided."
+          },
+          {
+            "type": "AgentConfigReady",
+            "status": "True",
+            "observedGeneration": 1,
+            "lastTransitionTime": "2026-10-13T04:11:21Z",
+            "reason": "SandboxPrepared",
+            "message": "Native resources are prepared at zero replicas for the supported single-start profile."
+          },
+          {
+            "type": "AIGatewayReady",
+            "status": "True",
+            "lastTransitionTime": "2026-10-13T04:11:20Z",
+            "reason": "VirtualKeyReady",
+            "message": "AI Gateway virtual key is ready"
+          },
+          {
+            "type": "IngressReady",
+            "status": "True",
+            "observedGeneration": 1,
+            "lastTransitionTime": "2026-10-13T04:11:21Z",
+            "reason": "NativeSandboxReady",
+            "message": "The supported native workload is Ready and its Kubernetes configuration matches; physical failover fencing is not provided."
+          }
+        ],
+        "phase": "Ready",
+        "accessUrl": "https://example.com/ui/example/",
+        "observedGeneration": 1,
+        "aiGateway": {
+          "phase": "Ready",
+          "keyAlias": "cetirun-example-agent-uid",
+          "keyId": "63ee5b338a8b",
+          "keySecretName": "ai-gateway-virtual-key",
+          "accessGroups": [
+            "cetirun-model-test-shared"
+          ],
+          "team": "cetirun-team-team-example",
+          "models": [
+            "gpt-6-sol"
+          ],
+          "defaultModel": "gpt-6-sol",
+          "routed": true,
+          "observedGeneration": 1,
+          "lastVerifiedTime": "2026-10-13T04:11:20Z",
+          "budgetUSD": "10",
+          "budgetDuration": "1mo",
+          "policyRevision": "sha256:f2c9119c620aeeb96422f0c8e5cf412fbcdd9b747699cd5137fdbc803e54b453",
+          "pricingRevision": "sha256:5bdfe4337b2c1342abd1930672ab0ad6b34d973331fb4f53292192ed2c2b5da0"
+        },
+        "sandbox": {
+          "teamUID": "team-uid",
+          "sandboxUID": "sandbox-uid",
+          "agentPolicyUID": "policy-uid",
+          "appliedRevision": "77d5eda0888ff542218ee0054ba4bd1c710248b37ec6461939c423e0889906df"
+        },
+        "policy": {
+          "phase": "Applied",
+          "observedGeneration": 1,
+          "effectivePolicyRef": {
+            "name": "policy-example",
+            "uid": "policy-uid",
+            "generation": 1
+          },
+          "enforcement": {
+            "sandbox": {
+              "desiredRevision": "77d5eda0888ff542218ee0054ba4bd1c710248b37ec6461939c423e0889906df"
+            },
+            "gateway": {
+              "desiredRevision": "sha256:f2c9119c620aeeb96422f0c8e5cf412fbcdd9b747699cd5137fdbc803e54b453"
+            },
+            "credential": {
+              "desiredRevision": "sha256:d7a7ee73b36ba0d219cf2f2e916fdabcd6c8906185221fa2c39d91ea62eccbed"
+            }
+          }
+        }
+      }
+    },
+    {
+      "kind": "AgentPolicy",
+      "apiVersion": "cetirun.microsoft.com/v1alpha1",
+      "metadata": {
+        "name": "gateway-test-policy",
+        "resourceVersion": "999",
+        "generation": 1
+      },
+      "spec": {
+        "harnesses": {
+          "allowed": [
+            "openclaw",
+            "hermes"
+          ]
+        },
+        "skills": {},
+        "modelAccess": {
+          "copilot": {
+            "allowed": true
+          },
+          "sharedModels": {
+            "allowed": [
+              "gpt-6-sol"
+            ]
+          },
+          "gatewayBudget": {
+            "defaultMonthlyUSD": "10",
+            "maxMonthlyUSD": "100"
+          }
+        },
+        "agentIdentity": {},
+        "entraID": {},
+        "sandboxSelection": {},
+        "security": {},
+        "network": {
+          "ingress": {}
+        }
+      },
+      "status": {
+        "observedGeneration": 1,
+        "conditions": [
+          {
+            "type": "Accepted",
+            "status": "True",
+            "observedGeneration": 1,
+            "lastTransitionTime": null,
+            "reason": "",
+            "message": ""
+          }
+        ]
+      }
+    },
+    {
+      "kind": "AgentPolicy",
+      "apiVersion": "cetirun.microsoft.com/v1alpha1",
+      "metadata": {
+        "name": "policy-example",
+        "uid": "policy-uid",
+        "resourceVersion": "1",
+        "generation": 1
+      },
+      "spec": {
+        "harnesses": {
+          "allowed": [
+            "hermes",
+            "openclaw"
+          ]
+        },
+        "skills": {
+          "allowed": [
+            "example-skill"
+          ]
+        },
+        "modelAccess": {
+          "copilot": {},
+          "sharedModels": {
+            "allowed": [
+              "gpt-6-sol"
+            ]
+          },
+          "gatewayBudget": {
+            "defaultMonthlyUSD": "10",
+            "maxMonthlyUSD": "100"
+          }
+        },
+        "agentIdentity": {},
+        "entraID": {},
+        "sandboxSelection": {},
+        "security": {
+          "readOnlyRootFilesystem": true
+        },
+        "network": {
+          "ingress": {
+            "mode": "authenticated"
+          }
+        }
+      },
+      "status": {
+        "observedGeneration": 1,
+        "conditions": [
+          {
+            "type": "Accepted",
+            "status": "True",
+            "observedGeneration": 1,
+            "lastTransitionTime": null,
+            "reason": "",
+            "message": ""
+          }
+        ]
+      }
+    },
+    {
+      "kind": "ConfigMap",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "openclaw-example-cetirun-config",
+        "namespace": "cetirun-example",
+        "uid": "native-synthetic-15",
+        "resourceVersion": "1",
+        "labels": {
+          "app.kubernetes.io/instance": "openclaw-example",
+          "app.kubernetes.io/managed-by": "Helm",
+          "app.kubernetes.io/name": "cetirun",
+          "app.kubernetes.io/version": "0.1.1",
+          "helm.sh/chart": "cetirun-0.1.1"
+        },
+        "ownerReferences": [
+          {
+            "apiVersion": "cetirun.microsoft.com/v1alpha1",
+            "kind": "Agent",
+            "name": "example",
+            "uid": "agent-uid",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ]
+      },
+      "data": {
+        "health-probe.cjs": "// Copyright (c) Microsoft Corporation.\n// Licensed under the MIT License.\n\n\"use strict\";\n\nconst http = require(\"node:http\");\nconst args = process.argv.slice(2);\nconst [rawPort, path, rawTimeout] = args;\nconst port = Number(rawPort);\nconst timeoutMs = Number(rawTimeout);\nif (\n  args.length !== 3 ||\n  !/^[0-9]+$/.test(rawPort) || !Number.isInteger(port) || port \u003c 1 || port \u003e 65535 ||\n  ![\"/healthz\", \"/readyz\", \"/startupz\"].includes(path) ||\n  !/^[0-9]+$/.test(rawTimeout) || !Number.isInteger(timeoutMs) ||\n  timeoutMs \u003c 1 || timeoutMs \u003e 2147483647\n) {\n  console.error(\"native health probe: invalid probe arguments\");\n  process.exit(1);\n}\n\nlet finished = false;\nlet request;\nconst deadline = setTimeout(() =\u003e finish(1, \"request timed out\"), timeoutMs);\n\nfunction finish(code, message) {\n  if (finished) return;\n  finished = true;\n  clearTimeout(deadline);\n  if (request) request.destroy();\n  if (message) console.error(`native health probe: ${message}`);\n  process.exit(code);\n}\n\n// Never use a Pod IP, the global proxy agent, or model credentials for probes.\nrequest = http.get({ hostname: \"127.0.0.1\", port, path, agent: false }, (response) =\u003e {\n  response.resume();\n  if (response.statusCode \u003e= 200 \u0026\u0026 response.statusCode \u003c 400) {\n    finish(0);\n  } else {\n    finish(1, `HTTP ${response.statusCode}`);\n  }\n});\nrequest.on(\"error\", () =\u003e finish(1, \"connection failed\"));\n",
+        "init-home-common.sh": "#!/bin/sh\n# Copyright (c) Microsoft Corporation.\n# Licensed under the MIT License.\n\n# Sourced by a platform-owned Agent init script, not an Agent entrypoint.\nif [ \"${1:-}\" = \"--help\" ]; then\n  printf '%s\\n' \"Source this library, implement agent_* stages, then call run_agent_init.\"\nfi\n\ninit_error() {\n  printf '[agent-init] %s\\n' \"$*\" \u003e\u00262\n  return 1\n}\n\ncheck_common_tools() {\n  for tool in cp mkdir mv rm chmod mktemp find cmp; do\n    command -v \"$tool\" \u003e/dev/null 2\u003e\u00261 || {\n      init_error \"InitToolsMissing: $tool\"\n      return 1\n    }\n  done\n}\n\n# Resolve a controlled relative path without following links out of the PVC.\nhome_path() (\n  set -e\n  rest=$1\n  case \"$rest\" in \"\"|/*|*/|*\"//\"*) init_error \"InvalidHomePath\"; exit 1;; esac\n  result=$TARGET_HOME\n  while :; do\n    part=${rest%%/*}\n    case \"$part\" in \"\"|.|..) init_error \"InvalidHomePath\"; exit 1;; esac\n    result=$result/$part\n    if [ -L \"$result\" ]; then\n      init_error \"HomePathIsSymlink: $1\"\n      exit 1\n    fi\n    if [ \"$rest\" = \"$part\" ]; then break; fi\n    if [ -e \"$result\" ] \u0026\u0026 [ ! -d \"$result\" ]; then\n      init_error \"HomeParentNotDirectory: $1\"\n      exit 1\n    fi\n    rest=${rest#*/}\n  done\n  printf '%s\\n' \"$result\"\n)\n\nhome_ensure_dir() (\n  set -e\n  dest=$(home_path \"$1\")\n  mkdir -p \"$dest\"\n)\n\nhome_atomic_copy() (\n  set -e\n  source=$1\n  dest=$(home_path \"$2\")\n  mode=${3:-600}\n  [ -f \"$source\" ] || { init_error \"RequiredInputMissing: $2\"; exit 1; }\n  [ ! -e \"$dest\" ] || [ -f \"$dest\" ] || { init_error \"HomeTargetNotFile: $2\"; exit 1; }\n  temp=$(mktemp \"${dest}.tmp.XXXXXX\")\n  trap 'rm -f \"$temp\"' 0\n  cp \"$source\" \"$temp\"\n  chmod \"$mode\" \"$temp\"\n  mv -f \"$temp\" \"$dest\"\n)\n\nhome_write_marker() (\n  set -e\n  dest=$(home_path \"$1\")\n  [ ! -e \"$dest\" ] || [ -f \"$dest\" ] || { init_error \"InvalidHomeMarker\"; exit 1; }\n  temp=$(mktemp \"${dest}.tmp.XXXXXX\")\n  trap 'rm -f \"$temp\"' 0\n  shift\n  printf '%s\\n' \"$@\" \u003e \"$temp\"\n  chmod 600 \"$temp\"\n  mv -f \"$temp\" \"$dest\"\n)\n\nimmutable_seed_image() {\n  case \"$CETIRUN_INIT_IMAGE\" in\n    *@sha256:*)\n      digest=${CETIRUN_INIT_IMAGE##*@sha256:}\n      [ \"${#digest}\" -eq 64 ] || return 1\n      case \"$digest\" in *[!0-9a-f]*) return 1;; esac\n      ;;\n    *) return 1;;\n  esac\n}\n\nseed_home_data() (\n  set -e\n  complete=$(home_path .cetirun-home-seeded)\n  pending=$(home_path .cetirun-home-seeding)\n  if [ -e \"$complete\" ]; then\n    [ -f \"$complete\" ] || { init_error \"InvalidHomeMarker\"; exit 1; }\n    IFS= read -r version \u003c \"$complete\"\n    [ \"$version\" = seeded-v1 ] || { init_error \"InvalidHomeMarker\"; exit 1; }\n    printf '0\\n'\n    exit 0\n  fi\n\n  if [ -n \"${LEGACY_HOME_MARKER:-}\" ]; then\n    legacy=$(home_path \"$LEGACY_HOME_MARKER\")\n    if [ -f \"$legacy\" ]; then\n      home_write_marker .cetirun-home-seeded seeded-v1 legacy\n      printf '0\\n'\n      exit 0\n    fi\n  fi\n\n  case \"${CETIRUN_INIT_IMAGE:-}\" in\n    \"\"|*[[:space:]]*) init_error \"InvalidSeedImage\"; exit 1;;\n  esac\n  if [ -e \"$pending\" ]; then\n    [ -f \"$pending\" ] || { init_error \"InvalidHomeProgress\"; exit 1; }\n    {\n      IFS= read -r version\n      IFS= read -r prior_image\n      IFS= read -r prior_stage\n    } \u003c \"$pending\"\n    [ \"$version\" = seeding-v1 ] \u0026\u0026 [ \"$prior_image\" = \"$CETIRUN_INIT_IMAGE\" ] \u0026\u0026\n      immutable_seed_image || {\n        init_error \"HomeSeedImageUnconfirmed: retry requires the same immutable image\"\n        exit 1\n      }\n    case \"$prior_stage\" in\n      */*|*[!a-zA-Z0-9.-]*) init_error \"InvalidHomeProgress\"; exit 1;;\n      .cetirun-home-stage.??????) ;;\n      *) init_error \"InvalidHomeProgress\"; exit 1;;\n    esac\n    stage=$(home_path \"$prior_stage\")\n    # This is only the recorded disposable copy, never the PVC or a HOME entry.\n    if [ -e \"$stage\" ]; then\n      [ -d \"$stage\" ] || { init_error \"InvalidHomeProgress\"; exit 1; }\n      rm -rf \"$stage\"\n    fi\n  else\n    for entry in \"$TARGET_HOME\"/* \"$TARGET_HOME\"/.[!.]* \"$TARGET_HOME\"/..?*; do\n      [ -e \"$entry\" ] || [ -L \"$entry\" ] || continue\n      if [ \"${entry##*/}\" = lost+found ] \u0026\u0026 [ -d \"$entry\" ] \u0026\u0026 [ ! -L \"$entry\" ]; then\n        continue\n      fi\n      init_error \"HomeSeedStateUnknown: nonempty HOME has no initialization record\"\n      exit 1\n    done\n  fi\n\n  stage=$(mktemp -d \"$TARGET_HOME/.cetirun-home-stage.XXXXXX\")\n  home_write_marker .cetirun-home-seeding seeding-v1 \"$CETIRUN_INIT_IMAGE\" \"${stage##*/}\"\n  for entry in \"$SOURCE_HOME\"/* \"$SOURCE_HOME\"/.[!.]* \"$SOURCE_HOME\"/..?*; do\n    [ -e \"$entry\" ] || [ -L \"$entry\" ] || continue\n    name=${entry##*/}\n    case \"$name\" in .cetirun-home-*|lost+found) continue;; esac\n    special=$(find \"$entry\" ! -type d ! -type f ! -type l -print)\n    [ -z \"$special\" ] || { init_error \"UnsupportedHomeFile\"; exit 1; }\n    # Each entry is copied to a fresh location, so existing destination links\n    # cannot redirect recursive copying outside the PVC.\n    cp -a \"$entry\" \"$stage/$name\"\n  done\n  for entry in \"$stage\"/* \"$stage\"/.[!.]* \"$stage\"/..?*; do\n    [ -e \"$entry\" ] || [ -L \"$entry\" ] || continue\n    dest=$TARGET_HOME/${entry##*/}\n    # A previous interrupted publish may already have moved whole top-level\n    # entries. Preserve those entries rather than recopying into them.\n    if [ ! -e \"$dest\" ] \u0026\u0026 [ ! -L \"$dest\" ]; then\n      mv \"$entry\" \"$dest\"\n    fi\n  done\n  home_write_marker .cetirun-home-seeded seeded-v1 \"$CETIRUN_INIT_IMAGE\"\n  rm -f \"$pending\"\n  rm -rf \"$stage\"\n  printf '1\\n'\n)\n\nseed_home_once() {\n  HOME_SEEDED_THIS_RUN=$(seed_home_data)\n}\n\ncheck_agent_context() {\n  if [ -n \"${CETIRUN_MEMORY_ASSETS:-}\" ]; then\n    [ \"$CETIRUN_MEMORY_ASSETS\" = /opt/cetirun-memory ] \u0026\u0026\n      [ -r \"$CETIRUN_MEMORY_ASSETS/manifest.json\" ] \u0026\u0026\n      [ -r \"$CETIRUN_MEMORY_ASSETS/AGENTS.md\" ] \u0026\u0026\n      [ -r \"$CETIRUN_MEMORY_ASSETS/skills/cetirun-memory/SKILL.md\" ] || {\n        init_error \"MemoryAssetsUnavailable\"\n        return 1\n      }\n  fi\n  if [ -n \"${CETIRUN_SHARED_SKILLS_DIR:-}\" ]; then\n    [ -d \"$CETIRUN_SHARED_SKILLS_DIR\" ] \u0026\u0026 [ -r \"$CETIRUN_SHARED_SKILLS_DIR\" ] \u0026\u0026\n      [ -x \"$CETIRUN_SHARED_SKILLS_DIR\" ] || {\n        init_error \"SharedSkillsUnavailable\"\n        return 1\n      }\n  fi\n  if [ -n \"${CETIRUN_MEMORY_ASSETS:-}\" ] || [ -n \"${CETIRUN_SHARED_SKILLS_DIR:-}\" ]; then\n    [ -n \"${CETIRUN_CONTEXT_VIEW:-}\" ] \u0026\u0026 [ -d \"$CETIRUN_CONTEXT_VIEW\" ] \u0026\u0026\n      [ ! -L \"$CETIRUN_CONTEXT_VIEW\" ] \u0026\u0026 [ -w \"$CETIRUN_CONTEXT_VIEW\" ] || {\n        init_error \"ContextViewUnavailable\"\n        return 1\n      }\n  fi\n}\n\n# Compose one per-Pod view before mounting it read-only at $HOME/.agents.\n# Sources and the PVC's own .agents contents are never modified.\nprepare_agent_context() (\n  set -e\n  [ -n \"${CETIRUN_CONTEXT_VIEW:-}\" ] || exit 0\n  home_ensure_dir .agents\n  view=$CETIRUN_CONTEXT_VIEW\n  [ ! -L \"$view/current\" ] || { init_error \"InvalidContextView\"; exit 1; }\n  [ ! -e \"$view/current\" ] || {\n    [ -f \"$view/current/.ready\" ] || { init_error \"IncompleteContextView\"; exit 1; }\n    exit 0\n  }\n  stage=$(mktemp -d \"$view/.context.XXXXXX\")\n  trap 'rm -rf \"$stage\"' 0\n  mkdir \"$stage/skills\"\n  if [ -n \"${CETIRUN_CONTEXT_DIR:-}\" ]; then\n    # Only the platform ConfigMap projection may use Kubernetes-owned links.\n    cp -RL \"$CETIRUN_CONTEXT_DIR/AGENTS.md\" \"$stage/AGENTS.md\"\n    for entry in \"$CETIRUN_CONTEXT_DIR/skills\"/* \"$CETIRUN_CONTEXT_DIR/skills\"/.[!.]* \"$CETIRUN_CONTEXT_DIR/skills\"/..?*; do\n      [ -e \"$entry\" ] || [ -L \"$entry\" ] || continue\n      if [ -n \"${CETIRUN_MEMORY_ASSETS:-}\" ] \u0026\u0026 [ \"${entry##*/}\" = cetirun-memory ]; then continue; fi\n      cp -RL \"$entry\" \"$stage/skills/${entry##*/}\"\n    done\n  else\n    : \u003e \"$stage/AGENTS.md\"\n  fi\n  if [ -n \"${CETIRUN_MEMORY_ASSETS:-}\" ]; then\n    chmod u+w \"$stage/AGENTS.md\"\n    if [ -s \"$stage/AGENTS.md\" ]; then printf '\\n' \u003e\u003e \"$stage/AGENTS.md\"; fi\n    while IFS= read -r line || [ -n \"$line\" ]; do\n      printf '%s\\n' \"$line\" \u003e\u003e \"$stage/AGENTS.md\"\n    done \u003c \"$CETIRUN_MEMORY_ASSETS/AGENTS.md\"\n    cp -R \"$CETIRUN_MEMORY_ASSETS/skills/cetirun-memory\" \"$stage/skills/cetirun-memory\"\n  fi\n  if [ -n \"${CETIRUN_SHARED_SKILLS_DIR:-}\" ]; then\n    for entry in \"$CETIRUN_SHARED_SKILLS_DIR\"/* \"$CETIRUN_SHARED_SKILLS_DIR\"/.[!.]* \"$CETIRUN_SHARED_SKILLS_DIR\"/..?*; do\n      [ -e \"$entry\" ] || [ -L \"$entry\" ] || continue\n      name=${entry##*/}\n      if [ \"$name\" = cetirun-memory ] || [ -e \"$stage/skills/$name\" ] || [ -L \"$stage/skills/$name\" ]; then\n        init_error \"SharedSkillConflictsWithCanonicalContext\"\n        exit 1\n      fi\n      special=$(find \"$entry\" ! -type d ! -type f ! -type l -print)\n      [ -z \"$special\" ] || { init_error \"UnsupportedSkillFile\"; exit 1; }\n      cp -RP \"$entry\" \"$stage/skills/$name\"\n    done\n  fi\n  printf 'context-v1\\n' \u003e \"$stage/.ready\"\n  mv \"$stage\" \"$view/current\"\n)\n\nrun_agent_init() {\n  set -e\n  check_common_tools\n  : \"${SOURCE_HOME:?SOURCE_HOME is required}\"\n  : \"${TARGET_HOME:?TARGET_HOME is required}\"\n  [ -d \"$SOURCE_HOME\" ] \u0026\u0026 [ -d \"$TARGET_HOME\" ] \u0026\u0026\n    [ ! -L \"$SOURCE_HOME\" ] \u0026\u0026 [ ! -L \"$TARGET_HOME\" ] || {\n      init_error \"HomeDirectoryUnavailable\"\n      return 1\n    }\n  SOURCE_HOME=$(CDPATH= cd -P \"$SOURCE_HOME\" \u0026\u0026 pwd -P)\n  TARGET_HOME=$(CDPATH= cd -P \"$TARGET_HOME\" \u0026\u0026 pwd -P)\n  case \"$SOURCE_HOME:$TARGET_HOME\" in /:*|*:/) init_error \"InvalidHomeRoot\"; return 1;; esac\n  case \"$SOURCE_HOME/\" in \"$TARGET_HOME/\"*) init_error \"OverlappingHomePaths\"; return 1;; esac\n  case \"$TARGET_HOME/\" in \"$SOURCE_HOME/\"*) init_error \"OverlappingHomePaths\"; return 1;; esac\n  for stage in agent_check_requirements agent_prepare_home agent_apply_config agent_prepare_integrations agent_verify; do\n    command -v \"$stage\" \u003e/dev/null 2\u003e\u00261 || { init_error \"InitStageMissing: $stage\"; return 1; }\n  done\n  agent_check_requirements\n  check_agent_context\n  printf '[agent-init] seed_home_once\\n' \u003e\u00262\n  seed_home_once\n  for stage in agent_prepare_home agent_apply_config agent_prepare_integrations prepare_agent_context agent_verify; do\n    printf '[agent-init] %s\\n' \"$stage\" \u003e\u00262\n    \"$stage\"\n  done\n  printf '[agent-init] complete\\n' \u003e\u00262\n}\n",
+        "init-home.sh": "#!/bin/sh\n# Copyright (c) Microsoft Corporation.\n# Licensed under the MIT License.\n\nset -e\nif [ \"${1:-}\" = \"--help\" ]; then\n  printf '%s\\n' \"Initialize an OpenClaw HOME using SOURCE_HOME, TARGET_HOME and CETIRUN_INIT_IMAGE.\"\n  exit 0\nfi\nSOURCE_HOME=${SOURCE_HOME:-/home/vibe}\nTARGET_HOME=${TARGET_HOME:-/home-data}\nRUNTIME_HOME=${RUNTIME_HOME:-/home/vibe}\nCETIRUN_CONFIG_DIR=${CETIRUN_CONFIG_DIR:-/etc/cetirun}\nCETIRUN_BUILTIN_SKILL_SYNC=${CETIRUN_BUILTIN_SKILL_SYNC:-/usr/local/share/cetirun/builtin-skill-sync.sh}\nLEGACY_HOME_MARKER=.openclaw/.initialized\n. \"$CETIRUN_CONFIG_DIR/init-home-common.sh\"\n\nagent_check_requirements() {\n  for tool in jq ln readlink; do\n    command -v \"$tool\" \u003e/dev/null 2\u003e\u00261 || { init_error \"InitToolsMissing: $tool\"; return 1; }\n  done\n  [ -f \"$CETIRUN_CONFIG_DIR/openclaw.json\" ] || {\n    init_error \"OpenClawInputMissing\"\n    return 1\n  }\n  [ -f \"$CETIRUN_BUILTIN_SKILL_SYNC\" ] || {\n    init_error \"OpenClawInputMissing: builtin-skill-sync.sh\"\n    return 1\n  }\n  if [ \"${CETIRUN_NATIVE_SANDBOX:-false}\" = true ] \u0026\u0026\n    [ \"${CETIRUN_AI_GATEWAY:-false}\" != true ]; then\n    init_error \"NativeSandboxRequiresAIGateway\"\n    return 1\n  fi\n}\n\nagent_prepare_home() {\n  for directory in .openclaw .openclaw/logs .openclaw/workspace .acpx .local/bin; do\n    home_ensure_dir \"$directory\"\n  done\n  native_marker=$(home_path \"$LEGACY_HOME_MARKER\")\n  user_file=$(home_path .openclaw/workspace/USER.md)\n  # Resume first native initialization even when HOME has already been copied.\n  if [ -f \"$CETIRUN_CONFIG_DIR/user-md\" ] \u0026\u0026 [ ! -f \"$native_marker\" ]; then\n    if [ ! -e \"$user_file\" ] ||\n      { [ -f \"$SOURCE_HOME/.openclaw/workspace/USER.md\" ] \u0026\u0026\n        cmp -s \"$user_file\" \"$SOURCE_HOME/.openclaw/workspace/USER.md\"; }; then\n      home_atomic_copy \"$CETIRUN_CONFIG_DIR/user-md\" .openclaw/workspace/USER.md 600\n    fi\n  fi\n}\n\nagent_apply_config() (\n  set -e\n  dest=$(home_path .openclaw/openclaw.json)\n  source=$CETIRUN_CONFIG_DIR/openclaw.json\n  jq -e 'type == \"object\"' \"$source\" \u003e/dev/null 2\u003e\u00261 ||\n    { init_error \"OpenClawConfigInvalid\"; exit 1; }\n  if [ -e \"$dest\" ]; then\n    [ -f \"$dest\" ] \u0026\u0026 jq -e 'type == \"object\"' \"$dest\" \u003e/dev/null 2\u003e\u00261 ||\n      { init_error \"OpenClawConfigInvalid: preserving existing configuration\"; exit 1; }\n  fi\n  temp=$(mktemp \"${dest}.tmp.XXXXXX\")\n  trap 'rm -f \"$temp\"' 0\n  # CetiRun owns the model list of an Agent on the platform AI Gateway, which\n  # the chart marks with CETIRUN_AI_GATEWAY, so that list replaces the saved\n  # one instead of accumulating models the Gateway no longer offers. So does\n  # the Gateway provider entry, which binds the Agent's virtual key: a key,\n  # auth mode or request override saved on that provider would otherwise be\n  # sent to the Gateway in its place. The retired in-agent Copilot sign-in\n  # profile is dropped. Any other configuration, other providers and an openai\n  # provider with its own endpoint included, keeps its saved settings on the\n  # legacy path. Native Sandbox model and ingress bindings are platform-owned.\n  if [ \"${CETIRUN_AI_GATEWAY:-false}\" = true ]; then\n    gateway=true\n  else\n    gateway=false\n  fi\n  native_gateway=false\n  if [ \"${CETIRUN_NATIVE_SANDBOX:-false}\" = true ]; then\n    native_gateway=true\n    jq -e '\n      (.models.providers | keys) == [\"openai\"]\n      and .auth == {\"profiles\": {}}\n      and .models.providers.openai.apiKey == {\"source\": \"env\", \"provider\": \"default\", \"id\": \"OPENAI_API_KEY\"}\n      and (.models.providers.openai.baseUrl | type == \"string\" and length \u003e 0)\n      and (.agents.defaults.model.primary as $primary | .agents.defaults.models | has($primary))\n      and ((.agents.list // []) | length == 0)\n    ' \"$source\" \u003e/dev/null 2\u003e\u00261 ||\n      { init_error \"OpenClawNativeModelConfigInvalid\"; exit 1; }\n  fi\n  filter='\n    . as $inputs\n    | .[-1] as $source\n    | reduce .[] as $item ({}; . * $item)\n    | reduce [[\"plugins\", \"load\", \"paths\"], [\"skills\", \"load\", \"extraDirs\"]][] as $path\n        (. ; [$inputs[] | getpath($path) | select(. != null)] as $lists\n          | if ($lists | length) == 0 then .\n            elif all($lists[]; type == \"array\" and all(.[]; type == \"string\")) then\n              setpath($path; reduce ($lists | add)[] as $entry ([]; if index($entry) == null then . + [$entry] else . end))\n            else error(\"invalid plugin or skills list\") end)\n    | if $source.plugins.entries[\"cetirun-memory-context\"].enabled != true then\n        if (.plugins.entries | type) == \"object\" then .plugins.entries |= del(.[\"cetirun-memory-context\"]) else . end\n        | if (.plugins.allow | type) == \"array\" then .plugins.allow |= map(select(. != \"cetirun-memory-context\")) else . end\n        | if (.plugins.load.paths | type) == \"array\" then .plugins.load.paths |= map(select(. != \"/opt/cetirun-memory/adapters/openclaw\")) else . end\n        | if (.skills.load.extraDirs | type) == \"array\" and (($source.skills.load.extraDirs // []) | index(\"/home/vibe/.agents/skills\") | not)\n          then .skills.load.extraDirs |= map(select(. != \"/home/vibe/.agents/skills\")) else . end\n      else . end\n    | if $gateway then\n        .agents.defaults.models = ($source.agents.defaults.models // {})\n        | if $native_gateway then\n            .models = ($source.models // {})\n            | .auth = ($source.auth // {\"profiles\": {}})\n            | .gateway = ($source.gateway // {})\n            | .agents.defaults.model = $source.agents.defaults.model\n            | .agents.defaults.modelPolicy = $source.agents.defaults.modelPolicy\n            | .agents.defaults.utilityModel = $source.agents.defaults.utilityModel\n            | .agents |= del(.list)\n          else\n            if ($source.models.providers.openai | type) == \"object\" then .models.providers.openai = $source.models.providers.openai else . end\n            | if (.auth.profiles | type) == \"object\" then .auth.profiles |= del(.[\"github-copilot:github\"]) else . end\n          end\n      else . end\n    | if .channels.msteams.enabled then\n        .channels.msteams.allowFrom //= [\"00000000-0000-0000-0000-000000000000\"]\n      else . end'\n  if [ -f \"$dest\" ]; then\n    jq -s --argjson gateway \"$gateway\" --argjson native_gateway \"$native_gateway\" \"$filter\" \"$dest\" \"$source\" \u003e \"$temp\" 2\u003e/dev/null ||\n      { init_error \"OpenClawConfigApplyFailed\"; exit 1; }\n  else\n    jq -s --argjson gateway \"$gateway\" --argjson native_gateway \"$native_gateway\" \"$filter\" \"$source\" \u003e \"$temp\" 2\u003e/dev/null ||\n      { init_error \"OpenClawConfigApplyFailed\"; exit 1; }\n  fi\n  chmod 600 \"$temp\"\n  mv -f \"$temp\" \"$dest\"\n  health_record=$(home_path .openclaw/logs/config-health.json)\n  if [ -f \"$health_record\" ]; then rm -f \"$health_record\"; fi\n)\n\nremove_native_provider_environment() (\n  set -e\n  [ \"${CETIRUN_NATIVE_SANDBOX:-false}\" = true ] || exit 0\n  env_file=$(home_path .openclaw/.env)\n  [ ! -e \"$env_file\" ] || [ -f \"$env_file\" ] ||\n    { init_error \"OpenClawEnvironmentInvalid\"; exit 1; }\n  [ -f \"$env_file\" ] || exit 0\n  temp=$(mktemp \"${env_file}.tmp.XXXXXX\")\n  trap 'rm -f \"$temp\"' 0\n  # Persisted dotenv settings must not replace the native Gateway binding.\n  keys='(OPENAI_.*|ANTHROPIC_.*|AZURE_OPENAI_.*|AZURE_AI_.*|COHERE_.*|DEEPSEEK_.*|FIREWORKS_.*|GEMINI_.*|GOOGLE_AI_.*|GROQ_.*|HUGGINGFACE_.*|MISTRAL_.*|OLLAMA_.*|OPENROUTER_.*|PERPLEXITY_.*|TOGETHER_.*|VERTEX_AI_.*|XAI_.*|MODEL_API_KEY|LLM_API_KEY|LLM_BASE_URL|LLM_ENDPOINT|COPILOT_GITHUB_TOKEN|OPENCLAW_GITHUB_TOKEN)'\n  result=0\n  grep -Ev \"^[[:space:]]*(export[[:space:]]+)?${keys}[[:space:]]*=\" \"$env_file\" \u003e \"$temp\" || result=$?\n  [ \"$result\" -le 1 ] || { init_error \"OpenClawEnvironmentApplyFailed\"; exit 1; }\n  chmod 600 \"$temp\"\n  mv -f \"$temp\" \"$env_file\"\n)\n\nprepare_plugin_link() {\n  source=$SOURCE_HOME/.openclaw/npm\n  parent=$(home_path .openclaw)\n  dest=$parent/npm\n  if [ -L \"$source\" ]; then\n    link=$(readlink \"$source\")\n    if [ -L \"$dest\" ]; then\n      if [ \"$(readlink \"$dest\")\" != \"$link\" ]; then\n        init_error \"OpenClawPluginLinkChanged: explicit maintenance required\"\n        return 1\n      fi\n    elif [ -e \"$dest\" ]; then\n      printf '[agent-init] preserving existing OpenClaw plugin directory\\n' \u003e\u00262\n    else\n      ln -s \"$link\" \"$dest\"\n    fi\n  fi\n}\n\ninstall_image_skills() (\n  set -e\n  source=$SOURCE_HOME/.openclaw/skills\n  [ -d \"$source\" ] \u0026\u0026 [ ! -L \"$source\" ] || exit 0\n  home_ensure_dir .openclaw/skills\n  for entry in \"$source\"/*; do\n    [ -d \"$entry\" ] \u0026\u0026 [ ! -L \"$entry\" ] || continue\n    dest=$(home_path \".openclaw/skills/${entry##*/}\")\n    [ ! -e \"$dest\" ] || continue\n    stage=$(mktemp -d \"$TARGET_HOME/.openclaw/skills/.install.XXXXXX\")\n    trap 'rm -rf \"$stage\"' 0\n    cp -a \"$entry\" \"$stage/skill\"\n    mv \"$stage/skill\" \"$dest\"\n    rm -rf \"$stage\"\n  done\n)\n\nsync_managed_image_skills() {\n  . \"$CETIRUN_BUILTIN_SKILL_SYNC\"\n  cetirun_sync_builtin_skills \\\n    \"$SOURCE_HOME/.openclaw/skills\" \\\n    \"$(home_path .openclaw/skills)\"\n}\n\nsetup_azdevops_git_credential() (\n  set -e\n  [ \"${AZDEVOPS_GIT_CREDENTIAL_ENABLED:-false}\" = true ] || exit 0\n  helper=$(home_path .git-credential-azdevops.sh)\n  config=$(home_path .gitconfig)\n  temp=$(mktemp \"${helper}.tmp.XXXXXX\")\n  trap 'rm -f \"$temp\"' 0\n  cat \u003e \"$temp\" \u003c\u003c'SCRIPT'\n#!/bin/sh\necho \"username=azuredevops\"\necho \"password=$(az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798 --query accessToken -o tsv)\"\nSCRIPT\n  chmod 700 \"$temp\"\n  mv -f \"$temp\" \"$helper\"\n  # Installation does not perform login. Optional git settings remain best-effort.\n  if ! git config --file \"$config\" credential.https://dev.azure.com.useHttpPath true; then\n    printf '[agent-init] WARNING: Azure DevOps git useHttpPath configuration failed\\n' \u003e\u00262\n  fi\n  if ! git config --file \"$config\" credential.https://dev.azure.com.provider generic; then\n    printf '[agent-init] WARNING: Azure DevOps git provider configuration failed\\n' \u003e\u00262\n  fi\n  if ! git config --file \"$config\" credential.https://dev.azure.com.helper \"$RUNTIME_HOME/.git-credential-azdevops.sh\"; then\n    printf '[agent-init] WARNING: Azure DevOps git helper configuration failed\\n' \u003e\u00262\n  fi\n)\n\nagent_prepare_integrations() {\n  remove_native_provider_environment\n  prepare_plugin_link\n  sync_managed_image_skills\n  install_image_skills\n  remove_retired_copilot_helper\n  setup_azdevops_git_credential\n}\n\n# Models come through the platform AI Gateway, and GitHub Copilot sign-in\n# moved to the Portal. Remove the retired in-agent helper earlier releases\n# installed, so it does not suggest a login that no longer applies.\nremove_retired_copilot_helper() {\n  helper=$(home_path .local/bin/copilot-auth)\n  if [ -f \"$helper\" ] \u0026\u0026 [ ! -L \"$helper\" ] \u0026\u0026 grep -q 'Authenticate GitHub Copilot for OpenClaw' \"$helper\"; then\n    rm -f \"$helper\"\n  fi\n}\n\nagent_verify() {\n  config=$(home_path .openclaw/openclaw.json)\n  jq -e 'type == \"object\"' \"$config\" \u003e/dev/null 2\u003e\u00261 ||\n    { init_error \"OpenClawConfigInvalid\"; return 1; }\n  home_write_marker \"$LEGACY_HOME_MARKER\" initialized-v1\n}\n\nrun_agent_init\n",
+        "init-skills.sh": "#!/bin/sh\n# Copyright (c) Microsoft Corporation.\n# Licensed under the MIT License.\n\n# init-skills.sh — install npm-packaged skills into the PVC.\n#\n# Environment:\n#   NPM_PACKAGES   space-separated list of npm package specs (e.g. \"matrix @scope/foo@1.2.3\")\n#   SKILLS_DIR     target directory on the PVC (e.g. /home-data/.cetirun/skills/npm)\n#   NPM_CACHE_DIR  working directory + npm cache root on the PVC\n#   NPM_REGISTRY   package registry; defaults to the public npm registry\n#\n# Behavior:\n#   - For each package, install into NPM_CACHE_DIR/\u003cdir\u003e/, then copy\n#     node_modules/\u003cpkg-name\u003e/ to SKILLS_DIR/\u003cdir\u003e/.\n#   - Idempotent: \u003cdir\u003e/.installed-version stores the requested spec; skipped if matches.\n#   - Prunes \u003cdir\u003e entries no longer in the requested list.\n#   - Per-package failures are recorded; script exits non-zero if any failed.\nset -u\n\n: \"${NPM_PACKAGES:=}\"\n: \"${SKILLS_DIR:=/home-data/.cetirun/skills/npm}\"\n: \"${NPM_CACHE_DIR:=/home-data/.cetirun/.npm-cache}\"\n: \"${NPM_REGISTRY:=https://registry.npmjs.org/}\"\n\nif [ -n \"$NPM_REGISTRY\" ]; then\n  export npm_config_registry=\"$NPM_REGISTRY\"\n  # Rewrite lockfile-style npmjs URLs but preserve mirror-owned tarball URLs.\n  export npm_config_replace_registry_host=npmjs\nfi\n\nERRORS_LOG=\"${SKILLS_DIR}/.errors.log\"\n\nmkdir -p \"$SKILLS_DIR\" \"$NPM_CACHE_DIR\"\n: \u003e \"$ERRORS_LOG\"\n\n# Sanitize a package spec into a directory name:\n#   \"@scope/name@1.2.3\" -\u003e \"@scope__name\"\n#   \"matrix\"            -\u003e \"matrix\"\nsanitize() {\n  spec=\"$1\"\n  # If spec starts with @, version is after the SECOND @; else after first.\n  case \"$spec\" in\n    @*)\n      name=\"@$(printf %s \"$spec\" | cut -c2- | cut -d@ -f1)\"\n      ;;\n    *)\n      name=\"$(printf %s \"$spec\" | cut -d@ -f1)\"\n      ;;\n  esac\n  printf %s \"$name\" | sed 's|/|__|g'\n}\n\n# Extract the package name (without version) so we can copy from node_modules/\u003cname\u003e/.\npkg_name() {\n  spec=\"$1\"\n  case \"$spec\" in\n    @*)\n      printf '@%s\\n' \"$(printf %s \"$spec\" | cut -c2- | cut -d@ -f1)\"\n      ;;\n    *)\n      printf '%s\\n' \"$(printf %s \"$spec\" | cut -d@ -f1)\"\n      ;;\n  esac\n}\n\nkeep_list=\"\"\nfail_count=0\n\nfor spec in $NPM_PACKAGES; do\n  [ -n \"$spec\" ] || continue\n  case \"$spec\" in\n    -*)\n      echo \"[init-skills] FAILED $spec — package spec must not start with '-'\" | tee -a \"$ERRORS_LOG\"\n      fail_count=$((fail_count + 1))\n      continue\n      ;;\n  esac\n  dir=$(sanitize \"$spec\")\n  name=$(pkg_name \"$spec\")\n  keep_list=\"$keep_list $dir\"\n\n  target=\"$SKILLS_DIR/$dir\"\n  marker=\"$target/.installed-version\"\n\n  if [ -f \"$marker\" ] \u0026\u0026 [ \"$(cat \"$marker\" 2\u003e/dev/null)\" = \"$spec\" ]; then\n    echo \"[init-skills] $spec — up to date (skip)\"\n    continue\n  fi\n\n  echo \"[init-skills] installing $spec → $target\"\n  work=\"$NPM_CACHE_DIR/$dir\"\n  rm -rf \"$work\"\n  mkdir -p \"$work\"\n  (\n    cd \"$work\" || exit 1\n    # --prefix . installs into ./node_modules; --no-save avoids requiring package.json.\n    npm install \\\n      --prefix . \\\n      --no-save \\\n      --omit=dev \\\n      --no-audit \\\n      --no-fund \\\n      --cache \"$NPM_CACHE_DIR/_npm\" \\\n      \"$spec\"\n  )\n  rc=$?\n  if [ \"$rc\" -ne 0 ]; then\n    echo \"[init-skills] FAILED npm install $spec (exit $rc)\" | tee -a \"$ERRORS_LOG\"\n    fail_count=$((fail_count + 1))\n    continue\n  fi\n\n  src=\"$work/node_modules/$name\"\n  if [ ! -d \"$src\" ]; then\n    echo \"[init-skills] FAILED $spec — $src not found after install\" | tee -a \"$ERRORS_LOG\"\n    fail_count=$((fail_count + 1))\n    continue\n  fi\n\n  rm -rf \"$target\"\n  mkdir -p \"$target\"\n  # cp -a preserves attrs; trailing /. copies dir contents into target.\n  cp -a \"$src/.\" \"$target/\"\n  printf '%s\\n' \"$spec\" \u003e \"$marker\"\n  echo \"[init-skills] OK $spec\"\ndone\n\n# Prune entries that are no longer requested.\nif [ -d \"$SKILLS_DIR\" ]; then\n  for existing in \"$SKILLS_DIR\"/*; do\n    [ -d \"$existing\" ] || continue\n    base=$(basename \"$existing\")\n    case \" $keep_list \" in\n      *\" $base \"*) ;;\n      *)\n        echo \"[init-skills] pruning $existing (no longer requested)\"\n        rm -rf \"$existing\"\n        ;;\n    esac\n  done\nfi\n\nif [ \"$fail_count\" -gt 0 ]; then\n  echo \"[init-skills] $fail_count package(s) failed; see $ERRORS_LOG\" \u003e\u00262\n  exit 1\nfi\n\necho \"[init-skills] done.\"\n",
+        "openclaw.json": "{\n  \"acp\": {\n    \"allowedAgents\": [\n      \"claude\",\n      \"codex\",\n      \"opencode\"\n    ],\n    \"backend\": \"acpx\",\n    \"defaultAgent\": \"claude\",\n    \"dispatch\": {\n      \"enabled\": true\n    },\n    \"enabled\": true\n  },\n  \"agents\": {\n    \"defaults\": {\n      \"compaction\": {\n        \"memoryFlush\": {\n          \"enabled\": true,\n          \"softThresholdTokens\": 4000\n        }\n      },\n      \"model\": {\n        \"primary\": \"openai/gpt-6-sol\"\n      },\n      \"modelPolicy\": {\n        \"allow\": [\n          \"openai/gpt-6-sol\"\n        ]\n      },\n      \"models\": {\n        \"openai/gpt-6-sol\": {}\n      },\n      \"utilityModel\": \"openai/gpt-6-sol\",\n      \"verboseDefault\": \"on\"\n    }\n  },\n  \"auth\": {\n    \"profiles\": {}\n  },\n  \"browser\": {\n    \"attachOnly\": false,\n    \"defaultProfile\": \"openclaw\",\n    \"enabled\": false,\n    \"headless\": false,\n    \"noSandbox\": true,\n    \"profiles\": {\n      \"openclaw\": {\n        \"cdpPort\": 18800\n      }\n    },\n    \"ssrfPolicy\": {\n      \"dangerouslyAllowPrivateNetwork\": true\n    }\n  },\n  \"gateway\": {\n    \"controlUi\": {\n      \"basePath\": \"/ui/example\",\n      \"dangerouslyAllowHostHeaderOriginFallback\": true\n    },\n    \"mode\": \"local\",\n    \"port\": 18789,\n    \"trustedProxies\": [\n      \"127.0.0.6\"\n    ]\n  },\n  \"logging\": {\n    \"level\": \"info\"\n  },\n  \"memory\": {\n    \"search\": {\n      \"enabled\": false,\n      \"rememberAcrossConversations\": false\n    }\n  },\n  \"meta\": {\n    \"lastTouchedVersion\": \"0.1.1\"\n  },\n  \"models\": {\n    \"providers\": {\n      \"openai\": {\n        \"apiKey\": {\n          \"id\": \"OPENAI_API_KEY\",\n          \"provider\": \"default\",\n          \"source\": \"env\"\n        },\n        \"auth\": \"api-key\",\n        \"baseUrl\": \"http://cetirun-ai-gateway.cetirun-system.svc.cluster.local:4000/v1\",\n        \"models\": [\n          {\n            \"contextWindow\": 1000000,\n            \"id\": \"gpt-6-sol\",\n            \"maxTokens\": 32768,\n            \"name\": \"gpt-6-sol\"\n          }\n        ]\n      }\n    }\n  },\n  \"plugins\": {\n    \"allow\": [\n      \"github\",\n      \"acpx\"\n    ],\n    \"entries\": {\n      \"acpx\": {\n        \"config\": {\n          \"nonInteractivePermissions\": \"deny\",\n          \"permissionMode\": \"approve-all\"\n        },\n        \"enabled\": true\n      },\n      \"github\": {\n        \"enabled\": true\n      }\n    }\n  },\n  \"skills\": {\n    \"load\": {\n      \"extraDirs\": [\n        \"/home/vibe/.aks/skills\"\n      ],\n      \"watch\": true\n    }\n  },\n  \"tools\": {\n    \"profile\": \"full\",\n    \"sessions\": {\n      \"visibility\": \"all\"\n    }\n  },\n  \"update\": {\n    \"checkOnStart\": false\n  }\n}\n",
+        "retire-copilot-sign-in.sh": "#!/bin/sh\n# Copyright (c) Microsoft Corporation.\n# Licensed under the MIT License.\n\n# Retire the GitHub Copilot sign-in the in-agent helper made, for an Agent\n# that takes its models from the platform AI Gateway: its owner signs in\n# through the Portal, and that token stays with the Agent's Copilot proxy.\n# The helper left the GitHub token in the home, where the agent can read it:\n# in the github-copilot:github auth profile, in the secret-store entries the\n# device login keeps it in, in the state directory's .env, and in the auth\n# profile files of earlier OpenClaw versions. This removes those through\n# OpenClaw's own interface where it has one, once per home, after doctor has\n# imported any earlier auth profile files, and keeps every other credential.\n# A step that fails is reported with OpenClaw's reason and tried again at the\n# next start. It does not keep the agent from starting: an init container\n# that keeps failing keeps the Agent down, and its StatefulSet then rolls no\n# corrected chart onto the Pod until someone deletes the Pod.\nset -u\nif [ \"${1:-}\" = \"--help\" ]; then\n  printf '%s\\n' \"Remove the in-agent GitHub Copilot sign-in from an OpenClaw state directory, once.\"\n  exit 0\nfi\n\nstate=${OPENCLAW_STATE_DIR:-$HOME/.openclaw}\nmarker=$state/.cetirun-copilot-sign-in-retired\nprofile=github-copilot:github\nstore_prefix=GITHUB_COPILOT_TOKEN\nenv_keys='^[[:space:]]*(export[[:space:]]+)?(COPILOT_GITHUB_TOKEN|OPENCLAW_GITHUB_TOKEN)='\n\n[ -d \"$state\" ] || exit 0\n[ -f \"$marker\" ] \u0026\u0026 exit 0\n\nlog() {\n  printf 'retire-copilot-sign-in: %s\\n' \"$*\" \u003e\u00262\n}\n\nif ! scratch=$(mktemp -d); then\n  log \"could not create a scratch directory; the next start tries again\"\n  exit 0\nfi\ntrap 'rm -rf \"$scratch\"' EXIT\noutput=$scratch/output\nerrors=$scratch/errors\n: \u003e\"$output\"\n: \u003e\"$errors\"\n# The OpenClaw CLI resolves the secrets the Agent's configuration refers to,\n# which only the agent container's environment holds, and fails without\n# them. The auth profiles and the secret store live in the state directory:\n# give the CLI a configuration of its own.\nexport OPENCLAW_CONFIG_PATH=\"$scratch/openclaw.json\"\nprintf '{\"plugins\":{\"entries\":{}}}\\n' \u003e\"$OPENCLAW_CONFIG_PATH\"\n\ncomplete=true\n\n# Why the last OpenClaw command failed, in OpenClaw's words: the error of its\n# JSON output, or the reason it printed.\nreason() {\n  why=$(jq -r '.error.message? // empty' \"$output\" 2\u003e/dev/null)\n  [ -n \"$why\" ] || why=$(sed -n 's/^\\[openclaw\\] Reason: //p' \"$errors\" | tail -n 1)\n  [ -n \"$why\" ] || why=$(grep -v '^[[:space:]]*$' \"$errors\" | tail -n 1 | cut -c1-300)\n  printf '%s' \"${why:-no reason given}\"\n}\n\n# Report an OpenClaw step that failed, and leave the home unmarked.\nfailed() {\n  log \"could not $1: $(reason); the next start tries again\"\n  complete=false\n}\n\n# Run one OpenClaw command, and report it when it fails.\nopenclaw_step() {\n  description=$1\n  shift\n  \"$@\" \u003e\"$output\" 2\u003e\"$errors\" \u0026\u0026 return 0\n  failed \"$description\"\n  return 1\n}\n\n# Whether OpenClaw's databases mention text, read as bytes: a cheap test that\n# spares the OpenClaw CLI in homes the helper never signed in. The shared\n# state database holds the secret store and the main agent's auth profiles;\n# the agent's own database holds the profiles doctor imported. Deleted rows\n# stay in the bytes until a database is compacted.\ndatabase_mentions() {\n  for file in \"$state\"/state/openclaw.sqlite \"$state\"/state/openclaw.sqlite-wal \\\n    \"$state\"/agents/*/agent/openclaw-agent.sqlite \"$state\"/agents/*/agent/openclaw-agent.sqlite-wal; do\n    if [ -f \"$file\" ] \u0026\u0026 grep -aqF -- \"$1\" \"$file\"; then\n      return 0\n    fi\n  done\n  return 1\n}\n\n# The secret-store entries the device login keeps the token in.\ncopilot_store_entries() {\n  openclaw secrets store list --json \u003e\"$output\" 2\u003e\"$errors\" \u0026\u0026\n    jq -e 'type == \"array\"' \"$output\" \u003e/dev/null 2\u003e\u00261 \u0026\u0026\n    jq -r --arg prefix \"$store_prefix\" '.[] | .name | select(startswith($prefix))' \"$output\"\n}\n\n# Replace a file with what a filter makes of it, keeping the file private.\nrewrite() {\n  target=$1\n  shift\n  temp=$(mktemp \"$target.tmp.XXXXXX\") || return 1\n  if \"$@\" \u003c\"$target\" \u003e\"$temp\" 2\u003e/dev/null \u0026\u0026 chmod 600 \"$temp\" \u0026\u0026 mv -f \"$temp\" \"$target\"; then\n    return 0\n  fi\n  rm -f \"$temp\"\n  return 1\n}\n\nwithout_token_variables() {\n  grep -Ev \"$env_keys\"\n  # 1 only means that no other line is left.\n  [ $? -le 1 ]\n}\n\n# Profile files keep the profiles under \"profiles\" or, the oldest, at the top.\nwithout_profile() {\n  jq --arg id \"$profile\" '\n    if type != \"object\" then .\n    elif (.profiles | type) == \"object\" then .profiles |= del(.[$id])\n    elif has(\"profiles\") then .\n    else del(.[$id]) end'\n}\n\nsigned_in=false\nif database_mentions \"$profile\" || database_mentions \"$store_prefix\"; then\n  signed_in=true\nfi\n\n# A removed entry is only marked deleted, and OpenClaw keeps its value for 30\n# days: overwrite every value first. The profile and the entries go only once\n# that worked, as logging the profile out may remove the entry it refers to.\nstore_ready=true\noverwritten=\" \"\nif database_mentions \"$store_prefix\"; then\n  if entries=$(copilot_store_entries); then\n    for name in $entries; do\n      if openclaw_step \"overwrite the secret-store entry $name\" \\\n        openclaw secrets store set \"$name\" --kind secret --value-file - \u003c\u003cEOF\nretired\nEOF\n      then\n        overwritten=\"$overwritten$name \"\n      else\n        store_ready=false\n      fi\n    done\n  else\n    failed \"list the secret store\"\n    store_ready=false\n  fi\nfi\n\nif [ \"$store_ready\" = true ] \u0026\u0026 database_mentions \"$profile\"; then\n  # Among other reasons, OpenClaw refuses an auth store that holds no profile\n  # while earlier profile files wait for doctor, when it is turned off.\n  if openclaw models auth list --agent main --json \u003e\"$output\" 2\u003e\"$errors\" \u0026\u0026\n    jq -e '.profiles | type == \"array\"' \"$output\" \u003e/dev/null 2\u003e\u00261; then\n    if jq -e --arg id \"$profile\" 'any(.profiles[]; .id == $id)' \"$output\" \u003e/dev/null \u0026\u0026\n      openclaw_step \"remove the $profile auth profile\" openclaw models auth logout \"$profile\" --agent main --yes; then\n      log \"removed the $profile auth profile\"\n    fi\n  else\n    failed \"list the auth profiles\"\n  fi\nfi\n\nif [ \"$store_ready\" = true ] \u0026\u0026 [ \"$overwritten\" != \" \" ]; then\n  if entries=$(copilot_store_entries); then\n    for name in $entries; do\n      case \"$overwritten\" in\n        *\" $name \"*) ;;\n        *) continue ;;\n      esac\n      if openclaw_step \"remove the secret-store entry $name\" openclaw secrets store rm \"$name\" --yes; then\n        log \"removed the secret-store entry $name\"\n      fi\n    done\n  else\n    failed \"list the secret store\"\n  fi\nfi\n\n# Rewrite the databases so that no deleted row keeps the token's bytes, also\n# after an earlier start removed the rows but not their bytes.\nif [ \"$signed_in\" = true ]; then\n  openclaw_step \"compact the shared state database\" openclaw doctor --state-sqlite compact\n  if [ -f \"$state/agents/main/agent/openclaw-agent.sqlite\" ]; then\n    openclaw_step \"compact the agent database\" openclaw doctor --session-sqlite compact --session-sqlite-agent main\n  fi\nfi\n\nenv_file=$state/.env\nif [ -f \"$env_file\" ] \u0026\u0026 grep -Eq \"$env_keys\" \"$env_file\"; then\n  if rewrite \"$env_file\" without_token_variables; then\n    log \"removed the GitHub token from $env_file\"\n  else\n    log \"could not rewrite $env_file; the next start tries again\"\n    complete=false\n  fi\nfi\n\n# Profile files of earlier versions, and the copies doctor archived after\n# importing them.\nfor file in \"$state\"/agents/*/agent/auth-profiles.json \"$state\"/agents/*/agent/auth-profiles.json.migrated-*; do\n  [ -f \"$file\" ] || continue\n  grep -qF \"\\\"$profile\\\"\" \"$file\" || continue\n  if rewrite \"$file\" without_profile; then\n    log \"removed the $profile profile from $file\"\n  else\n    log \"could not rewrite $file; the next start tries again\"\n    complete=false\n  fi\ndone\n\nif [ \"$complete\" = true ] \u0026\u0026 ! touch \"$marker\"; then\n  log \"could not mark $state as done; the next start runs again\"\nfi\nexit 0\n",
+        "retire-direct-model-auth.sh": "#!/bin/sh\n# Copyright (c) Microsoft Corporation.\n# Licensed under the MIT License.\n\n# Native Sandbox init runs after doctor, which may import older auth profiles.\n# Never print profile contents or CLI errors, which may include credentials.\nset -eu\nif [ \"${1:-}\" = \"--help\" ]; then\n  printf '%s\\n' \"Retire saved OpenClaw model auth before starting a native Sandbox.\"\n  exit 0\nfi\n\nfail() {\n  printf 'retire-direct-model-auth: %s; refusing to start the Agent\\n' \"$1\" \u003e\u00262\n  exit 1\n}\n\nstate=${OPENCLAW_STATE_DIR:-$HOME/.openclaw}\n[ -d \"$state\" ] \u0026\u0026 [ ! -L \"$state\" ] || fail \"state directory unavailable\"\nfor directory in \"$state/state\" \"$state/agents\" \"$state\"/agents/* \"$state\"/agents/*/agent; do\n  [ ! -L \"$directory\" ] || fail \"unsupported auth directory link\"\ndone\nfor directory in \"$state\"/agents/*; do\n  if [ -d \"$directory/agent\" ] \u0026\u0026 [ \"${directory##*/}\" != main ]; then\n    fail \"additional Agent model stores are unsupported by the native MVP\"\n  fi\ndone\nfor file in \"$state\"/state/openclaw.sqlite* \\\n  \"$state\"/agents/*/agent/openclaw-agent.sqlite* \"$state\"/agents/*/agent/auth-profiles.json*; do\n  [ ! -L \"$file\" ] || fail \"unsupported auth store link\"\ndone\nscratch=$(mktemp -d) || fail \"could not create scratch directory\"\ntrap 'rm -rf \"$scratch\"' 0\noutput=$scratch/output\nerrors=$scratch/errors\nexport OPENCLAW_CONFIG_PATH=\"$scratch/openclaw.json\"\nprintf '{\"plugins\":{\"entries\":{}}}\\n' \u003e \"$OPENCLAW_CONFIG_PATH\"\n\nlist_profiles() {\n  openclaw models auth list --agent main --json \u003e \"$output\" 2\u003e \"$errors\" ||\n    fail \"could not list model auth profiles\"\n  jq -e '.profiles | type == \"array\" and all(.[];\n    (.id | type) == \"string\" and (.id | test(\"^[a-zA-Z0-9][a-zA-Z0-9_.:@/+-]*$\")))' \\\n    \"$output\" \u003e/dev/null 2\u003e\u00261 || fail \"invalid model auth profile list\"\n}\n\nlist_profiles\nprofiles=$(jq -r '.profiles[].id' \"$output\") || fail \"could not parse model auth profiles\"\nwhile IFS= read -r profile; do\n  [ -n \"$profile\" ] || continue\n  openclaw models auth logout \"$profile\" --agent main --yes \u003e \"$output\" 2\u003e \"$errors\" ||\n    fail \"could not remove model auth profile\"\ndone \u003c\u003cEOF\n$profiles\nEOF\n\nfor directory in \"$state\"/agents/*; do\n  for file in \"$directory\"/agent/auth-profiles.json \"$directory\"/agent/auth-profiles.json.migrated-*; do\n    [ -e \"$file\" ] || continue\n    [ -f \"$file\" ] || fail \"invalid legacy auth profile\"\n    temp=$(mktemp \"$file.tmp.XXXXXX\") || fail \"could not create auth profile replacement\"\n    if jq -e 'if type != \"object\" then error(\"invalid profiles\")\n      elif has(\"profiles\") then\n        if (.profiles | type) != \"object\" then error(\"invalid profiles\")\n        else .profiles = {} end\n      else {} end' \"$file\" \u003e \"$temp\" 2\u003e/dev/null \u0026\u0026\n      chmod 600 \"$temp\" \u0026\u0026 mv -f \"$temp\" \"$file\"; then\n      :\n    else\n      rm -f \"$temp\"\n      fail \"could not clear legacy auth profiles\"\n    fi\n  done\ndone\n\nlist_profiles\njq -e '.profiles | length == 0' \"$output\" \u003e/dev/null 2\u003e\u00261 ||\n  fail \"model auth profiles remain\"\n\n# Repeat compaction on restart, including after an earlier partial failure.\nif [ -n \"$profiles\" ] || [ -f \"$state/state/openclaw.sqlite\" ]; then\n  openclaw doctor --state-sqlite compact \u003e \"$output\" 2\u003e \"$errors\" ||\n    fail \"could not compact shared state\"\nfi\nif [ -f \"$state/agents/main/agent/openclaw-agent.sqlite\" ]; then\n  openclaw doctor --session-sqlite compact --session-sqlite-agent main \u003e \"$output\" 2\u003e \"$errors\" ||\n    fail \"could not compact agent state\"\nfi\nprintf 'retire-direct-model-auth: model auth profiles retired\\n' \u003e\u00262\n",
+        "session-logger.sh": "#!/bin/sh\n# Copyright (c) Microsoft Corporation.\n# Licensed under the MIT License.\n\n# session-logger — Tail agent session/audit logs to stdout.\n#\n# Each JSONL line is a complete audit record (user input, assistant output,\n# tool calls, tool results). Writing to stdout lets Container Insights\n# (Azure Monitor) capture everything via ContainerLogV2.\n#\n# Runs as a sidecar container with the PVC mounted read-only.\n\nset -e\n\nAGENT_TYPE=\"${AGENT_TYPE:-hermes}\"\nSCAN_INTERVAL=\"${SCAN_INTERVAL:-30}\"\nMAX_FILES=\"${MAX_FILES:-50}\"\n\nif [ \"$AGENT_TYPE\" = \"hermes\" ]; then\n  LOG_FILE=\"/home/vibe/.hermes/logs/gateway.log\"\n  echo \"[session-logger] Starting Hermes gateway log tail (scan interval: ${SCAN_INTERVAL}s)\"\nelse\n  SESSIONS_BASE=\"/home/vibe/.openclaw/agents\"\n  echo \"[session-logger] Starting OpenClaw session JSONL logger (scan interval: ${SCAN_INTERVAL}s, max files: ${MAX_FILES})\"\nfi\n\n# Clean up all child processes on exit to prevent orphaned tail processes\n# that would keep consuming memory after the main loop restarts.\ncleanup() {\n  kill 0 2\u003e/dev/null || true\n}\ntrap cleanup EXIT TERM INT\n\nwhile true; do\n  if [ \"$AGENT_TYPE\" = \"hermes\" ]; then\n    if [ ! -f \"$LOG_FILE\" ]; then\n      sleep \"$SCAN_INTERVAL\"\n      continue\n    fi\n\n    tail -n 0 -F -- \"$LOG_FILE\" \u0026\n    TAIL_PID=$!\n    while kill -0 \"$TAIL_PID\" 2\u003e/dev/null; do\n      sleep \"$SCAN_INTERVAL\"\n    done\n    wait \"$TAIL_PID\" 2\u003e/dev/null || true\n    sleep \"$SCAN_INTERVAL\"\n    continue\n  fi\n\n  # Find active session JSONL files modified in the last 24 hours.\n  # Skips archived .reset.* files and stale sessions to limit open file\n  # descriptors and polling overhead as session history grows.\n  # Cap at MAX_FILES most-recently-modified files to bound memory usage from\n  # tail's inotify watches while ensuring new sessions are always picked up.\n  files=$(find \"$SESSIONS_BASE\" -path \"*/sessions/*.jsonl\" ! -name \"*.reset.*\" -mtime -1 -printf '%T@ %p\\n' 2\u003e/dev/null | sort -rn | head -n \"$MAX_FILES\" | cut -d' ' -f2- | sort)\n\n  if [ -z \"$files\" ]; then\n    sleep \"$SCAN_INTERVAL\"\n    continue\n  fi\n\n  file_count=$(echo \"$files\" | wc -l)\n  echo \"[session-logger] Tailing ${file_count} session file(s)\"\n\n  # Follow from current end of file — no replay of history on (re)start.\n  # -q suppresses \"==\u003e filename \u003c==\" headers that would break the JSONL stream.\n  # -- prevents filenames starting with - from being parsed as options.\n  # Restrict splitting to newlines and disable globbing so paths with spaces\n  # or glob characters are handled safely while still running a single tail.\n  old_ifs=$IFS\n  IFS='\n'\n  set -f\n  # shellcheck disable=SC2086\n  set -- $files\n  tail -q -n 0 -F -- \"$@\" \u0026\n  TAIL_PID=$!\n  set +f\n  IFS=$old_ifs\n\n  # Periodically check for new session files; restart tail when set changes.\n  while kill -0 \"$TAIL_PID\" 2\u003e/dev/null; do\n    sleep \"$SCAN_INTERVAL\"\n    new_files=$(find \"$SESSIONS_BASE\" -path \"*/sessions/*.jsonl\" ! -name \"*.reset.*\" -mtime -1 -printf '%T@ %p\\n' 2\u003e/dev/null | sort -rn | head -n \"$MAX_FILES\" | cut -d' ' -f2- | sort)\n    if [ \"$new_files\" != \"$files\" ]; then\n      echo \"[session-logger] Session file set changed, restarting tail\"\n      kill \"$TAIL_PID\" 2\u003e/dev/null || true\n      break\n    fi\n  done\n\n  wait \"$TAIL_PID\" 2\u003e/dev/null || true\n\n  # Backoff before restarting to avoid tight loop if tail fails immediately\n  # (e.g., too many open file descriptors or transient FS issues).\n  sleep \"$SCAN_INTERVAL\"\ndone\n",
+        "user-md": "# USER.md - About Your Human\n\n- **Name:** Example\n- **Alias:** example\n- **What to call them:** Example\n- **Pronouns:**\n- **Timezone:**\n- **Team:** team-example\n\n## Context\n\n- Has access to this instance at https://example.example.com\n\n---\n\n_Update this as you learn more about them._\n"
+      }
+    },
+    {
+      "kind": "ConfigMap",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "sandbox-bootstrap-b5dd89d53043a9b43f4dc5744599ee048d9ec7dc",
+        "namespace": "cetirun-system",
+        "uid": "native-synthetic-2",
+        "resourceVersion": "6",
+        "annotations": {
+          "cetirun.microsoft.com/agent-uid": "agent-uid"
+        },
+        "ownerReferences": [
+          {
+            "apiVersion": "cetirun.microsoft.com/v1alpha1",
+            "kind": "Agent",
+            "name": "example",
+            "uid": "agent-uid",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ],
+        "finalizers": [
+          "cetirun.microsoft.com/sandbox-bootstrap"
+        ]
+      },
+      "data": {
+        "bootstrap.json": "{\"version\":\"v1\",\"agentName\":\"example\",\"agentUID\":\"agent-uid\",\"agentType\":\"openclaw\",\"namespace\":\"cetirun-example\",\"home\":{\"storageClass\":\"example-csi\",\"storageSize\":\"10737418240\",\"accessMode\":\"ReadWriteOncePod\"},\"chartVersion\":\"0.1.1\",\"objects\":[{\"kind\":\"Namespace\",\"name\":\"cetirun-example\",\"uid\":\"native-synthetic-3\"},{\"kind\":\"Role\",\"name\":\"cetirun-operator-ns-role\",\"uid\":\"native-synthetic-4\"},{\"kind\":\"RoleBinding\",\"name\":\"cetirun-operator-ns-rolebinding\",\"uid\":\"native-synthetic-5\"},{\"kind\":\"PersistentVolumeClaim\",\"name\":\"data-example-0\",\"uid\":\"native-synthetic-6\"},{\"kind\":\"Secret\",\"name\":\"runtime-secret\",\"uid\":\"native-synthetic-7\"}]}"
+      }
+    },
+    {
+      "kind": "ConfigMap",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "sandbox-grants-b5dd89d53043a9b43f4dc5744599ee048d9ec7dc9dd2680e",
+        "namespace": "cetirun-system",
+        "uid": "native-synthetic-12",
+        "resourceVersion": "3",
+        "labels": {
+          "sandbox.cetirun.microsoft.com/agent-uid": "agent-uid"
+        },
+        "annotations": {
+          "sandbox.cetirun.microsoft.com/agent-uid": "agent-uid"
+        },
+        "ownerReferences": [
+          {
+            "apiVersion": "cetirun.microsoft.com/v1alpha1",
+            "kind": "Agent",
+            "name": "example",
+            "uid": "agent-uid",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ],
+        "finalizers": [
+          "sandbox.cetirun.microsoft.com/grant-journal"
+        ]
+      },
+      "data": {
+        "grants.json": "{\"version\":1,\"agentName\":\"example\",\"agentUID\":\"agent-uid\",\"bindings\":[{\"kind\":\"RoleBinding\",\"namespace\":\"cetirun-example\",\"name\":\"cetirun-sandbox-sources\",\"uid\":\"native-synthetic-14\",\"agentName\":\"example\",\"agentUID\":\"agent-uid\",\"serviceAccountName\":\"sandbox-admission\",\"serviceAccountNamespace\":\"cetirun-system\",\"roleRef\":{\"apiGroup\":\"rbac.authorization.k8s.io\",\"kind\":\"Role\",\"name\":\"cetirun-sandbox-sources\"},\"grantRevision\":\"a78179423c96e7b6116d56ff58ea852bb56fc35909e072ae457a6ce22cd1b5de\"}]}"
+      }
+    },
+    {
+      "kind": "ConfigMap",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "sandbox-platform",
+        "namespace": "cetirun-system",
+        "uid": "native-synthetic-1",
+        "resourceVersion": "1"
+      },
+      "data": {
+        "platform.json": "{\"version\":\"v1\",\"registrations\":{\"kata\":{\"Capabilities\":{\"runtimeClassName\":\"example-kata\",\"revision\":\"synthetic-only\",\"hostResourceLimits\":true,\"perContainerResourceLimits\":false,\"requirePerContainerResourceLimits\":false,\"readOnlyRootFilesystem\":true,\"homeAccessModes\":[\"ReadWriteOncePod\"],\"ipFamilies\":[\"IPv4\"],\"protocols\":[\"TCP\",\"UDP\"],\"guestExternalNetwork\":true,\"denyPrecedence\":true,\"nodeTraffic\":true,\"dnsIPRestrictions\":true,\"blockedPorts\":false,\"blockedFQDNs\":false,\"authenticatedIngress\":true,\"disabledIngress\":true,\"mutualTLS\":false,\"kubernetesAccess\":false,\"entraID\":false,\"enforcementObservation\":true,\"restrictiveFailure\":true},\"Available\":true}},\"platforms\":{\"kata\":{\"adapter\":{\"name\":\"azure-cni-overlay-cilium\",\"revision\":\"synthetic-only\",\"qualified\":true,\"available\":true},\"topology\":{\"revision\":\"synthetic-topology\",\"managedPeersComplete\":true,\"dnsResolverIPs\":[\"10.96.0.10\"],\"dns\":[{\"name\":\"dns\",\"namespace\":\"kube-system\",\"uid\":\"dns-uid\",\"ips\":[\"10.96.0.10\"]}],\"gateway\":[{\"peer\":{\"name\":\"gateway\",\"namespace\":\"cetirun-system\",\"uid\":\"gateway-uid\",\"ips\":[\"10.96.1.50\"]},\"ports\":[{\"port\":4000,\"protocol\":\"TCP\"}]}],\"ingress\":[{\"peer\":{\"name\":\"ingress\",\"namespace\":\"platform\",\"uid\":\"ingress-uid\",\"ips\":[\"10.96.1.60\"]},\"ports\":[{\"port\":18789,\"protocol\":\"TCP\"}]}],\"podCIDRs\":[\"10.244.0.0/16\"],\"serviceCIDRs\":[\"10.96.0.0/12\"],\"nodeCIDRs\":[\"192.168.0.0/16\"],\"managementCIDRs\":[\"10.1.0.0/16\"],\"metadataCIDRs\":[\"169.254.169.254/32\"]}}},\"runtimeClasses\":{\"example-kata\":{\"UID\":\"runtime-uid\",\"Handler\":\"example-kata\"}},\"storageClasses\":{\"example-csi\":{\"UID\":\"storage-uid\",\"Provisioner\":\"csi.example.com\"}}}"
+      }
+    },
+    {
+      "kind": "ConfigMap",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "sandbox-pod-3efb8338a42ec533e40ccc3d93efa116da2b45e4",
+        "namespace": "cetirun-system",
+        "uid": "native-synthetic-20",
+        "resourceVersion": "4",
+        "annotations": {
+          "cetirun.microsoft.com/agent-uid": "agent-uid",
+          "cetirun.microsoft.com/sandbox-preparation-digest": "307a4330ecbace884c4e743e640641060a1d1829d027ad861914acdb3f645985",
+          "cetirun.microsoft.com/sandbox-revision": "77d5eda0888ff542218ee0054ba4bd1c710248b37ec6461939c423e0889906df"
+        },
+        "ownerReferences": [
+          {
+            "apiVersion": "cetirun.microsoft.com/v1alpha1",
+            "kind": "Agent",
+            "name": "example",
+            "uid": "agent-uid",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ],
+        "finalizers": [
+          "cetirun.microsoft.com/native-pod-lifetime"
+        ]
+      },
+      "data": {
+        "expectation.json": "{\"version\":\"v1\",\"binding\":{\"agentUID\":\"agent-uid\",\"teamUID\":\"team-uid\",\"sandboxUID\":\"sandbox-uid\",\"agentPolicyUID\":\"policy-uid\"},\"revision\":\"77d5eda0888ff542218ee0054ba4bd1c710248b37ec6461939c423e0889906df\",\"agent\":{\"name\":\"example\",\"uid\":\"agent-uid\"},\"agentGeneration\":1,\"namespace\":{\"name\":\"cetirun-example\",\"uid\":\"native-synthetic-3\"},\"workload\":{\"name\":\"openclaw-example-cetirun\",\"uid\":\"native-synthetic-18\"},\"workloadKind\":\"agent\",\"controllerRevision\":\"openclaw-example-cetirun-native-revision\",\"executionHeld\":false,\"singlePod\":true,\"podUID\":\"native-pod-uid\",\"sourceDigests\":{\"apps/v1/ControllerRevision/cetirun-example/openclaw-example-cetirun-native-revision\":\"aeefa2b5b69e747061f9c04a23e531d882882c4f45d1d8084bfe88a6342ab825\",\"cetirun.microsoft.com/v1alpha1/AgentPolicy//policy-example\":\"04cbaaf5ec6bae16a532705e8faf893ef9b57ed23b62d7bca42a2c4db21297f1\",\"cetirun.microsoft.com/v1alpha1/Sandbox//sandbox-example\":\"9f14cacc9dd59f019d63757c5d70db574af29bd7fb3f4490c6119417e1c33b4f\",\"cetirun.microsoft.com/v1alpha1/Team//team-example\":\"eceb9cf04b3c62dcb0070e80e303f985afa84bb670beb950b67b318f6b9ba833\",\"cilium.io/v2/CiliumNetworkPolicy/cetirun-example/sandbox-2df65b1032bf78556f102b437fc53632\":\"6d8dac54c2b9dc562629482aba08e21de2f65e3c94ef9bb4084797398935c59d\",\"node.k8s.io/v1/RuntimeClass//example-kata\":\"905341d4c4ed575f8fd425852ca36eaa13e1ab757e7bb09891cab397451c7d60\",\"rbac.authorization.k8s.io/v1/Role/cetirun-example/cetirun-sandbox-sources\":\"0016e8ce5dfff828f05fea8427b28d71d3a92baf841eb108bfa27c89c207d242\",\"rbac.authorization.k8s.io/v1/RoleBinding/cetirun-example/cetirun-sandbox-sources\":\"766c3a9cabb363368558b0bb507e50de258748dd632490dbc1183f1489ea3d21\",\"storage.k8s.io/v1/StorageClass//example-csi\":\"c7e37d6b7072c136b9274fd1618f5be4010e95ceb88683eb4bf37a72547b008e\",\"v1/ConfigMap/cetirun-example/openclaw-example-cetirun-config\":\"f49a3ba88952e11a749562b94c3da22f98588125741f0509bcc7b3114a4b2bc8\",\"v1/ConfigMap/cetirun-system/sandbox-grants-b5dd89d53043a9b43f4dc5744599ee048d9ec7dc9dd2680e\":\"6d1bd7a116027688243ac872d465b462537c2d9f36eae75dc9d0026cd9cef000\",\"v1/Namespace//cetirun-example\":\"9ca7de5073e2d2ec8b0b8f599c6ab842b1c7d858b3971f5c8534998e5d220f3e\",\"v1/PersistentVolumeClaim/cetirun-example/data-example-0\":\"9e08502f9fc7dc3c2c616fb567b10c94e6effea71ce3f00950f0dfd5bbf59824\",\"v1/PersistentVolumeClaim/cetirun-example/skills-example\":\"7b7ba1004bbeee39f80c659f89ad8fe7a5bf9e27021e1210afdc7774965a69fb\",\"v1/ServiceAccount/cetirun-example/default\":\"72af7bcd32fd99c784e5f421c33d34fb71543b13b6a8f02f0a7404cc4562bfc8\"},\"template\":{\"metadata\":{\"labels\":{\"app.kubernetes.io/instance\":\"openclaw-example\",\"app.kubernetes.io/name\":\"cetirun\",\"sandbox.cetirun.microsoft.com/agent-uid\":\"agent-uid\"},\"annotations\":{\"cetirun.microsoft.com/agent-uid\":\"agent-uid\",\"cetirun.microsoft.com/sandbox-revision\":\"77d5eda0888ff542218ee0054ba4bd1c710248b37ec6461939c423e0889906df\",\"cetirun.microsoft.com/sandbox-workload\":\"agent\",\"checksum/config\":\"c0db916a6122a81bda0fb703f19fdd0142ca5cfacf2f032d78422ff93bd9594a\",\"checksum/secret\":\"@EMPTY_RENDER_CHECKSUM@\",\"sidecar.istio.io/inject\":\"false\"},\"finalizers\":[\"cetirun.microsoft.com/native-pod-lifetime\"]},\"spec\":{\"volumes\":[{\"name\":\"tmp\",\"emptyDir\":{\"sizeLimit\":\"1073741824\"}},{\"name\":\"config\",\"configMap\":{\"name\":\"openclaw-example-cetirun-config\"}},{\"name\":\"secrets\",\"secret\":{\"secretName\":\"runtime-secret\",\"optional\":true}},{\"name\":\"data\",\"persistentVolumeClaim\":{\"claimName\":\"data-example-0\"}},{\"name\":\"shared-skills\",\"persistentVolumeClaim\":{\"claimName\":\"skills-example\",\"readOnly\":true}}],\"initContainers\":[{\"name\":\"init-home-data\",\"image\":\"registry.example.com/openclaw-gateway:0.1.1\",\"command\":[\"/bin/sh\",\"/etc/cetirun/init-home.sh\"],\"env\":[{\"name\":\"CETIRUN_INIT_IMAGE\",\"value\":\"registry.example.com/openclaw-gateway:0.1.1\"},{\"name\":\"AZDEVOPS_GIT_CREDENTIAL_ENABLED\",\"value\":\"true\"},{\"name\":\"CETIRUN_AI_GATEWAY\",\"value\":\"true\"},{\"name\":\"CETIRUN_NATIVE_SANDBOX\",\"value\":\"true\"}],\"resources\":{\"limits\":{\"cpu\":\"500m\",\"ephemeral-storage\":\"536870912\",\"memory\":\"536870912\"},\"requests\":{\"cpu\":\"100m\",\"ephemeral-storage\":\"134217728\",\"memory\":\"134217728\"}},\"volumeMounts\":[{\"name\":\"data\",\"mountPath\":\"/home-data\"},{\"name\":\"tmp\",\"mountPath\":\"/tmp\"},{\"name\":\"config\",\"readOnly\":true,\"mountPath\":\"/etc/cetirun\"}],\"imagePullPolicy\":\"Always\",\"securityContext\":{\"capabilities\":{\"drop\":[\"ALL\"]},\"privileged\":false,\"runAsUser\":1024,\"runAsGroup\":1024,\"runAsNonRoot\":true,\"readOnlyRootFilesystem\":true,\"allowPrivilegeEscalation\":false,\"seccompProfile\":{\"type\":\"RuntimeDefault\"}}},{\"name\":\"retire-copilot-sign-in\",\"image\":\"registry.example.com/openclaw-gateway:0.1.1\",\"command\":[\"/bin/sh\",\"/etc/cetirun/retire-copilot-sign-in.sh\"],\"env\":[{\"name\":\"OPENCLAW_STATE_DIR\",\"value\":\"/home/vibe/.openclaw\"}],\"resources\":{\"limits\":{\"cpu\":\"500m\",\"ephemeral-storage\":\"536870912\",\"memory\":\"536870912\"},\"requests\":{\"cpu\":\"100m\",\"ephemeral-storage\":\"134217728\",\"memory\":\"134217728\"}},\"volumeMounts\":[{\"name\":\"data\",\"mountPath\":\"/home/vibe\"},{\"name\":\"tmp\",\"mountPath\":\"/tmp\"},{\"name\":\"config\",\"readOnly\":true,\"mountPath\":\"/etc/cetirun\"}],\"imagePullPolicy\":\"Always\",\"securityContext\":{\"capabilities\":{\"drop\":[\"ALL\"]},\"privileged\":false,\"runAsUser\":1024,\"runAsGroup\":1024,\"runAsNonRoot\":true,\"readOnlyRootFilesystem\":true,\"allowPrivilegeEscalation\":false,\"seccompProfile\":{\"type\":\"RuntimeDefault\"}}},{\"name\":\"retire-direct-model-auth\",\"image\":\"registry.example.com/openclaw-gateway:0.1.1\",\"command\":[\"/bin/sh\",\"/etc/cetirun/retire-direct-model-auth.sh\"],\"env\":[{\"name\":\"OPENCLAW_STATE_DIR\",\"value\":\"/home/vibe/.openclaw\"}],\"resources\":{\"limits\":{\"cpu\":\"500m\",\"ephemeral-storage\":\"536870912\",\"memory\":\"536870912\"},\"requests\":{\"cpu\":\"100m\",\"ephemeral-storage\":\"134217728\",\"memory\":\"134217728\"}},\"volumeMounts\":[{\"name\":\"data\",\"mountPath\":\"/home/vibe\"},{\"name\":\"tmp\",\"mountPath\":\"/tmp\"},{\"name\":\"config\",\"readOnly\":true,\"mountPath\":\"/etc/cetirun\"}],\"imagePullPolicy\":\"Always\",\"securityContext\":{\"capabilities\":{\"drop\":[\"ALL\"]},\"privileged\":false,\"runAsUser\":1024,\"runAsGroup\":1024,\"runAsNonRoot\":true,\"readOnlyRootFilesystem\":true,\"allowPrivilegeEscalation\":false,\"seccompProfile\":{\"type\":\"RuntimeDefault\"}}}],\"containers\":[{\"name\":\"cetirun\",\"image\":\"registry.example.com/openclaw-gateway:0.1.1\",\"args\":[\"--bind\",\"lan\",\"--port\",\"18789\"],\"ports\":[{\"name\":\"gateway\",\"containerPort\":18789,\"protocol\":\"TCP\"},{\"name\":\"ttyd\",\"containerPort\":7681,\"protocol\":\"TCP\"}],\"env\":[{\"name\":\"NODE_ENV\",\"value\":\"production\"},{\"name\":\"NODE_OPTIONS\",\"value\":\"--dns-result-order=ipv4first\"},{\"name\":\"OPENCLAW_STATE_DIR\",\"value\":\"/home/vibe/.openclaw\"},{\"name\":\"BRAVE_API_KEY\",\"valueFrom\":{\"secretKeyRef\":{\"name\":\"runtime-secret\",\"key\":\"BRAVE_API_KEY\",\"optional\":true}}},{\"name\":\"PERPLEXITY_API_KEY\",\"valueFrom\":{\"secretKeyRef\":{\"name\":\"runtime-secret\",\"key\":\"PERPLEXITY_API_KEY\",\"optional\":true}}},{\"name\":\"OPENAI_API_KEY\",\"valueFrom\":{\"secretKeyRef\":{\"name\":\"ai-gateway-virtual-key\",\"key\":\"api-key\"}}},{\"name\":\"OPENCLAW_GATEWAY_TOKEN\",\"valueFrom\":{\"secretKeyRef\":{\"name\":\"runtime-secret\",\"key\":\"OPENCLAW_GATEWAY_TOKEN\"}}},{\"name\":\"OPENCLAW_CONFIG_PATH\",\"value\":\"/home/vibe/.openclaw/openclaw.json\"},{\"name\":\"TTYD_ENABLED\",\"value\":\"true\"},{\"name\":\"TTYD_PORT\",\"value\":\"7681\"},{\"name\":\"TTYD_SHELL\",\"value\":\"/bin/zsh\"},{\"name\":\"TTYD_BASE_PATH\",\"value\":\"/term\"},{\"name\":\"CETIRUN_USER_ALIAS\",\"value\":\"example\"},{\"name\":\"CETIRUN_USER_DISPLAY_NAME\",\"value\":\"Example\"},{\"name\":\"CETIRUN_USER_TEAM\",\"value\":\"team-example\"}],\"resources\":{\"limits\":{\"cpu\":\"2\",\"ephemeral-storage\":\"2147483648\",\"memory\":\"2147483648\"},\"requests\":{\"cpu\":\"1\",\"ephemeral-storage\":\"1073741824\",\"memory\":\"1073741824\"}},\"volumeMounts\":[{\"name\":\"data\",\"mountPath\":\"/home/vibe\"},{\"name\":\"tmp\",\"mountPath\":\"/tmp\"},{\"name\":\"config\",\"readOnly\":true,\"mountPath\":\"/etc/cetirun\"},{\"name\":\"shared-skills\",\"readOnly\":true,\"mountPath\":\"/home/vibe/.aks/skills\"}],\"livenessProbe\":{\"exec\":{\"command\":[\"node\",\"/etc/cetirun/health-probe.cjs\",\"18789\",\"/healthz\",\"180000\"]},\"initialDelaySeconds\":30,\"timeoutSeconds\":180,\"periodSeconds\":180,\"successThreshold\":1,\"failureThreshold\":3},\"readinessProbe\":{\"exec\":{\"command\":[\"node\",\"/etc/cetirun/health-probe.cjs\",\"18789\",\"/readyz\",\"10000\"]},\"initialDelaySeconds\":30,\"timeoutSeconds\":10,\"periodSeconds\":30,\"successThreshold\":1,\"failureThreshold\":6},\"startupProbe\":{\"exec\":{\"command\":[\"node\",\"/etc/cetirun/health-probe.cjs\",\"18789\",\"/startupz\",\"5000\"]},\"initialDelaySeconds\":10,\"timeoutSeconds\":5,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":30},\"imagePullPolicy\":\"Always\",\"securityContext\":{\"capabilities\":{\"drop\":[\"ALL\"]},\"privileged\":false,\"runAsUser\":1024,\"runAsGroup\":1024,\"runAsNonRoot\":true,\"readOnlyRootFilesystem\":true,\"allowPrivilegeEscalation\":false,\"seccompProfile\":{\"type\":\"RuntimeDefault\"}}}],\"dnsPolicy\":\"None\",\"serviceAccountName\":\"default\",\"automountServiceAccountToken\":false,\"shareProcessNamespace\":false,\"securityContext\":{\"runAsUser\":1024,\"runAsGroup\":1024,\"runAsNonRoot\":true,\"fsGroup\":1024,\"fsGroupChangePolicy\":\"OnRootMismatch\",\"seccompProfile\":{\"type\":\"RuntimeDefault\"}},\"dnsConfig\":{\"nameservers\":[\"10.96.0.10\"]},\"runtimeClassName\":\"example-kata\",\"enableServiceLinks\":false,\"resources\":{\"limits\":{\"cpu\":\"2\",\"memory\":\"2147483648\"},\"requests\":{\"cpu\":\"1\",\"memory\":\"1073741824\"}}}},\"overhead\":{\"cpu\":\"100m\",\"memory\":\"128Mi\"},\"sources\":[{\"apiVersion\":\"apps/v1\",\"kind\":\"ControllerRevision\",\"namespace\":\"cetirun-example\",\"name\":\"openclaw-example-cetirun-native-revision\",\"uid\":\"native-synthetic-19\",\"resourceVersion\":\"1\"},{\"apiVersion\":\"apps/v1\",\"kind\":\"StatefulSet\",\"namespace\":\"cetirun-example\",\"name\":\"openclaw-example-cetirun\",\"uid\":\"native-synthetic-18\",\"resourceVersion\":\"2\"},{\"apiVersion\":\"cetirun.microsoft.com/v1alpha1\",\"kind\":\"Agent\",\"name\":\"example\",\"uid\":\"agent-uid\",\"generation\":1,\"intentDigest\":\"7c8c49f3d6879b513eff399a7bdd7d7866253ce61f2af5fec2463096d190e5d6\"},{\"apiVersion\":\"cetirun.microsoft.com/v1alpha1\",\"kind\":\"AgentPolicy\",\"name\":\"policy-example\",\"uid\":\"policy-uid\",\"resourceVersion\":\"1\"},{\"apiVersion\":\"cetirun.microsoft.com/v1alpha1\",\"kind\":\"Sandbox\",\"name\":\"sandbox-example\",\"uid\":\"sandbox-uid\",\"resourceVersion\":\"1\"},{\"apiVersion\":\"cetirun.microsoft.com/v1alpha1\",\"kind\":\"Team\",\"name\":\"team-example\",\"uid\":\"team-uid\",\"resourceVersion\":\"1\"},{\"apiVersion\":\"cilium.io/v2\",\"kind\":\"CiliumNetworkPolicy\",\"namespace\":\"cetirun-example\",\"name\":\"sandbox-2df65b1032bf78556f102b437fc53632\",\"uid\":\"native-synthetic-16\",\"resourceVersion\":\"1\"},{\"apiVersion\":\"node.k8s.io/v1\",\"kind\":\"RuntimeClass\",\"name\":\"example-kata\",\"uid\":\"runtime-uid\",\"resourceVersion\":\"1\"},{\"apiVersion\":\"rbac.authorization.k8s.io/v1\",\"kind\":\"Role\",\"namespace\":\"cetirun-example\",\"name\":\"cetirun-sandbox-sources\",\"uid\":\"native-synthetic-13\",\"resourceVersion\":\"1\"},{\"apiVersion\":\"rbac.authorization.k8s.io/v1\",\"kind\":\"RoleBinding\",\"namespace\":\"cetirun-example\",\"name\":\"cetirun-sandbox-sources\",\"uid\":\"native-synthetic-14\",\"resourceVersion\":\"1\"},{\"apiVersion\":\"storage.k8s.io/v1\",\"kind\":\"StorageClass\",\"name\":\"example-csi\",\"uid\":\"storage-uid\",\"resourceVersion\":\"999\"},{\"apiVersion\":\"v1\",\"kind\":\"ConfigMap\",\"namespace\":\"cetirun-example\",\"name\":\"openclaw-example-cetirun-config\",\"uid\":\"native-synthetic-15\",\"resourceVersion\":\"1\"},{\"apiVersion\":\"v1\",\"kind\":\"ConfigMap\",\"namespace\":\"cetirun-system\",\"name\":\"sandbox-grants-b5dd89d53043a9b43f4dc5744599ee048d9ec7dc9dd2680e\",\"uid\":\"native-synthetic-12\",\"resourceVersion\":\"3\"},{\"apiVersion\":\"v1\",\"kind\":\"Namespace\",\"name\":\"cetirun-example\",\"uid\":\"native-synthetic-3\",\"resourceVersion\":\"1\"},{\"apiVersion\":\"v1\",\"kind\":\"PersistentVolumeClaim\",\"namespace\":\"cetirun-example\",\"name\":\"data-example-0\",\"uid\":\"native-synthetic-6\",\"resourceVersion\":\"1\"},{\"apiVersion\":\"v1\",\"kind\":\"PersistentVolumeClaim\",\"namespace\":\"cetirun-example\",\"name\":\"skills-example\",\"uid\":\"native-synthetic-9\",\"resourceVersion\":\"1\"},{\"apiVersion\":\"v1\",\"kind\":\"Secret\",\"namespace\":\"cetirun-example\",\"name\":\"ai-gateway-virtual-key\",\"uid\":\"native-synthetic-10\",\"resourceVersion\":\"1\"},{\"apiVersion\":\"v1\",\"kind\":\"Secret\",\"namespace\":\"cetirun-example\",\"name\":\"runtime-secret\",\"uid\":\"native-synthetic-7\",\"resourceVersion\":\"1\"},{\"apiVersion\":\"v1\",\"kind\":\"ServiceAccount\",\"namespace\":\"cetirun-example\",\"name\":\"default\",\"uid\":\"native-synthetic-8\",\"resourceVersion\":\"1\"}],\"home\":{\"name\":\"data-example-0\",\"uid\":\"native-synthetic-6\"},\"skills\":{\"name\":\"skills-example\",\"uid\":\"native-synthetic-9\"}}"
+      }
+    },
+    {
+      "kind": "ConfigMap",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "sandbox-preparation-b5dd89d53043a9b43f4dc5744599ee048d9ec7dc",
+        "namespace": "cetirun-system",
+        "uid": "native-synthetic-11",
+        "resourceVersion": "2",
+        "annotations": {
+          "cetirun.microsoft.com/agent-uid": "agent-uid",
+          "sandbox.cetirun.microsoft.com/native-started": "77d5eda0888ff542218ee0054ba4bd1c710248b37ec6461939c423e0889906df"
+        },
+        "ownerReferences": [
+          {
+            "apiVersion": "cetirun.microsoft.com/v1alpha1",
+            "kind": "Agent",
+            "name": "example",
+            "uid": "agent-uid",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ],
+        "finalizers": [
+          "cetirun.microsoft.com/sandbox-preparation"
+        ]
+      },
+      "data": {
+        "preparation.json": "{\"version\":\"v1\",\"agentName\":\"example\",\"agentUID\":\"agent-uid\",\"nativeExecution\":true,\"prerequisites\":{\"AgentUID\":\"agent-uid\",\"AgentGeneration\":1,\"Revision\":\"b10835c324b8e7dd2f1cf87212e5632ff128195cf2a3721b344f42a0367a238c\",\"ObservedAt\":\"2026-10-13T04:11:20.895482018Z\",\"NamespaceUID\":\"native-synthetic-3\",\"Home\":{\"name\":\"data-example-0\",\"uid\":\"native-synthetic-6\"},\"Skills\":{\"name\":\"skills-example\",\"uid\":\"native-synthetic-9\"},\"RuntimeSecret\":{\"name\":\"runtime-secret\",\"uid\":\"native-synthetic-7\"},\"ChartVersion\":\"0.1.1\",\"Helpers\":{\"doctor\":false,\"logger\":false,\"desktop\":false}}}"
+      }
+    },
+    {
+      "kind": "ControllerRevision",
+      "apiVersion": "apps/v1",
+      "metadata": {
+        "name": "openclaw-example-cetirun-native-revision",
+        "namespace": "cetirun-example",
+        "uid": "native-synthetic-19",
+        "resourceVersion": "1",
+        "ownerReferences": [
+          {
+            "apiVersion": "apps/v1",
+            "kind": "StatefulSet",
+            "name": "openclaw-example-cetirun",
+            "uid": "native-synthetic-18",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ]
+      },
+      "data": {
+        "spec": {
+          "template": {
+            "$patch": "replace",
+            "metadata": {
+              "annotations": {
+                "cetirun.microsoft.com/agent-uid": "agent-uid",
+                "cetirun.microsoft.com/sandbox-revision": "77d5eda0888ff542218ee0054ba4bd1c710248b37ec6461939c423e0889906df",
+                "cetirun.microsoft.com/sandbox-workload": "agent",
+                "checksum/config": "c0db916a6122a81bda0fb703f19fdd0142ca5cfacf2f032d78422ff93bd9594a",
+                "checksum/secret": "@EMPTY_RENDER_CHECKSUM@",
+                "sidecar.istio.io/inject": "false"
+              },
+              "finalizers": [
+                "cetirun.microsoft.com/native-pod-lifetime"
+              ],
+              "labels": {
+                "app.kubernetes.io/instance": "openclaw-example",
+                "app.kubernetes.io/name": "cetirun",
+                "sandbox.cetirun.microsoft.com/agent-uid": "agent-uid"
+              }
+            },
+            "spec": {
+              "automountServiceAccountToken": false,
+              "containers": [
+                {
+                  "args": [
+                    "--bind",
+                    "lan",
+                    "--port",
+                    "18789"
+                  ],
+                  "env": [
+                    {
+                      "name": "NODE_ENV",
+                      "value": "production"
+                    },
+                    {
+                      "name": "NODE_OPTIONS",
+                      "value": "--dns-result-order=ipv4first"
+                    },
+                    {
+                      "name": "OPENCLAW_STATE_DIR",
+                      "value": "/home/vibe/.openclaw"
+                    },
+                    {
+                      "name": "BRAVE_API_KEY",
+                      "valueFrom": {
+                        "secretKeyRef": {
+                          "key": "BRAVE_API_KEY",
+                          "name": "runtime-secret",
+                          "optional": true
+                        }
+                      }
+                    },
+                    {
+                      "name": "PERPLEXITY_API_KEY",
+                      "valueFrom": {
+                        "secretKeyRef": {
+                          "key": "PERPLEXITY_API_KEY",
+                          "name": "runtime-secret",
+                          "optional": true
+                        }
+                      }
+                    },
+                    {
+                      "name": "OPENAI_API_KEY",
+                      "valueFrom": {
+                        "secretKeyRef": {
+                          "key": "api-key",
+                          "name": "ai-gateway-virtual-key"
+                        }
+                      }
+                    },
+                    {
+                      "name": "OPENCLAW_GATEWAY_TOKEN",
+                      "valueFrom": {
+                        "secretKeyRef": {
+                          "key": "OPENCLAW_GATEWAY_TOKEN",
+                          "name": "runtime-secret"
+                        }
+                      }
+                    },
+                    {
+                      "name": "OPENCLAW_CONFIG_PATH",
+                      "value": "/home/vibe/.openclaw/openclaw.json"
+                    },
+                    {
+                      "name": "TTYD_ENABLED",
+                      "value": "true"
+                    },
+                    {
+                      "name": "TTYD_PORT",
+                      "value": "7681"
+                    },
+                    {
+                      "name": "TTYD_SHELL",
+                      "value": "/bin/zsh"
+                    },
+                    {
+                      "name": "TTYD_BASE_PATH",
+                      "value": "/term"
+                    },
+                    {
+                      "name": "CETIRUN_USER_ALIAS",
+                      "value": "example"
+                    },
+                    {
+                      "name": "CETIRUN_USER_DISPLAY_NAME",
+                      "value": "Example"
+                    },
+                    {
+                      "name": "CETIRUN_USER_TEAM",
+                      "value": "team-example"
+                    }
+                  ],
+                  "image": "registry.example.com/openclaw-gateway:0.1.1",
+                  "imagePullPolicy": "Always",
+                  "livenessProbe": {
+                    "exec": {
+                      "command": [
+                        "node",
+                        "/etc/cetirun/health-probe.cjs",
+                        "18789",
+                        "/healthz",
+                        "180000"
+                      ]
+                    },
+                    "failureThreshold": 3,
+                    "initialDelaySeconds": 30,
+                    "periodSeconds": 180,
+                    "successThreshold": 1,
+                    "timeoutSeconds": 180
+                  },
+                  "name": "cetirun",
+                  "ports": [
+                    {
+                      "containerPort": 18789,
+                      "name": "gateway",
+                      "protocol": "TCP"
+                    },
+                    {
+                      "containerPort": 7681,
+                      "name": "ttyd",
+                      "protocol": "TCP"
+                    }
+                  ],
+                  "readinessProbe": {
+                    "exec": {
+                      "command": [
+                        "node",
+                        "/etc/cetirun/health-probe.cjs",
+                        "18789",
+                        "/readyz",
+                        "10000"
+                      ]
+                    },
+                    "failureThreshold": 6,
+                    "initialDelaySeconds": 30,
+                    "periodSeconds": 30,
+                    "successThreshold": 1,
+                    "timeoutSeconds": 10
+                  },
+                  "resources": {
+                    "limits": {
+                      "cpu": "2",
+                      "ephemeral-storage": "2147483648",
+                      "memory": "2147483648"
+                    },
+                    "requests": {
+                      "cpu": "1",
+                      "ephemeral-storage": "1073741824",
+                      "memory": "1073741824"
+                    }
+                  },
+                  "securityContext": {
+                    "allowPrivilegeEscalation": false,
+                    "capabilities": {
+                      "drop": [
+                        "ALL"
+                      ]
+                    },
+                    "privileged": false,
+                    "readOnlyRootFilesystem": true,
+                    "runAsGroup": 1024,
+                    "runAsNonRoot": true,
+                    "runAsUser": 1024,
+                    "seccompProfile": {
+                      "type": "RuntimeDefault"
+                    }
+                  },
+                  "startupProbe": {
+                    "exec": {
+                      "command": [
+                        "node",
+                        "/etc/cetirun/health-probe.cjs",
+                        "18789",
+                        "/startupz",
+                        "5000"
+                      ]
+                    },
+                    "failureThreshold": 30,
+                    "initialDelaySeconds": 10,
+                    "periodSeconds": 10,
+                    "successThreshold": 1,
+                    "timeoutSeconds": 5
+                  },
+                  "volumeMounts": [
+                    {
+                      "mountPath": "/home/vibe",
+                      "name": "data"
+                    },
+                    {
+                      "mountPath": "/tmp",
+                      "name": "tmp"
+                    },
+                    {
+                      "mountPath": "/etc/cetirun",
+                      "name": "config",
+                      "readOnly": true
+                    },
+                    {
+                      "mountPath": "/home/vibe/.aks/skills",
+                      "name": "shared-skills",
+                      "readOnly": true
+                    }
+                  ]
+                }
+              ],
+              "dnsConfig": {
+                "nameservers": [
+                  "10.96.0.10"
+                ]
+              },
+              "dnsPolicy": "None",
+              "enableServiceLinks": false,
+              "initContainers": [
+                {
+                  "command": [
+                    "/bin/sh",
+                    "/etc/cetirun/init-home.sh"
+                  ],
+                  "env": [
+                    {
+                      "name": "CETIRUN_INIT_IMAGE",
+                      "value": "registry.example.com/openclaw-gateway:0.1.1"
+                    },
+                    {
+                      "name": "AZDEVOPS_GIT_CREDENTIAL_ENABLED",
+                      "value": "true"
+                    },
+                    {
+                      "name": "CETIRUN_AI_GATEWAY",
+                      "value": "true"
+                    },
+                    {
+                      "name": "CETIRUN_NATIVE_SANDBOX",
+                      "value": "true"
+                    }
+                  ],
+                  "image": "registry.example.com/openclaw-gateway:0.1.1",
+                  "imagePullPolicy": "Always",
+                  "name": "init-home-data",
+                  "resources": {
+                    "limits": {
+                      "cpu": "500m",
+                      "ephemeral-storage": "536870912",
+                      "memory": "536870912"
+                    },
+                    "requests": {
+                      "cpu": "100m",
+                      "ephemeral-storage": "134217728",
+                      "memory": "134217728"
+                    }
+                  },
+                  "securityContext": {
+                    "allowPrivilegeEscalation": false,
+                    "capabilities": {
+                      "drop": [
+                        "ALL"
+                      ]
+                    },
+                    "privileged": false,
+                    "readOnlyRootFilesystem": true,
+                    "runAsGroup": 1024,
+                    "runAsNonRoot": true,
+                    "runAsUser": 1024,
+                    "seccompProfile": {
+                      "type": "RuntimeDefault"
+                    }
+                  },
+                  "volumeMounts": [
+                    {
+                      "mountPath": "/home-data",
+                      "name": "data"
+                    },
+                    {
+                      "mountPath": "/tmp",
+                      "name": "tmp"
+                    },
+                    {
+                      "mountPath": "/etc/cetirun",
+                      "name": "config",
+                      "readOnly": true
+                    }
+                  ]
+                },
+                {
+                  "command": [
+                    "/bin/sh",
+                    "/etc/cetirun/retire-copilot-sign-in.sh"
+                  ],
+                  "env": [
+                    {
+                      "name": "OPENCLAW_STATE_DIR",
+                      "value": "/home/vibe/.openclaw"
+                    }
+                  ],
+                  "image": "registry.example.com/openclaw-gateway:0.1.1",
+                  "imagePullPolicy": "Always",
+                  "name": "retire-copilot-sign-in",
+                  "resources": {
+                    "limits": {
+                      "cpu": "500m",
+                      "ephemeral-storage": "536870912",
+                      "memory": "536870912"
+                    },
+                    "requests": {
+                      "cpu": "100m",
+                      "ephemeral-storage": "134217728",
+                      "memory": "134217728"
+                    }
+                  },
+                  "securityContext": {
+                    "allowPrivilegeEscalation": false,
+                    "capabilities": {
+                      "drop": [
+                        "ALL"
+                      ]
+                    },
+                    "privileged": false,
+                    "readOnlyRootFilesystem": true,
+                    "runAsGroup": 1024,
+                    "runAsNonRoot": true,
+                    "runAsUser": 1024,
+                    "seccompProfile": {
+                      "type": "RuntimeDefault"
+                    }
+                  },
+                  "volumeMounts": [
+                    {
+                      "mountPath": "/home/vibe",
+                      "name": "data"
+                    },
+                    {
+                      "mountPath": "/tmp",
+                      "name": "tmp"
+                    },
+                    {
+                      "mountPath": "/etc/cetirun",
+                      "name": "config",
+                      "readOnly": true
+                    }
+                  ]
+                },
+                {
+                  "command": [
+                    "/bin/sh",
+                    "/etc/cetirun/retire-direct-model-auth.sh"
+                  ],
+                  "env": [
+                    {
+                      "name": "OPENCLAW_STATE_DIR",
+                      "value": "/home/vibe/.openclaw"
+                    }
+                  ],
+                  "image": "registry.example.com/openclaw-gateway:0.1.1",
+                  "imagePullPolicy": "Always",
+                  "name": "retire-direct-model-auth",
+                  "resources": {
+                    "limits": {
+                      "cpu": "500m",
+                      "ephemeral-storage": "536870912",
+                      "memory": "536870912"
+                    },
+                    "requests": {
+                      "cpu": "100m",
+                      "ephemeral-storage": "134217728",
+                      "memory": "134217728"
+                    }
+                  },
+                  "securityContext": {
+                    "allowPrivilegeEscalation": false,
+                    "capabilities": {
+                      "drop": [
+                        "ALL"
+                      ]
+                    },
+                    "privileged": false,
+                    "readOnlyRootFilesystem": true,
+                    "runAsGroup": 1024,
+                    "runAsNonRoot": true,
+                    "runAsUser": 1024,
+                    "seccompProfile": {
+                      "type": "RuntimeDefault"
+                    }
+                  },
+                  "volumeMounts": [
+                    {
+                      "mountPath": "/home/vibe",
+                      "name": "data"
+                    },
+                    {
+                      "mountPath": "/tmp",
+                      "name": "tmp"
+                    },
+                    {
+                      "mountPath": "/etc/cetirun",
+                      "name": "config",
+                      "readOnly": true
+                    }
+                  ]
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "cpu": "2",
+                  "memory": "2147483648"
+                },
+                "requests": {
+                  "cpu": "1",
+                  "memory": "1073741824"
+                }
+              },
+              "runtimeClassName": "example-kata",
+              "securityContext": {
+                "fsGroup": 1024,
+                "fsGroupChangePolicy": "OnRootMismatch",
+                "runAsGroup": 1024,
+                "runAsNonRoot": true,
+                "runAsUser": 1024,
+                "seccompProfile": {
+                  "type": "RuntimeDefault"
+                }
+              },
+              "serviceAccountName": "default",
+              "shareProcessNamespace": false,
+              "volumes": [
+                {
+                  "emptyDir": {
+                    "sizeLimit": "1073741824"
+                  },
+                  "name": "tmp"
+                },
+                {
+                  "configMap": {
+                    "name": "openclaw-example-cetirun-config"
+                  },
+                  "name": "config"
+                },
+                {
+                  "name": "secrets",
+                  "secret": {
+                    "optional": true,
+                    "secretName": "runtime-secret"
+                  }
+                },
+                {
+                  "name": "data",
+                  "persistentVolumeClaim": {
+                    "claimName": "data-example-0"
+                  }
+                },
+                {
+                  "name": "shared-skills",
+                  "persistentVolumeClaim": {
+                    "claimName": "skills-example",
+                    "readOnly": true
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "revision": 1
+    },
+    {
+      "kind": "Namespace",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "cetirun-example",
+        "uid": "native-synthetic-3",
+        "resourceVersion": "1",
+        "labels": {
+          "app.kubernetes.io/instance": "example",
+          "app.kubernetes.io/managed-by": "cetirun-operator",
+          "app.kubernetes.io/name": "cetirun",
+          "cetirun.microsoft.com/sandbox-protected": "true"
+        },
+        "annotations": {
+          "cetirun.microsoft.com/agent-name": "example",
+          "cetirun.microsoft.com/agent-uid": "agent-uid",
+          "cetirun.microsoft.com/sandbox-bootstrap": "native-synthetic-2"
+        },
+        "ownerReferences": [
+          {
+            "apiVersion": "cetirun.microsoft.com/v1alpha1",
+            "kind": "Agent",
+            "name": "example",
+            "uid": "agent-uid",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ],
+        "finalizers": [
+          "cetirun.microsoft.com/sandbox-bootstrap"
+        ]
+      },
+      "spec": {},
+      "status": {}
+    },
+    {
+      "kind": "Node",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "native-test-node",
+        "uid": "native-node-uid",
+        "resourceVersion": "1"
+      },
+      "spec": {},
+      "status": {
+        "conditions": [
+          {
+            "type": "Ready",
+            "status": "True",
+            "lastHeartbeatTime": null,
+            "lastTransitionTime": null
+          }
+        ],
+        "daemonEndpoints": {
+          "kubeletEndpoint": {
+            "Port": 0
+          }
+        },
+        "nodeInfo": {
+          "machineID": "",
+          "systemUUID": "",
+          "bootID": "",
+          "kernelVersion": "",
+          "osImage": "",
+          "containerRuntimeVersion": "",
+          "kubeletVersion": "",
+          "kubeProxyVersion": "",
+          "operatingSystem": "",
+          "architecture": ""
+        }
+      }
+    },
+    {
+      "kind": "PersistentVolumeClaim",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "data-example-0",
+        "namespace": "cetirun-example",
+        "uid": "native-synthetic-6",
+        "resourceVersion": "1",
+        "annotations": {
+          "cetirun.microsoft.com/agent-name": "example",
+          "cetirun.microsoft.com/agent-uid": "agent-uid",
+          "cetirun.microsoft.com/sandbox-bootstrap": "native-synthetic-2"
+        },
+        "ownerReferences": [
+          {
+            "apiVersion": "cetirun.microsoft.com/v1alpha1",
+            "kind": "Agent",
+            "name": "example",
+            "uid": "agent-uid",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ],
+        "finalizers": [
+          "cetirun.microsoft.com/sandbox-bootstrap"
+        ]
+      },
+      "spec": {
+        "accessModes": [
+          "ReadWriteOncePod"
+        ],
+        "resources": {
+          "requests": {
+            "storage": "10737418240"
+          }
+        },
+        "storageClassName": "example-csi"
+      },
+      "status": {}
+    },
+    {
+      "kind": "PersistentVolumeClaim",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "skills-example",
+        "namespace": "cetirun-example",
+        "uid": "native-synthetic-9",
+        "resourceVersion": "1",
+        "ownerReferences": [
+          {
+            "apiVersion": "cetirun.microsoft.com/v1alpha1",
+            "kind": "Team",
+            "name": "team-example",
+            "uid": "team-uid"
+          }
+        ]
+      },
+      "spec": {
+        "resources": {}
+      },
+      "status": {}
+    },
+    {
+      "kind": "Pod",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "openclaw-example-cetirun-0",
+        "namespace": "cetirun-example",
+        "uid": "native-pod-uid",
+        "resourceVersion": "2",
+        "labels": {
+          "app.kubernetes.io/instance": "openclaw-example",
+          "app.kubernetes.io/name": "cetirun",
+          "apps.kubernetes.io/pod-index": "0",
+          "controller-revision-hash": "openclaw-example-cetirun-native-revision",
+          "sandbox.cetirun.microsoft.com/agent-uid": "agent-uid",
+          "statefulset.kubernetes.io/pod-name": "openclaw-example-cetirun-0"
+        },
+        "annotations": {
+          "cetirun.microsoft.com/agent-uid": "agent-uid",
+          "cetirun.microsoft.com/sandbox-revision": "77d5eda0888ff542218ee0054ba4bd1c710248b37ec6461939c423e0889906df",
+          "cetirun.microsoft.com/sandbox-workload": "agent",
+          "checksum/config": "c0db916a6122a81bda0fb703f19fdd0142ca5cfacf2f032d78422ff93bd9594a",
+          "checksum/secret": "@EMPTY_RENDER_CHECKSUM@",
+          "sidecar.istio.io/inject": "false"
+        },
+        "ownerReferences": [
+          {
+            "apiVersion": "apps/v1",
+            "kind": "StatefulSet",
+            "name": "openclaw-example-cetirun",
+            "uid": "native-synthetic-18",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ]
+      },
+      "spec": {
+        "volumes": [
+          {
+            "name": "tmp",
+            "emptyDir": {
+              "sizeLimit": "1073741824"
+            }
+          },
+          {
+            "name": "config",
+            "configMap": {
+              "name": "openclaw-example-cetirun-config"
+            }
+          },
+          {
+            "name": "secrets",
+            "secret": {
+              "secretName": "runtime-secret",
+              "optional": true
+            }
+          },
+          {
+            "name": "data",
+            "persistentVolumeClaim": {
+              "claimName": "data-example-0"
+            }
+          },
+          {
+            "name": "shared-skills",
+            "persistentVolumeClaim": {
+              "claimName": "skills-example",
+              "readOnly": true
+            }
+          }
+        ],
+        "initContainers": [
+          {
+            "name": "init-home-data",
+            "image": "registry.example.com/openclaw-gateway:0.1.1",
+            "command": [
+              "/bin/sh",
+              "/etc/cetirun/init-home.sh"
+            ],
+            "env": [
+              {
+                "name": "CETIRUN_INIT_IMAGE",
+                "value": "registry.example.com/openclaw-gateway:0.1.1"
+              },
+              {
+                "name": "AZDEVOPS_GIT_CREDENTIAL_ENABLED",
+                "value": "true"
+              },
+              {
+                "name": "CETIRUN_AI_GATEWAY",
+                "value": "true"
+              },
+              {
+                "name": "CETIRUN_NATIVE_SANDBOX",
+                "value": "true"
+              }
+            ],
+            "resources": {
+              "limits": {
+                "cpu": "500m",
+                "ephemeral-storage": "536870912",
+                "memory": "536870912"
+              },
+              "requests": {
+                "cpu": "100m",
+                "ephemeral-storage": "134217728",
+                "memory": "134217728"
+              }
+            },
+            "volumeMounts": [
+              {
+                "name": "data",
+                "mountPath": "/home-data"
+              },
+              {
+                "name": "tmp",
+                "mountPath": "/tmp"
+              },
+              {
+                "name": "config",
+                "readOnly": true,
+                "mountPath": "/etc/cetirun"
+              }
+            ],
+            "imagePullPolicy": "Always",
+            "securityContext": {
+              "capabilities": {
+                "drop": [
+                  "ALL"
+                ]
+              },
+              "privileged": false,
+              "runAsUser": 1024,
+              "runAsGroup": 1024,
+              "runAsNonRoot": true,
+              "readOnlyRootFilesystem": true,
+              "allowPrivilegeEscalation": false,
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            }
+          },
+          {
+            "name": "retire-copilot-sign-in",
+            "image": "registry.example.com/openclaw-gateway:0.1.1",
+            "command": [
+              "/bin/sh",
+              "/etc/cetirun/retire-copilot-sign-in.sh"
+            ],
+            "env": [
+              {
+                "name": "OPENCLAW_STATE_DIR",
+                "value": "/home/vibe/.openclaw"
+              }
+            ],
+            "resources": {
+              "limits": {
+                "cpu": "500m",
+                "ephemeral-storage": "536870912",
+                "memory": "536870912"
+              },
+              "requests": {
+                "cpu": "100m",
+                "ephemeral-storage": "134217728",
+                "memory": "134217728"
+              }
+            },
+            "volumeMounts": [
+              {
+                "name": "data",
+                "mountPath": "/home/vibe"
+              },
+              {
+                "name": "tmp",
+                "mountPath": "/tmp"
+              },
+              {
+                "name": "config",
+                "readOnly": true,
+                "mountPath": "/etc/cetirun"
+              }
+            ],
+            "imagePullPolicy": "Always",
+            "securityContext": {
+              "capabilities": {
+                "drop": [
+                  "ALL"
+                ]
+              },
+              "privileged": false,
+              "runAsUser": 1024,
+              "runAsGroup": 1024,
+              "runAsNonRoot": true,
+              "readOnlyRootFilesystem": true,
+              "allowPrivilegeEscalation": false,
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            }
+          },
+          {
+            "name": "retire-direct-model-auth",
+            "image": "registry.example.com/openclaw-gateway:0.1.1",
+            "command": [
+              "/bin/sh",
+              "/etc/cetirun/retire-direct-model-auth.sh"
+            ],
+            "env": [
+              {
+                "name": "OPENCLAW_STATE_DIR",
+                "value": "/home/vibe/.openclaw"
+              }
+            ],
+            "resources": {
+              "limits": {
+                "cpu": "500m",
+                "ephemeral-storage": "536870912",
+                "memory": "536870912"
+              },
+              "requests": {
+                "cpu": "100m",
+                "ephemeral-storage": "134217728",
+                "memory": "134217728"
+              }
+            },
+            "volumeMounts": [
+              {
+                "name": "data",
+                "mountPath": "/home/vibe"
+              },
+              {
+                "name": "tmp",
+                "mountPath": "/tmp"
+              },
+              {
+                "name": "config",
+                "readOnly": true,
+                "mountPath": "/etc/cetirun"
+              }
+            ],
+            "imagePullPolicy": "Always",
+            "securityContext": {
+              "capabilities": {
+                "drop": [
+                  "ALL"
+                ]
+              },
+              "privileged": false,
+              "runAsUser": 1024,
+              "runAsGroup": 1024,
+              "runAsNonRoot": true,
+              "readOnlyRootFilesystem": true,
+              "allowPrivilegeEscalation": false,
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            }
+          }
+        ],
+        "containers": [
+          {
+            "name": "cetirun",
+            "image": "registry.example.com/openclaw-gateway:0.1.1",
+            "args": [
+              "--bind",
+              "lan",
+              "--port",
+              "18789"
+            ],
+            "ports": [
+              {
+                "name": "gateway",
+                "containerPort": 18789,
+                "protocol": "TCP"
+              },
+              {
+                "name": "ttyd",
+                "containerPort": 7681,
+                "protocol": "TCP"
+              }
+            ],
+            "env": [
+              {
+                "name": "NODE_ENV",
+                "value": "production"
+              },
+              {
+                "name": "NODE_OPTIONS",
+                "value": "--dns-result-order=ipv4first"
+              },
+              {
+                "name": "OPENCLAW_STATE_DIR",
+                "value": "/home/vibe/.openclaw"
+              },
+              {
+                "name": "BRAVE_API_KEY",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "runtime-secret",
+                    "key": "BRAVE_API_KEY",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "PERPLEXITY_API_KEY",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "runtime-secret",
+                    "key": "PERPLEXITY_API_KEY",
+                    "optional": true
+                  }
+                }
+              },
+              {
+                "name": "OPENAI_API_KEY",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "ai-gateway-virtual-key",
+                    "key": "api-key"
+                  }
+                }
+              },
+              {
+                "name": "OPENCLAW_GATEWAY_TOKEN",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "name": "runtime-secret",
+                    "key": "OPENCLAW_GATEWAY_TOKEN"
+                  }
+                }
+              },
+              {
+                "name": "OPENCLAW_CONFIG_PATH",
+                "value": "/home/vibe/.openclaw/openclaw.json"
+              },
+              {
+                "name": "TTYD_ENABLED",
+                "value": "true"
+              },
+              {
+                "name": "TTYD_PORT",
+                "value": "7681"
+              },
+              {
+                "name": "TTYD_SHELL",
+                "value": "/bin/zsh"
+              },
+              {
+                "name": "TTYD_BASE_PATH",
+                "value": "/term"
+              },
+              {
+                "name": "CETIRUN_USER_ALIAS",
+                "value": "example"
+              },
+              {
+                "name": "CETIRUN_USER_DISPLAY_NAME",
+                "value": "Example"
+              },
+              {
+                "name": "CETIRUN_USER_TEAM",
+                "value": "team-example"
+              }
+            ],
+            "resources": {
+              "limits": {
+                "cpu": "2",
+                "ephemeral-storage": "2147483648",
+                "memory": "2147483648"
+              },
+              "requests": {
+                "cpu": "1",
+                "ephemeral-storage": "1073741824",
+                "memory": "1073741824"
+              }
+            },
+            "volumeMounts": [
+              {
+                "name": "data",
+                "mountPath": "/home/vibe"
+              },
+              {
+                "name": "tmp",
+                "mountPath": "/tmp"
+              },
+              {
+                "name": "config",
+                "readOnly": true,
+                "mountPath": "/etc/cetirun"
+              },
+              {
+                "name": "shared-skills",
+                "readOnly": true,
+                "mountPath": "/home/vibe/.aks/skills"
+              }
+            ],
+            "livenessProbe": {
+              "exec": {
+                "command": [
+                  "node",
+                  "/etc/cetirun/health-probe.cjs",
+                  "18789",
+                  "/healthz",
+                  "180000"
+                ]
+              },
+              "initialDelaySeconds": 30,
+              "timeoutSeconds": 180,
+              "periodSeconds": 180,
+              "successThreshold": 1,
+              "failureThreshold": 3
+            },
+            "readinessProbe": {
+              "exec": {
+                "command": [
+                  "node",
+                  "/etc/cetirun/health-probe.cjs",
+                  "18789",
+                  "/readyz",
+                  "10000"
+                ]
+              },
+              "initialDelaySeconds": 30,
+              "timeoutSeconds": 10,
+              "periodSeconds": 30,
+              "successThreshold": 1,
+              "failureThreshold": 6
+            },
+            "startupProbe": {
+              "exec": {
+                "command": [
+                  "node",
+                  "/etc/cetirun/health-probe.cjs",
+                  "18789",
+                  "/startupz",
+                  "5000"
+                ]
+              },
+              "initialDelaySeconds": 10,
+              "timeoutSeconds": 5,
+              "periodSeconds": 10,
+              "successThreshold": 1,
+              "failureThreshold": 30
+            },
+            "imagePullPolicy": "Always",
+            "securityContext": {
+              "capabilities": {
+                "drop": [
+                  "ALL"
+                ]
+              },
+              "privileged": false,
+              "runAsUser": 1024,
+              "runAsGroup": 1024,
+              "runAsNonRoot": true,
+              "readOnlyRootFilesystem": true,
+              "allowPrivilegeEscalation": false,
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            }
+          }
+        ],
+        "dnsPolicy": "None",
+        "serviceAccountName": "default",
+        "automountServiceAccountToken": false,
+        "nodeName": "native-test-node",
+        "shareProcessNamespace": false,
+        "securityContext": {
+          "runAsUser": 1024,
+          "runAsGroup": 1024,
+          "runAsNonRoot": true,
+          "fsGroup": 1024,
+          "fsGroupChangePolicy": "OnRootMismatch",
+          "seccompProfile": {
+            "type": "RuntimeDefault"
+          }
+        },
+        "hostname": "openclaw-example-cetirun-0",
+        "subdomain": "openclaw-example-cetirun",
+        "dnsConfig": {
+          "nameservers": [
+            "10.96.0.10"
+          ]
+        },
+        "runtimeClassName": "example-kata",
+        "enableServiceLinks": false,
+        "overhead": {
+          "cpu": "100m",
+          "memory": "128Mi"
+        },
+        "resources": {
+          "limits": {
+            "cpu": "2",
+            "memory": "2147483648"
+          },
+          "requests": {
+            "cpu": "1",
+            "memory": "1073741824"
+          }
+        }
+      },
+      "status": {
+        "phase": "Running",
+        "conditions": [
+          {
+            "type": "Ready",
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": null
+          }
+        ]
+      }
+    },
+    {
+      "kind": "Role",
+      "apiVersion": "rbac.authorization.k8s.io/v1",
+      "metadata": {
+        "name": "cetirun-operator-ns-role",
+        "namespace": "cetirun-example",
+        "uid": "native-synthetic-4",
+        "resourceVersion": "1",
+        "labels": {
+          "app.kubernetes.io/managed-by": "cetirun-operator"
+        },
+        "annotations": {
+          "cetirun.microsoft.com/agent-name": "example",
+          "cetirun.microsoft.com/agent-uid": "agent-uid",
+          "cetirun.microsoft.com/sandbox-bootstrap": "native-synthetic-2"
+        },
+        "ownerReferences": [
+          {
+            "apiVersion": "cetirun.microsoft.com/v1alpha1",
+            "kind": "Agent",
+            "name": "example",
+            "uid": "agent-uid",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ],
+        "finalizers": [
+          "cetirun.microsoft.com/sandbox-bootstrap"
+        ]
+      },
+      "rules": [
+        {
+          "verbs": [
+            "get",
+            "list",
+            "watch",
+            "create",
+            "update",
+            "patch",
+            "delete"
+          ],
+          "apiGroups": [
+            ""
+          ],
+          "resources": [
+            "secrets",
+            "configmaps",
+            "services",
+            "persistentvolumeclaims",
+            "serviceaccounts"
+          ]
+        },
+        {
+          "verbs": [
+            "get",
+            "list",
+            "watch",
+            "create",
+            "update",
+            "patch",
+            "delete"
+          ],
+          "apiGroups": [
+            "apps"
+          ],
+          "resources": [
+            "statefulsets",
+            "deployments"
+          ]
+        },
+        {
+          "verbs": [
+            "get",
+            "list",
+            "watch",
+            "create",
+            "update",
+            "patch",
+            "delete"
+          ],
+          "apiGroups": [
+            "networking.k8s.io"
+          ],
+          "resources": [
+            "networkpolicies"
+          ]
+        },
+        {
+          "verbs": [
+            "get",
+            "list",
+            "watch",
+            "create",
+            "update",
+            "patch",
+            "delete"
+          ],
+          "apiGroups": [
+            "rbac.authorization.k8s.io"
+          ],
+          "resources": [
+            "roles",
+            "rolebindings"
+          ]
+        },
+        {
+          "verbs": [
+            "get",
+            "list",
+            "watch",
+            "create",
+            "update",
+            "patch",
+            "delete"
+          ],
+          "apiGroups": [
+            "batch"
+          ],
+          "resources": [
+            "jobs"
+          ]
+        },
+        {
+          "verbs": [
+            "get",
+            "list",
+            "watch",
+            "create",
+            "update",
+            "patch",
+            "delete"
+          ],
+          "apiGroups": [
+            "networking.istio.io"
+          ],
+          "resources": [
+            "virtualservices",
+            "sidecars"
+          ]
+        },
+        {
+          "verbs": [
+            "get",
+            "list",
+            "watch",
+            "create",
+            "update",
+            "patch",
+            "delete"
+          ],
+          "apiGroups": [
+            "security.istio.io"
+          ],
+          "resources": [
+            "authorizationpolicies",
+            "peerauthentications"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "Role",
+      "apiVersion": "rbac.authorization.k8s.io/v1",
+      "metadata": {
+        "name": "cetirun-sandbox-sources",
+        "namespace": "cetirun-example",
+        "uid": "native-synthetic-13",
+        "resourceVersion": "1",
+        "labels": {
+          "sandbox.cetirun.microsoft.com/agent-uid": "agent-uid"
+        },
+        "annotations": {
+          "sandbox.cetirun.microsoft.com/grant-revision": "a78179423c96e7b6116d56ff58ea852bb56fc35909e072ae457a6ce22cd1b5de"
+        },
+        "ownerReferences": [
+          {
+            "apiVersion": "cetirun.microsoft.com/v1alpha1",
+            "kind": "Agent",
+            "name": "example",
+            "uid": "agent-uid",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ]
+      },
+      "rules": [
+        {
+          "verbs": [
+            "get"
+          ],
+          "apiGroups": [
+            ""
+          ],
+          "resources": [
+            "configmaps"
+          ],
+          "resourceNames": [
+            "openclaw-example-cetirun-config"
+          ]
+        },
+        {
+          "verbs": [
+            "get"
+          ],
+          "apiGroups": [
+            ""
+          ],
+          "resources": [
+            "secrets"
+          ],
+          "resourceNames": [
+            "ai-gateway-virtual-key",
+            "runtime-secret"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "RoleBinding",
+      "apiVersion": "rbac.authorization.k8s.io/v1",
+      "metadata": {
+        "name": "cetirun-operator-ns-rolebinding",
+        "namespace": "cetirun-example",
+        "uid": "native-synthetic-5",
+        "resourceVersion": "1",
+        "labels": {
+          "app.kubernetes.io/managed-by": "cetirun-operator"
+        },
+        "annotations": {
+          "cetirun.microsoft.com/agent-name": "example",
+          "cetirun.microsoft.com/agent-uid": "agent-uid",
+          "cetirun.microsoft.com/sandbox-bootstrap": "native-synthetic-2"
+        },
+        "ownerReferences": [
+          {
+            "apiVersion": "cetirun.microsoft.com/v1alpha1",
+            "kind": "Agent",
+            "name": "example",
+            "uid": "agent-uid",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ],
+        "finalizers": [
+          "cetirun.microsoft.com/sandbox-bootstrap"
+        ]
+      },
+      "subjects": [
+        {
+          "kind": "ServiceAccount",
+          "name": "cetirun-operator",
+          "namespace": "cetirun-system"
+        }
+      ],
+      "roleRef": {
+        "apiGroup": "rbac.authorization.k8s.io",
+        "kind": "Role",
+        "name": "cetirun-operator-ns-role"
+      }
+    },
+    {
+      "kind": "RoleBinding",
+      "apiVersion": "rbac.authorization.k8s.io/v1",
+      "metadata": {
+        "name": "cetirun-sandbox-sources",
+        "namespace": "cetirun-example",
+        "uid": "native-synthetic-14",
+        "resourceVersion": "1",
+        "labels": {
+          "sandbox.cetirun.microsoft.com/agent-uid": "agent-uid"
+        },
+        "annotations": {
+          "sandbox.cetirun.microsoft.com/grant-revision": "a78179423c96e7b6116d56ff58ea852bb56fc35909e072ae457a6ce22cd1b5de"
+        },
+        "ownerReferences": [
+          {
+            "apiVersion": "cetirun.microsoft.com/v1alpha1",
+            "kind": "Agent",
+            "name": "example",
+            "uid": "agent-uid",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ]
+      },
+      "subjects": [
+        {
+          "kind": "ServiceAccount",
+          "name": "sandbox-admission",
+          "namespace": "cetirun-system"
+        }
+      ],
+      "roleRef": {
+        "apiGroup": "rbac.authorization.k8s.io",
+        "kind": "Role",
+        "name": "cetirun-sandbox-sources"
+      }
+    },
+    {
+      "kind": "RuntimeClass",
+      "apiVersion": "node.k8s.io/v1",
+      "metadata": {
+        "name": "example-kata",
+        "uid": "runtime-uid",
+        "resourceVersion": "1"
+      },
+      "handler": "example-kata",
+      "overhead": {
+        "podFixed": {
+          "cpu": "100m",
+          "memory": "128Mi"
+        }
+      }
+    },
+    {
+      "kind": "Sandbox",
+      "apiVersion": "cetirun.microsoft.com/v1alpha1",
+      "metadata": {
+        "name": "sandbox-example",
+        "uid": "sandbox-uid",
+        "resourceVersion": "1",
+        "generation": 1
+      },
+      "spec": {
+        "type": "kata",
+        "resources": {
+          "agent": {
+            "requests": {
+              "cpu": "1",
+              "ephemeral-storage": "1Gi",
+              "memory": "1Gi"
+            },
+            "limits": {
+              "cpu": "2",
+              "ephemeral-storage": "2Gi",
+              "memory": "2Gi"
+            }
+          },
+          "helpers": {
+            "requests": {
+              "cpu": "100m",
+              "ephemeral-storage": "128Mi",
+              "memory": "128Mi"
+            },
+            "limits": {
+              "cpu": "500m",
+              "ephemeral-storage": "512Mi",
+              "memory": "512Mi"
+            }
+          }
+        },
+        "storage": {
+          "home": {
+            "storageClassName": "example-csi",
+            "size": "10Gi",
+            "accessMode": "ReadWriteOncePod"
+          },
+          "scratch": {
+            "sizeLimit": "1Gi"
+          }
+        }
+      },
+      "status": {}
+    },
+    {
+      "kind": "Secret",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "ai-gateway-virtual-key",
+        "namespace": "cetirun-example",
+        "uid": "native-synthetic-10",
+        "resourceVersion": "1",
+        "labels": {
+          "app.kubernetes.io/instance": "example",
+          "app.kubernetes.io/managed-by": "cetirun-operator",
+          "cetirun.microsoft.com/agent-uid": "agent-uid"
+        },
+        "annotations": {
+          "cetirun.microsoft.com/ai-gateway-key-alias": "cetirun-example-agent-uid"
+        },
+        "ownerReferences": [
+          {
+            "apiVersion": "cetirun.microsoft.com/v1alpha1",
+            "kind": "Agent",
+            "name": "example",
+            "uid": "agent-uid",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ]
+      },
+      "data": {
+        "api-key": "@SYNTHETIC_GATEWAY_KEY_DATA@"
+      },
+      "type": "Opaque"
+    },
+    {
+      "kind": "Secret",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "runtime-secret",
+        "namespace": "cetirun-example",
+        "uid": "native-synthetic-7",
+        "resourceVersion": "1",
+        "annotations": {
+          "cetirun.microsoft.com/agent-name": "example",
+          "cetirun.microsoft.com/agent-uid": "agent-uid",
+          "cetirun.microsoft.com/sandbox-bootstrap": "native-synthetic-2"
+        },
+        "ownerReferences": [
+          {
+            "apiVersion": "cetirun.microsoft.com/v1alpha1",
+            "kind": "Agent",
+            "name": "example",
+            "uid": "agent-uid",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ],
+        "finalizers": [
+          "cetirun.microsoft.com/sandbox-bootstrap"
+        ]
+      },
+      "data": {
+        "CETIRUN_AUTH_KEY": "@SYNTHETIC_RUNTIME_KEY_DATA@",
+        "OPENCLAW_GATEWAY_TOKEN": "@SYNTHETIC_RUNTIME_KEY_DATA@"
+      },
+      "type": "Opaque"
+    },
+    {
+      "kind": "Service",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "openclaw-example-cetirun",
+        "namespace": "cetirun-example",
+        "uid": "native-synthetic-17",
+        "resourceVersion": "1",
+        "labels": {
+          "app.kubernetes.io/instance": "openclaw-example",
+          "app.kubernetes.io/managed-by": "Helm",
+          "app.kubernetes.io/name": "cetirun",
+          "app.kubernetes.io/version": "0.1.1",
+          "helm.sh/chart": "cetirun-0.1.1"
+        },
+        "ownerReferences": [
+          {
+            "apiVersion": "cetirun.microsoft.com/v1alpha1",
+            "kind": "Agent",
+            "name": "example",
+            "uid": "agent-uid",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ]
+      },
+      "spec": {
+        "ports": [
+          {
+            "name": "gateway",
+            "protocol": "TCP",
+            "port": 18789,
+            "targetPort": 18789
+          },
+          {
+            "name": "ttyd",
+            "protocol": "TCP",
+            "port": 7681,
+            "targetPort": 7681
+          }
+        ],
+        "selector": {
+          "app.kubernetes.io/instance": "openclaw-example",
+          "app.kubernetes.io/name": "cetirun"
+        },
+        "type": "ClusterIP"
+      },
+      "status": {
+        "loadBalancer": {}
+      }
+    },
+    {
+      "kind": "ServiceAccount",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "default",
+        "namespace": "cetirun-example",
+        "uid": "native-synthetic-8",
+        "resourceVersion": "1"
+      },
+      "automountServiceAccountToken": false
+    },
+    {
+      "kind": "StatefulSet",
+      "apiVersion": "apps/v1",
+      "metadata": {
+        "name": "openclaw-example-cetirun",
+        "namespace": "cetirun-example",
+        "uid": "native-synthetic-18",
+        "resourceVersion": "3",
+        "labels": {
+          "app.kubernetes.io/instance": "openclaw-example",
+          "app.kubernetes.io/managed-by": "Helm",
+          "app.kubernetes.io/name": "cetirun",
+          "app.kubernetes.io/version": "0.1.1",
+          "helm.sh/chart": "cetirun-0.1.1"
+        },
+        "annotations": {
+          "cetirun.microsoft.com/agent-uid": "agent-uid",
+          "cetirun.microsoft.com/registry-binding-only": "false",
+          "cetirun.microsoft.com/sandbox-revision": "77d5eda0888ff542218ee0054ba4bd1c710248b37ec6461939c423e0889906df",
+          "cetirun.microsoft.com/sandbox-workload": "agent",
+          "sidecar.istio.io/inject": "false"
+        },
+        "ownerReferences": [
+          {
+            "apiVersion": "cetirun.microsoft.com/v1alpha1",
+            "kind": "Agent",
+            "name": "example",
+            "uid": "agent-uid",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ]
+      },
+      "spec": {
+        "replicas": 1,
+        "selector": {
+          "matchLabels": {
+            "app.kubernetes.io/instance": "openclaw-example",
+            "app.kubernetes.io/name": "cetirun"
+          }
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/instance": "openclaw-example",
+              "app.kubernetes.io/name": "cetirun",
+              "sandbox.cetirun.microsoft.com/agent-uid": "agent-uid"
+            },
+            "annotations": {
+              "cetirun.microsoft.com/agent-uid": "agent-uid",
+              "cetirun.microsoft.com/sandbox-revision": "77d5eda0888ff542218ee0054ba4bd1c710248b37ec6461939c423e0889906df",
+              "cetirun.microsoft.com/sandbox-workload": "agent",
+              "checksum/config": "c0db916a6122a81bda0fb703f19fdd0142ca5cfacf2f032d78422ff93bd9594a",
+              "checksum/secret": "@EMPTY_RENDER_CHECKSUM@",
+              "sidecar.istio.io/inject": "false"
+            },
+            "finalizers": [
+              "cetirun.microsoft.com/native-pod-lifetime"
+            ]
+          },
+          "spec": {
+            "volumes": [
+              {
+                "name": "tmp",
+                "emptyDir": {
+                  "sizeLimit": "1073741824"
+                }
+              },
+              {
+                "name": "config",
+                "configMap": {
+                  "name": "openclaw-example-cetirun-config"
+                }
+              },
+              {
+                "name": "secrets",
+                "secret": {
+                  "secretName": "runtime-secret",
+                  "optional": true
+                }
+              },
+              {
+                "name": "data",
+                "persistentVolumeClaim": {
+                  "claimName": "data-example-0"
+                }
+              },
+              {
+                "name": "shared-skills",
+                "persistentVolumeClaim": {
+                  "claimName": "skills-example",
+                  "readOnly": true
+                }
+              }
+            ],
+            "initContainers": [
+              {
+                "name": "init-home-data",
+                "image": "registry.example.com/openclaw-gateway:0.1.1",
+                "command": [
+                  "/bin/sh",
+                  "/etc/cetirun/init-home.sh"
+                ],
+                "env": [
+                  {
+                    "name": "CETIRUN_INIT_IMAGE",
+                    "value": "registry.example.com/openclaw-gateway:0.1.1"
+                  },
+                  {
+                    "name": "AZDEVOPS_GIT_CREDENTIAL_ENABLED",
+                    "value": "true"
+                  },
+                  {
+                    "name": "CETIRUN_AI_GATEWAY",
+                    "value": "true"
+                  },
+                  {
+                    "name": "CETIRUN_NATIVE_SANDBOX",
+                    "value": "true"
+                  }
+                ],
+                "resources": {
+                  "limits": {
+                    "cpu": "500m",
+                    "ephemeral-storage": "536870912",
+                    "memory": "536870912"
+                  },
+                  "requests": {
+                    "cpu": "100m",
+                    "ephemeral-storage": "134217728",
+                    "memory": "134217728"
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "name": "data",
+                    "mountPath": "/home-data"
+                  },
+                  {
+                    "name": "tmp",
+                    "mountPath": "/tmp"
+                  },
+                  {
+                    "name": "config",
+                    "readOnly": true,
+                    "mountPath": "/etc/cetirun"
+                  }
+                ],
+                "imagePullPolicy": "Always",
+                "securityContext": {
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  },
+                  "privileged": false,
+                  "runAsUser": 1024,
+                  "runAsGroup": 1024,
+                  "runAsNonRoot": true,
+                  "readOnlyRootFilesystem": true,
+                  "allowPrivilegeEscalation": false,
+                  "seccompProfile": {
+                    "type": "RuntimeDefault"
+                  }
+                }
+              },
+              {
+                "name": "retire-copilot-sign-in",
+                "image": "registry.example.com/openclaw-gateway:0.1.1",
+                "command": [
+                  "/bin/sh",
+                  "/etc/cetirun/retire-copilot-sign-in.sh"
+                ],
+                "env": [
+                  {
+                    "name": "OPENCLAW_STATE_DIR",
+                    "value": "/home/vibe/.openclaw"
+                  }
+                ],
+                "resources": {
+                  "limits": {
+                    "cpu": "500m",
+                    "ephemeral-storage": "536870912",
+                    "memory": "536870912"
+                  },
+                  "requests": {
+                    "cpu": "100m",
+                    "ephemeral-storage": "134217728",
+                    "memory": "134217728"
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "name": "data",
+                    "mountPath": "/home/vibe"
+                  },
+                  {
+                    "name": "tmp",
+                    "mountPath": "/tmp"
+                  },
+                  {
+                    "name": "config",
+                    "readOnly": true,
+                    "mountPath": "/etc/cetirun"
+                  }
+                ],
+                "imagePullPolicy": "Always",
+                "securityContext": {
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  },
+                  "privileged": false,
+                  "runAsUser": 1024,
+                  "runAsGroup": 1024,
+                  "runAsNonRoot": true,
+                  "readOnlyRootFilesystem": true,
+                  "allowPrivilegeEscalation": false,
+                  "seccompProfile": {
+                    "type": "RuntimeDefault"
+                  }
+                }
+              },
+              {
+                "name": "retire-direct-model-auth",
+                "image": "registry.example.com/openclaw-gateway:0.1.1",
+                "command": [
+                  "/bin/sh",
+                  "/etc/cetirun/retire-direct-model-auth.sh"
+                ],
+                "env": [
+                  {
+                    "name": "OPENCLAW_STATE_DIR",
+                    "value": "/home/vibe/.openclaw"
+                  }
+                ],
+                "resources": {
+                  "limits": {
+                    "cpu": "500m",
+                    "ephemeral-storage": "536870912",
+                    "memory": "536870912"
+                  },
+                  "requests": {
+                    "cpu": "100m",
+                    "ephemeral-storage": "134217728",
+                    "memory": "134217728"
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "name": "data",
+                    "mountPath": "/home/vibe"
+                  },
+                  {
+                    "name": "tmp",
+                    "mountPath": "/tmp"
+                  },
+                  {
+                    "name": "config",
+                    "readOnly": true,
+                    "mountPath": "/etc/cetirun"
+                  }
+                ],
+                "imagePullPolicy": "Always",
+                "securityContext": {
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  },
+                  "privileged": false,
+                  "runAsUser": 1024,
+                  "runAsGroup": 1024,
+                  "runAsNonRoot": true,
+                  "readOnlyRootFilesystem": true,
+                  "allowPrivilegeEscalation": false,
+                  "seccompProfile": {
+                    "type": "RuntimeDefault"
+                  }
+                }
+              }
+            ],
+            "containers": [
+              {
+                "name": "cetirun",
+                "image": "registry.example.com/openclaw-gateway:0.1.1",
+                "args": [
+                  "--bind",
+                  "lan",
+                  "--port",
+                  "18789"
+                ],
+                "ports": [
+                  {
+                    "name": "gateway",
+                    "containerPort": 18789,
+                    "protocol": "TCP"
+                  },
+                  {
+                    "name": "ttyd",
+                    "containerPort": 7681,
+                    "protocol": "TCP"
+                  }
+                ],
+                "env": [
+                  {
+                    "name": "NODE_ENV",
+                    "value": "production"
+                  },
+                  {
+                    "name": "NODE_OPTIONS",
+                    "value": "--dns-result-order=ipv4first"
+                  },
+                  {
+                    "name": "OPENCLAW_STATE_DIR",
+                    "value": "/home/vibe/.openclaw"
+                  },
+                  {
+                    "name": "BRAVE_API_KEY",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "name": "runtime-secret",
+                        "key": "BRAVE_API_KEY",
+                        "optional": true
+                      }
+                    }
+                  },
+                  {
+                    "name": "PERPLEXITY_API_KEY",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "name": "runtime-secret",
+                        "key": "PERPLEXITY_API_KEY",
+                        "optional": true
+                      }
+                    }
+                  },
+                  {
+                    "name": "OPENAI_API_KEY",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "name": "ai-gateway-virtual-key",
+                        "key": "api-key"
+                      }
+                    }
+                  },
+                  {
+                    "name": "OPENCLAW_GATEWAY_TOKEN",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "name": "runtime-secret",
+                        "key": "OPENCLAW_GATEWAY_TOKEN"
+                      }
+                    }
+                  },
+                  {
+                    "name": "OPENCLAW_CONFIG_PATH",
+                    "value": "/home/vibe/.openclaw/openclaw.json"
+                  },
+                  {
+                    "name": "TTYD_ENABLED",
+                    "value": "true"
+                  },
+                  {
+                    "name": "TTYD_PORT",
+                    "value": "7681"
+                  },
+                  {
+                    "name": "TTYD_SHELL",
+                    "value": "/bin/zsh"
+                  },
+                  {
+                    "name": "TTYD_BASE_PATH",
+                    "value": "/term"
+                  },
+                  {
+                    "name": "CETIRUN_USER_ALIAS",
+                    "value": "example"
+                  },
+                  {
+                    "name": "CETIRUN_USER_DISPLAY_NAME",
+                    "value": "Example"
+                  },
+                  {
+                    "name": "CETIRUN_USER_TEAM",
+                    "value": "team-example"
+                  }
+                ],
+                "resources": {
+                  "limits": {
+                    "cpu": "2",
+                    "ephemeral-storage": "2147483648",
+                    "memory": "2147483648"
+                  },
+                  "requests": {
+                    "cpu": "1",
+                    "ephemeral-storage": "1073741824",
+                    "memory": "1073741824"
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "name": "data",
+                    "mountPath": "/home/vibe"
+                  },
+                  {
+                    "name": "tmp",
+                    "mountPath": "/tmp"
+                  },
+                  {
+                    "name": "config",
+                    "readOnly": true,
+                    "mountPath": "/etc/cetirun"
+                  },
+                  {
+                    "name": "shared-skills",
+                    "readOnly": true,
+                    "mountPath": "/home/vibe/.aks/skills"
+                  }
+                ],
+                "livenessProbe": {
+                  "exec": {
+                    "command": [
+                      "node",
+                      "/etc/cetirun/health-probe.cjs",
+                      "18789",
+                      "/healthz",
+                      "180000"
+                    ]
+                  },
+                  "initialDelaySeconds": 30,
+                  "timeoutSeconds": 180,
+                  "periodSeconds": 180,
+                  "successThreshold": 1,
+                  "failureThreshold": 3
+                },
+                "readinessProbe": {
+                  "exec": {
+                    "command": [
+                      "node",
+                      "/etc/cetirun/health-probe.cjs",
+                      "18789",
+                      "/readyz",
+                      "10000"
+                    ]
+                  },
+                  "initialDelaySeconds": 30,
+                  "timeoutSeconds": 10,
+                  "periodSeconds": 30,
+                  "successThreshold": 1,
+                  "failureThreshold": 6
+                },
+                "startupProbe": {
+                  "exec": {
+                    "command": [
+                      "node",
+                      "/etc/cetirun/health-probe.cjs",
+                      "18789",
+                      "/startupz",
+                      "5000"
+                    ]
+                  },
+                  "initialDelaySeconds": 10,
+                  "timeoutSeconds": 5,
+                  "periodSeconds": 10,
+                  "successThreshold": 1,
+                  "failureThreshold": 30
+                },
+                "imagePullPolicy": "Always",
+                "securityContext": {
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  },
+                  "privileged": false,
+                  "runAsUser": 1024,
+                  "runAsGroup": 1024,
+                  "runAsNonRoot": true,
+                  "readOnlyRootFilesystem": true,
+                  "allowPrivilegeEscalation": false,
+                  "seccompProfile": {
+                    "type": "RuntimeDefault"
+                  }
+                }
+              }
+            ],
+            "dnsPolicy": "None",
+            "serviceAccountName": "default",
+            "automountServiceAccountToken": false,
+            "shareProcessNamespace": false,
+            "securityContext": {
+              "runAsUser": 1024,
+              "runAsGroup": 1024,
+              "runAsNonRoot": true,
+              "fsGroup": 1024,
+              "fsGroupChangePolicy": "OnRootMismatch",
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            },
+            "dnsConfig": {
+              "nameservers": [
+                "10.96.0.10"
+              ]
+            },
+            "runtimeClassName": "example-kata",
+            "enableServiceLinks": false,
+            "resources": {
+              "limits": {
+                "cpu": "2",
+                "memory": "2147483648"
+              },
+              "requests": {
+                "cpu": "1",
+                "memory": "1073741824"
+              }
+            }
+          }
+        },
+        "serviceName": "openclaw-example-cetirun",
+        "updateStrategy": {
+          "type": "RollingUpdate"
+        }
+      },
+      "status": {
+        "replicas": 0,
+        "updateRevision": "openclaw-example-cetirun-native-revision",
+        "availableReplicas": 0
+      }
+    },
+    {
+      "kind": "StorageClass",
+      "apiVersion": "storage.k8s.io/v1",
+      "metadata": {
+        "name": "example-csi",
+        "uid": "storage-uid",
+        "resourceVersion": "999"
+      },
+      "provisioner": "csi.example.com"
+    },
+    {
+      "kind": "Team",
+      "apiVersion": "cetirun.microsoft.com/v1alpha1",
+      "metadata": {
+        "name": "team-example",
+        "uid": "team-uid",
+        "resourceVersion": "1",
+        "generation": 1
+      },
+      "spec": {
+        "agentPolicyRef": "policy-example",
+        "sandboxRefs": [
+          "sandbox-example"
+        ],
+        "defaultSandboxRef": "sandbox-example",
+        "memberContext": {},
+        "defaults": {},
+        "skills": [
+          "example-skill"
+        ]
+      },
+      "status": {
+        "conditions": [
+          {
+            "type": "Accepted",
+            "status": "True",
+            "observedGeneration": 1,
+            "lastTransitionTime": null,
+            "reason": "",
+            "message": ""
+          }
+        ],
+        "observedGeneration": 1
+      }
+    },
+    {
+      "kind": "VirtualService",
+      "apiVersion": "networking.istio.io/v1beta1",
+      "metadata": {
+        "name": "cetirun-example",
+        "namespace": "cetirun-example",
+        "uid": "native-synthetic-21",
+        "resourceVersion": "1",
+        "labels": {
+          "app.kubernetes.io/instance": "example",
+          "app.kubernetes.io/managed-by": "cetirun-operator"
+        },
+        "annotations": {
+          "cetirun.microsoft.com/agent-uid": "agent-uid"
+        },
+        "ownerReferences": [
+          {
+            "apiVersion": "cetirun.microsoft.com/v1alpha1",
+            "kind": "Agent",
+            "name": "example",
+            "uid": "agent-uid",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ]
+      },
+      "spec": {
+        "hosts": [
+          "example.com"
+        ],
+        "gateways": [
+          "platform/ingress"
+        ],
+        "http": [
+          {
+            "match": [
+              {
+                "uri": {
+                  "exact": "/example/api/messages"
+                },
+                "method": {
+                  "exact": "POST"
+                }
+              }
+            ],
+            "directResponse": {
+              "status": 404
+            }
+          },
+          {
+            "match": [
+              {
+                "uri": {
+                  "exact": "/ui/example"
+                },
+                "headers": {
+                  "upgrade": {
+                    "exact": "websocket"
+                  }
+                }
+              }
+            ],
+            "route": [
+              {
+                "destination": {
+                  "host": "openclaw-example-cetirun.cetirun-example.svc.cluster.local",
+                  "port": {
+                    "number": 18789
+                  }
+                }
+              }
+            ],
+            "timeout": "300s",
+            "retries": {
+              "attempts": 3,
+              "perTryTimeout": "100s"
+            }
+          },
+          {
+            "match": [
+              {
+                "uri": {
+                  "exact": "/ui/example"
+                }
+              }
+            ],
+            "redirect": {
+              "uri": "/ui/example/",
+              "redirectCode": 301
+            }
+          },
+          {
+            "match": [
+              {
+                "uri": {
+                  "exact": "/example/desktop"
+                }
+              }
+            ],
+            "redirect": {
+              "uri": "/example/desktop/",
+              "redirectCode": 301
+            }
+          },
+          {
+            "match": [
+              {
+                "uri": {
+                  "exact": "/example/term"
+                }
+              }
+            ],
+            "redirect": {
+              "uri": "/example/term/",
+              "redirectCode": 301
+            }
+          },
+          {
+            "match": [
+              {
+                "uri": {
+                  "prefix": "/example/desktop"
+                }
+              }
+            ],
+            "route": [
+              {
+                "destination": {
+                  "host": "openclaw-example-cetirun.cetirun-example.svc.cluster.local",
+                  "port": {
+                    "number": 6080
+                  }
+                }
+              }
+            ],
+            "rewrite": {
+              "uri": "/desktop"
+            }
+          },
+          {
+            "match": [
+              {
+                "uri": {
+                  "prefix": "/example/term"
+                }
+              }
+            ],
+            "route": [
+              {
+                "destination": {
+                  "host": "openclaw-example-cetirun.cetirun-example.svc.cluster.local",
+                  "port": {
+                    "number": 7681
+                  }
+                }
+              }
+            ],
+            "rewrite": {
+              "uri": "/term"
+            }
+          },
+          {
+            "match": [
+              {
+                "uri": {
+                  "prefix": "/ui/example/"
+                }
+              }
+            ],
+            "route": [
+              {
+                "destination": {
+                  "host": "openclaw-example-cetirun.cetirun-example.svc.cluster.local",
+                  "port": {
+                    "number": 18789
+                  }
+                }
+              }
+            ],
+            "timeout": "300s",
+            "retries": {
+              "attempts": 3,
+              "perTryTimeout": "100s"
+            }
+          }
+        ],
+        "exportTo": [
+          "*"
+        ]
+      },
+      "status": {}
+    }
+  ]
+}

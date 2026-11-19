@@ -1,0 +1,42 @@
+# Settings for the Container Insights agent (ama-logs), which the cluster
+# template turns on. deploy.sh creates them right after the cluster is created,
+# before anything else is installed on it. On a cluster that runs the
+# monitoring add-on without them, create them before installing CetiRun:
+#
+#   kubectl create -f infra/cluster/container-azm-ms-agentconfig.yaml
+#
+# If kube-system already has a ConfigMap of this name, add the two settings
+# below to its log-data-collection-settings instead: applying this file over it
+# replaces those settings as a whole, including any namespaces it excludes.
+# deploy.sh leaves such a ConfigMap unchanged and stops if it does not turn off
+# environment variable collection.
+#
+# The agent reads it from kube-system under this name and restarts itself to
+# pick it up, which took about four minutes when measured. Settings it leaves
+# out keep the agent's defaults. Reference:
+# https://learn.microsoft.com/azure/azure-monitor/containers/kubernetes-data-collection-configmap
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: container-azm-ms-agentconfig
+  namespace: kube-system
+data:
+  schema-version: v1
+  config-version: cetirun-1
+  log-data-collection-settings: |-
+    [log_collection_settings]
+       # Off: the agent otherwise copies every container's environment, values
+       # taken from Secrets included, into the ContainerInventory table once a
+       # minute. CetiRun components hold their credentials there: the AI
+       # Gateway's master key, salt key, database URL and provider keys, the
+       # bundled PostgreSQL's password and oauth2-proxy's cookie secret.
+       [log_collection_settings.env_var]
+          enabled = false
+       [log_collection_settings.schema]
+          containerlog_schema_version = "v2"
+       # On: the container runtime splits a line longer than 16 KiB, and
+       # without this the agent stores each piece as its own row, none of them
+       # valid JSON. Measured with it on: lines up to 250 KB were stored whole;
+       # longer ones were cut at 256 KiB.
+       [log_collection_settings.enable_multiline_logs]
+          enabled = true

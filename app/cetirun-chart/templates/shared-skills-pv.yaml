@@ -1,0 +1,37 @@
+{{- if and .Values.skills.shared (not .Values.skills.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ include "cetirun.sharedSkillsPVName" . }}
+  labels:
+    {{- include "cetirun.labels" . | nindent 4 }}
+  annotations:
+    pv.kubernetes.io/provisioned-by: blob.csi.azure.com
+spec:
+  capacity:
+    storage: {{ .Values.skills.storageSize | quote }}
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: {{ .Values.skills.storageClassName | quote }}
+  {{- with .Values.skills.mountOptions }}
+  mountOptions:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  claimRef:
+    namespace: {{ .Release.Namespace }}
+    name: {{ include "cetirun.sharedSkillsPVCName" . }}
+  csi:
+    driver: blob.csi.azure.com
+    volumeHandle: {{ include "cetirun.sharedSkillsPVName" . }}
+    volumeAttributes:
+      resourceGroup: {{ .Values.skills.resourceGroup | quote }}
+      storageAccount: {{ .Values.skills.storageAccount | quote }}
+      containerName: {{ .Values.skills.containerName | quote }}
+      protocol: {{ .Values.skills.protocol | default "nfs" | quote }}
+    {{- if ne (.Values.skills.protocol | default "nfs") "nfs" }}
+    nodeStageSecretRef:
+      name: {{ required "skills.secretName is required for Blob Fuse mounts" .Values.skills.secretName | quote }}
+      namespace: {{ .Release.Namespace }}
+    {{- end }}
+{{- end }}

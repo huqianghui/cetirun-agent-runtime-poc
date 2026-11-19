@@ -1,0 +1,11 @@
+apiVersion: v2
+name: cetirun-operator
+description: Helm chart for deploying the CetiRun Operator to cetirun-system
+type: application
+version: 0.1.1-src.20261111
+appVersion: "0.1.1-src.20261111"
+keywords:
+  - cetirun
+  - operator
+  - kubernetes
+home: https://github.com/Azure/CetiRun

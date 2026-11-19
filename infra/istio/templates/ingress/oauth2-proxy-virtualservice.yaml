@@ -1,0 +1,21 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: oauth2-proxy
+  namespace: {{ .Values.gateway.namespace }}
+  labels:
+    {{- include "cetirun-istio.labels" . | nindent 4 }}
+spec:
+  hosts:
+    - "{{ .Values.domain }}"
+  gateways:
+    - {{ .Values.gateway.namespace }}/cetirun-gateway
+  http:
+    - match:
+        - uri:
+            prefix: "/oauth2"
+      route:
+        - destination:
+            host: oauth2-proxy.{{ .Release.Namespace }}.svc.cluster.local
+            port:
+              number: 4180

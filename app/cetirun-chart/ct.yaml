@@ -1,0 +1,58 @@
+# Chart Testing configuration for CetiRun Helm chart
+# This file configures the chart-testing tool (ct) for CI/CD pipelines
+# Reference: https://github.com/helm/chart-testing/blob/main/doc/ct.md
+
+# Remote repository to target for testing
+remote: origin
+
+# Target branches for testing (pull requests against these branches will be tested)
+target-branch: main
+
+# Chart directories to scan for changes
+chart-dirs:
+  - app/cetirun-chart
+
+# Specific charts to test (empty means all charts in chart-dirs)
+charts:
+  - app/cetirun-chart
+
+# Charts to exclude from testing
+excluded-charts: []
+
+# Additional Helm arguments for install/upgrade
+check-version-increment: true
+
+
+# Helm extra arguments for linting
+helm-extra-args: --timeout 600s --set secrets.openclawGatewayToken=lint-token
+
+# Namespace to install releases into
+namespace: cetirun-test
+
+# Release name for test releases
+release-label: cetirun
+
+# Skip version check for specific charts (development only)
+skip-missing-values: true
+
+# Values files to test against
+upgrade: true
+skip-tests: false
+
+# Debug output
+debug: false
+
+# Validate maintainers
+validate-maintainers: false
+
+# Validate chart schema
+validate-chart-schema: true
+
+# Validate YAML schema
+validate-yaml: true
+
+# Additional values files for testing (relative to chart directory)
+additional-helm-lint-args: "--strict --set secrets.openclawGatewayToken=lint-token"
+
+# Skip cleanup of test releases (for debugging)
+skip-clean-up: false

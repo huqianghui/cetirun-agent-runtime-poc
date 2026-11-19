@@ -1,0 +1,17 @@
+{{- if not .Values.serviceAccount.create }}{{ fail "CetiRun Connections MCP requires a dedicated ServiceAccount" }}{{ end -}}
+{{- if empty .Values.tls.secretName }}{{ fail "tls.secretName is required" }}{{ end -}}
+{{- if not (hasPrefix "https://" .Values.broker.baseURL) }}{{ fail "broker.baseURL must use HTTPS" }}{{ end -}}
+{{- if empty .Values.broker.clientTLSSecretName }}{{ fail "broker.clientTLSSecretName is required" }}{{ end -}}
+{{- if and .Values.portal.baseURL (not (hasPrefix "https://" .Values.portal.baseURL)) }}{{ fail "portal.baseURL must use HTTPS" }}{{ end -}}
+{{- if ne (int .Values.service.port) 443 }}{{ fail "service.port must be 443" }}{{ end -}}
+{{- if empty .Values.workloadTokenAudience }}{{ fail "workloadTokenAudience is required" }}{{ end -}}
+{{- if not .Values.istio.enabled }}{{ fail "CetiRun Connections MCP requires Istio mTLS authorization" }}{{ end -}}
+{{- if not .Values.istio.sidecarInjection }}{{ fail "istio.sidecarInjection must be true" }}{{ end -}}
+{{- if empty .Values.istio.revision }}{{ fail "istio.revision is required" }}{{ end -}}
+
+{{- if eq .Release.Namespace .Values.istio.brokerNamespace }}{{ fail "MCP workload and Broker credentials require distinct namespaces" }}{{ end -}}
+{{- if .Values.nativeSandbox.enabled }}
+{{- if or (gt (len .Values.nativeSandbox.operatorNamespace) 63) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" .Values.nativeSandbox.operatorNamespace)) }}{{ fail "nativeSandbox.operatorNamespace must be a namespace name" }}{{ end }}
+{{- if or (empty .Values.nativeSandbox.peerUID) (gt (len .Values.nativeSandbox.peerUID) 63) (not (regexMatch "^[a-zA-Z0-9]([-a-zA-Z0-9_.]*[a-zA-Z0-9])?$" .Values.nativeSandbox.peerUID)) }}{{ fail "nativeSandbox.peerUID must be a protected peer label value" }}{{ end }}
+{{- if eq .Values.workloadTokenAudience "api://AzureADTokenExchange" }}{{ fail "Connections requires its own purpose audience, not Entra token exchange" }}{{ end }}
+{{- end }}

@@ -1,0 +1,171 @@
+{
+  "native": {
+    "openclaw.json": {
+      "acp": {
+        "allowedAgents": [
+          "claude",
+          "codex",
+          "opencode"
+        ],
+        "backend": "acpx",
+        "defaultAgent": "claude",
+        "dispatch": {
+          "enabled": true
+        },
+        "enabled": true
+      },
+      "agents": {
+        "defaults": {
+          "compaction": {
+            "memoryFlush": {
+              "enabled": true,
+              "softThresholdTokens": 4000
+            }
+          },
+          "model": {
+            "fallbacks": [],
+            "primary": "github-copilot/test-model"
+          },
+          "modelPolicy": {
+            "allow": [
+              "github-copilot/test-model"
+            ]
+          },
+          "models": {
+            "github-copilot/test-model": {}
+          },
+          "verboseDefault": "on"
+        }
+      },
+      "auth": {
+        "profiles": {
+          "github-copilot:github": {
+            "mode": "token",
+            "provider": "github-copilot"
+          }
+        }
+      },
+      "browser": {
+        "attachOnly": true,
+        "defaultProfile": "openclaw",
+        "enabled": true,
+        "headless": false,
+        "noSandbox": true,
+        "profiles": {
+          "openclaw": {
+            "cdpPort": 18800
+          }
+        },
+        "ssrfPolicy": {
+          "dangerouslyAllowPrivateNetwork": true
+        }
+      },
+      "channels": {
+        "slack": {
+          "groupPolicy": "open"
+        },
+        "telegram": {
+          "network": {
+            "autoSelectFamily": false
+          }
+        }
+      },
+      "gateway": {
+        "controlUi": {
+          "dangerouslyAllowHostHeaderOriginFallback": true
+        },
+        "mode": "local",
+        "port": 18789,
+        "trustedProxies": [
+          "127.0.0.6",
+          "127.0.0.1"
+        ]
+      },
+      "logging": {
+        "level": "info"
+      },
+      "memory": {
+        "search": {
+          "enabled": false,
+          "rememberAcrossConversations": false
+        }
+      },
+      "meta": {
+        "lastTouchedVersion": "0.1.0"
+      },
+      "plugins": {
+        "allow": [
+          "github",
+          "brave",
+          "telegram",
+          "slack",
+          "discord",
+          "feishu",
+          "acpx"
+        ],
+        "entries": {
+          "acpx": {
+            "config": {
+              "nonInteractivePermissions": "deny",
+              "permissionMode": "approve-all"
+            },
+            "enabled": true
+          },
+          "brave": {
+            "enabled": true
+          },
+          "discord": {
+            "enabled": true
+          },
+          "feishu": {
+            "enabled": true
+          },
+          "github": {
+            "enabled": true
+          },
+          "slack": {
+            "enabled": true
+          },
+          "telegram": {
+            "enabled": true
+          }
+        }
+      },
+      "skills": {
+        "load": {
+          "extraDirs": [
+            "/home/vibe/.aks/skills",
+            "/home/vibe/.cetirun/skills/npm/@example__skill",
+            "/home/vibe/.cetirun/skills/npm/example-skill"
+          ],
+          "watch": true
+        }
+      },
+      "tools": {
+        "profile": "full",
+        "sessions": {
+          "visibility": "all"
+        },
+        "web": {
+          "search": {
+            "enabled": true,
+            "provider": "brave"
+          }
+        }
+      },
+      "update": {
+        "checkOnStart": false
+      }
+    }
+  },
+  "manifestHashes": {
+    "configmap.yaml": "06266c706aa1718230df320f605bda9398debd8cc0acb24039d5a9a32352831b",
+    "deny-exec-policy.yaml": "7dd9900c6cb720cda23eae4abebcdd68e7d868d91be7df00bac133f63acb4267",
+    "networkpolicy.yaml": "6c57b76bb0ecee3288edfc78b188519894908e356083989a683c5e9d21c4a47f",
+    "pre-upgrade-hook.yaml": "06438617ca6f50d2ea5d2e0e898f95cad13438e19e07b141c52a7b19725f60fc",
+    "service.yaml": "32f5e1f17661d94fbec319327628e7977d04d6231befc907400dc4f2ae84c0c1",
+    "shared-skills-pv.yaml": "38c08b871f0dfe5237fff4c92fd6622e54c9b81edec9bcb10c79f68075035e77",
+    "shared-skills-pvc.yaml": "d5af7044cd33fb9d6ddacb1d23aa2fbcc17d0ddcbfa42f9e10f2a7103ab75d7d",
+    "statefulset.yaml": "e8fe0bd437d198146f818f7063fe4b998587dc059e268ad85afbcbb4e3a8f918"
+  }
+}

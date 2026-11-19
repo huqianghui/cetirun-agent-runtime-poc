@@ -1,0 +1,735 @@
+# Default values for CetiRun agent instances.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# -- Shared release coordinates. Parent charts can set these once and Helm
+# propagates them to subcharts through the global values namespace.
+global:
+  # -- Optional registry hostname override for all CetiRun images.
+  # Empty preserves the component repository defaults below.
+  registry: ""
+  # -- Optional shared image and component version override.
+  # Empty preserves component tags and Chart.appVersion defaults.
+  version: ""
+
+# -- Agent framework to run in this instance: openclaw or hermes
+agentType: hermes
+
+# -- Number of replicas for the agent gateway
+# Note: Typically should be 1 as agent runtimes maintain state
+replicaCount: 1
+
+# -- Kubernetes RuntimeClass for pod sandboxing (e.g. kata-vm-isolation for AKS Pod Sandboxing)
+runtimeClassName: "kata-vm-isolation"
+
+# -- Internal, resolver/compiler-owned protected render contract. Never a user
+# override. A populated contract only renders held workloads; it cannot enable
+# execution. Legacy runtimes leave this null.
+sandboxWorkload: null
+
+# -- Operator-prepared CetiAdmin binding; never a tenant override or RBAC grant.
+# The Operator supplies the remaining projection fields after verifying ownership.
+cetiadmin:
+  enabled: false
+
+# -- Deprecated OpenClaw image alias. Prefer openclaw.image.
+image:
+  # -- Image repository
+  repository: ""
+  # -- Image pull policy (empty uses openclaw.image.pullPolicy)
+  pullPolicy: ""
+  # -- Image tag (defaults to chart appVersion if not set)
+  tag: ""
+  # -- Image digest for pinning to an exact image (e.g. sha256:abc123...).
+  # When set, the image reference becomes repository:tag@digest.
+  digest: ""
+
+# -- Image pull secrets for private registries
+imagePullSecrets: []
+
+# -- String to override the default name
+nameOverride: ""
+
+# -- String to override the default fullname
+fullnameOverride: ""
+
+# -- Service account configuration
+serviceAccount:
+  # -- Specifies whether a service account should be created
+  create: false
+  # -- Annotations to add to the service account
+  annotations: {}
+  # -- The name of the service account to use (BYO service account).
+  # If set, no ClusterRoleBinding is created (user manages RBAC externally).
+  # If not set and create is true, a name is generated using the fullname template.
+  name: ""
+  # -- Bind service account to a built-in Kubernetes ClusterRole for kubectl access.
+  # Options: "" (none), "view" (read-only), "cluster-admin" (full access)
+  # Only applies when using chart-created service account (name is not set).
+  # When set, automounts the service account token automatically.
+  role: ""
+  # -- Explicitly control the default Kubernetes API token mount. Null preserves
+  # historical behavior. The operator forces false for Agent Identity workloads.
+  automountToken: null
+
+# -- Azure Workload Identity configuration
+# Enables Azure AD workload identity for the pod, allowing passwordless
+# access to Azure resources (Key Vault, Storage, etc.) via managed identity.
+# Requires: AKS cluster with OIDC issuer and workload identity enabled,
+# plus a federated credential linking the managed identity to this service account.
+azureWorkloadIdentity:
+  # -- Enable Azure Workload Identity
+  enabled: false
+  # -- Client ID of the User-Assigned Managed Identity
+  clientId: ""
+
+# -- Typed Microsoft Entra Agent Identity Broker integration. The operator owns
+# these values; an instance workload must not select its Broker endpoint.
+agentIdentity:
+  enabled: false
+
+connectionsMCP:
+  enabled: false
+  url: ""
+  audience: cetirun-connections-mcp
+  namespace: cetirun-tools
+  serviceAccount: cetirun-connections-mcp
+  caSecretName: ""
+
+# -- Required platform AI Gateway access, supplied by the Operator.
+# Every Agent uses an Agent-scoped virtual key; upstream credentials stay in
+# the Gateway. Policy-owned network controls enforce the allowed egress.
+aiGateway:
+  enabled: true
+  # -- Secret in the release namespace holding this Agent's virtual key
+  keySecretName: ""
+  # -- Key within that Secret
+  keySecretKey: api-key
+  # -- Models the Gateway offers this Agent: id (the Gateway model name),
+  # name, and optionally contextWindow and maxTokens. The Agent is configured
+  # with all of them; secrets.model names the default.
+  models: []
+  # -- Ids of the models in models that accept images, supplied by the
+  # Operator. OpenClaw and Hermes send images with a request to these models.
+  # For other models, Hermes has the image described first, and OpenClaw uses
+  # its own model catalog, which marks only the models it knows.
+  visionModels: []
+  # -- Hermes on the Gateway: the environment variable that carries the
+  # Agent's key to Hermes' Gateway provider. The chart sets it from the key
+  # Secret, so the key is in neither Hermes' configuration nor its .env file;
+  # init removes any assignment of it from .env, which Hermes loads over its
+  # environment. Since the key replaces the variable in the container, it must
+  # be an API key variable, ending in _API_KEY, such as OPENAI_API_KEY, and not
+  # one the chart writes into .env for another setting, such as BRAVE_API_KEY.
+  hermes:
+    keyEnv: CETIRUN_GATEWAY_API_KEY
+  # -- Per-Agent GitHub Copilot proxy: a small LiteLLM, in its own Pod, that
+  # holds the owner's Copilot sign-in. Only the Gateway reaches it; the Agent
+  # reaches Copilot models through the Gateway with its own key.
+  copilotProxy:
+    enabled: false
+    # -- Operator-owned component replicas; null retains standalone Helm behavior.
+    replicaCount: null
+    # -- Proxy image: the AI Gateway image
+    image: ""
+    # -- Secret holding the proxy's master key (key master-key), which the
+    # Gateway's routes to the proxy carry
+    masterKeySecretName: ""
+    # -- Identifies the current master key without revealing it (the start of
+    # its SHA-256 hash). The proxy reads the key when it starts, so a new
+    # value restarts it.
+    masterKeyId: ""
+    # -- Generation of the GitHub Copilot sign-in whose models the Agent
+    # uses. The proxy keeps the Copilot token it exchanged until that token
+    # expires, so a new sign-in, possibly of another account, restarts it.
+    signInGeneration: ""
+    # -- Secret holding the owner's GitHub token (key access-token), written
+    # by the Portal at sign-in. The proxy waits for it.
+    tokenSecretName: ""
+    # -- Copilot models served only through the Responses API. The proxy
+    # bridges chat completion requests for them.
+    responsesModels: []
+    # -- Proxy container resources
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        memory: 1Gi
+
+# -- Pod annotations
+podAnnotations: {}
+
+# -- Pod security context
+podSecurityContext:
+  fsGroup: 1024
+  fsGroupChangePolicy: "OnRootMismatch"
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+# -- Container security context
+securityContext:
+  capabilities: {}
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1024
+  allowPrivilegeEscalation: true
+  seccompProfile:
+    type: RuntimeDefault
+
+# -- Service configuration
+service:
+  # -- Service type
+  type: ClusterIP
+  # -- Service port
+  port: 18789
+  # -- Target port on the container
+  targetPort: 18789
+  # -- NodePort (only used when service.type is NodePort)
+  nodePort: null
+  # -- Service annotations
+  annotations: {}
+
+# -- Ingress configuration
+ingress:
+  # -- Enable ingress
+  enabled: false
+  # -- Ingress class name
+  className: ""
+  # -- Additional annotations for the ingress
+  # WebSocket support annotations for common ingress controllers
+  annotations:
+    # nginx ingress controller
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    # traefik ingress controller (alternative)
+    # traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    # traefik.ingress.kubernetes.io/router.tls: "true"
+  # -- Ingress hosts
+  hosts:
+    - host: openclaw.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  # -- TLS configuration
+  tls: []
+  #  - secretName: openclaw-tls
+  #    hosts:
+  #      - openclaw.local
+
+# -- Resource requests and limits
+resources:
+  # -- Resource limits
+  limits:
+    cpu: 8000m
+    memory: 16Gi
+  # -- Resource requests
+  requests:
+    cpu: 4000m
+    memory: 8Gi
+
+# -- Horizontal Pod Autoscaler configuration
+autoscaling:
+  # -- Enable HPA
+  enabled: false
+  # -- Minimum number of replicas
+  minReplicas: 1
+  # -- Maximum number of replicas
+  maxReplicas: 3
+  # -- Target CPU utilization percentage
+  targetCPUUtilizationPercentage: 80
+  # -- Target memory utilization percentage
+  targetMemoryUtilizationPercentage: 80
+  # -- Custom metrics for HPA
+  metrics: []
+  # -- Scaling behavior configuration
+  behavior: {}
+
+# -- Node selector
+nodeSelector: {}
+
+# -- Tolerations for pod scheduling
+tolerations: []
+
+# -- Affinity rules for pod scheduling
+affinity: {}
+
+# -- Pod topology spread constraints
+topologySpreadConstraints: []
+
+# -- Extra environment variables
+extraEnv: []
+  # - name: EXTRA_VAR
+  #   value: "extra-value"
+
+# -- Extra environment variables from secrets/configmaps
+extraEnvFrom: []
+  # - secretRef:
+  #     name: my-secret
+
+# -- Extra volume mounts for the container
+extraVolumeMounts: []
+  # - name: extra-volume
+  #   mountPath: /extra
+
+# -- Extra volumes for the pod
+extraVolumes: []
+  # - name: extra-volume
+  #   persistentVolumeClaim:
+  #     claimName: extra-pvc
+
+# -- Deprecated OpenClaw doctor alias. Prefer openclaw.doctor.
+doctor:
+  enabled: true
+
+# -- Init containers
+initContainers: []
+
+# -- Sidecar containers
+sidecars: []
+
+# -- Persistent Volume configuration
+persistence:
+  # -- Enable persistent storage
+  enabled: true
+  # -- Storage class name ("default" uses Azure Disk on AKS; empty uses the cluster default)
+  storageClass: default
+  # -- Access mode for the PVC
+  accessMode: ReadWriteOnce
+  # -- Size of the persistent volume
+  size: 100Gi
+  # -- Existing PVC to use (if set, StatefulSet will use this instead of creating new PVCs)
+  existingClaim: ""
+  # -- Annotations for the PVC
+  annotations: {}
+  # -- Retain policy for the PVC
+  retainPolicy: Retain
+  # -- Use StatefulSet volumeClaimTemplates (default: true)
+  useStatefulSetVolumeClaim: true
+
+# -- OpenClaw configuration
+openclaw:
+  # -- OpenClaw gateway image configuration
+  image:
+    repository: mcr.microsoft.com/aks/ai-runtime/cetirun/openclaw-gateway
+    pullPolicy: Always
+    tag: ""
+    digest: ""
+  # -- Run `openclaw doctor --fix` as an init container on every pod start.
+  doctor:
+    enabled: true
+  # -- Sign the owner in to the Control UI with their Portal sign-in, and approve
+  # their browsers without `openclaw devices approve`. OpenClaw's trusted-proxy
+  # mode: the ingress passes only the owner, with the email of their sign-in,
+  # through the Istio sidecar or the registered in-Pod mTLS endpoint for a
+  # common-executor Sandbox with AgentPolicy ingress.requireMTLS. The gateway
+  # token is then the password of loopback clients, such as the Terminal CLI.
+  # Plain Sandbox ingress and Tailscale keep token authentication.
+  portalSignIn:
+    enabled: false
+  # -- OpenClaw gateway configuration (openclaw.json content)
+  config:
+    # -- Gateway server configuration
+    gateway:
+      mode: local
+      port: 18789
+      # Istio's same-Pod inbound Envoy connects to the application from this
+      # exact loopback address and overwrites forwarded-client headers.
+      trustedProxies:
+        - "127.0.0.6"
+      controlUi:
+        dangerouslyAllowHostHeaderOriginFallback: true
+    logging:
+      level: "info"
+    # -- Disable startup version check (prevents network call at launch)
+    update:
+      checkOnStart: false
+    memory:
+      search:
+        enabled: false
+        rememberAcrossConversations: false
+    # -- Agent defaults
+    agents:
+      defaults:
+        verboseDefault: "on"
+    # -- Browser configuration. With desktop enabled, attach to its headed Chrome.
+    # Without desktop, use headless browser mode. Omitted or null
+    # attachOnly/headless values follow desktop.enabled; explicit booleans override.
+    browser:
+      enabled: true
+      noSandbox: true
+      defaultProfile: "openclaw"
+      profiles:
+        openclaw:
+          cdpPort: 18800
+      ssrfPolicy:
+        dangerouslyAllowPrivateNetwork: true
+  # -- ACPX plugin configuration (Agent Communication Protocol eXtensions).
+  # The CetiRun OpenClaw image installs the matching ACPX package.
+  # See https://docs.openclaw.ai/tools/acp-agents for full documentation.
+  acpx:
+    # -- Enable ACPX plugin and ACP configuration
+    enabled: true
+    # -- ACP dispatch configuration (enables agent-to-agent communication)
+    dispatch:
+      enabled: true
+    # -- ACP backend implementation
+    backend: "acpx"
+    # -- Default agent for ACP requests
+    defaultAgent: "claude"
+    # -- Agents allowed for ACP sessions
+    allowedAgents:
+      - claude
+      - codex
+      - opencode
+    # -- ACPX plugin permission mode (approve-all, approve-reads, or deny-all)
+    permissionMode: "approve-all"
+    # -- How to handle permission prompts without a TTY (fail or deny).
+    # "deny" allows graceful degradation; "fail" aborts the session on prompts.
+    nonInteractivePermissions: "deny"
+    # -- Per-agent command overrides for the embedded ACPX runtime.
+    agents: {}
+
+  # -- Git credential configuration for Azure DevOps.
+  # When enabled, the init container installs a credential helper script
+  # that fetches Azure DevOps tokens via Azure CLI (`az account get-access-token`).
+  # Users must run `az login` before git operations will work.
+  git:
+    azureDevOps:
+      # -- Enable Azure DevOps git credential helper
+      enabled: true
+
+# -- Hermes configuration
+hermes:
+  # -- Hermes gateway image configuration
+  image:
+    repository: mcr.microsoft.com/aks/ai-runtime/cetirun/hermes-gateway
+    pullPolicy: Always
+    tag: ""
+    digest: ""
+  # -- Hermes native config.yaml content. Model provider/model are rendered
+  # from secrets.provider/secrets.model so both agent types share credentials.
+  config:
+    terminal:
+      backend: local
+    compression:
+      enabled: true
+      threshold: 0.50
+      target_ratio: 0.20
+    agent:
+      max_turns: 90
+    browser:
+      cdp_url: "http://127.0.0.1:18800"
+    memory:
+      memory_char_limit: 2200
+      user_char_limit: 1375
+    security:
+      redact_secrets: true
+    skills:
+      external_dirs:
+        - /home/vibe/.aks/skills
+  # -- Environment variables written into ~/.hermes/.env (API server config only).
+  # Model auth is injected by the CetiRun AI Gateway.
+  env:
+    API_SERVER_ENABLED: "true"
+    API_SERVER_HOST: "0.0.0.0"
+    API_SERVER_PORT: "8642"
+    API_SERVER_KEY: ""
+    API_SERVER_CORS_ORIGINS: ""
+    # -- Operator-owned external Webapp URL, including its /ui/<instance> prefix.
+    HERMES_WEBAPP_PUBLIC_URL: ""
+  gateway:
+    enabled: true
+
+# -- User identity (typically populated by the operator from Agent CR spec.user)
+user:
+  # -- User's short alias. Commonly used as part of the namespace name: cetirun-<alias>.
+  # When left empty, the operator or platform may derive it from other context.
+  alias: ""
+  # -- User's human-friendly display name, shown in UIs and logs where applicable.
+  displayName: ""
+  # -- Logical team name. Populated by the operator from Agent spec.
+  team: ""
+  # -- User's role. When non-empty, injected into USER.md Role field.
+  # Set by the operator when an Team with memberContext.role is referenced.
+  role: ""
+  # -- User context lines. When non-empty, injected as Notes bullet list in USER.md.
+  # Set by the operator when an Team with memberContext.description is referenced.
+  description: []
+  # -- Base domain for instance access URLs. Used to template the access URL in USER.md.
+  # Set this to your deployment domain (e.g. "example.com").
+  baseDomain: ""
+
+# -- Secrets configuration
+secrets:
+  # -- Use existing secret instead of creating one
+  existingSecret: ""
+  # -- Secret annotations
+  annotations: {}
+  # -- Web search API keys (enables tools.web.search when set)
+  # Brave Search - structured results with free tier
+  braveApiKey: ""
+  # Perplexity - AI-synthesized answers with citations
+  perplexityApiKey: ""
+  # -- Tailscale auth key (from https://login.tailscale.com/admin/settings/keys)
+  # Recommended: Reusable + Ephemeral. Setting this enables Tailscale (no separate toggle).
+  tailscaleAuthKey: ""
+  # -- Gateway wire protocol; upstream providers are configured in the Gateway.
+  provider: "openai"
+  # -- Model name. The operator supplies this from spec.model or its deployment default.
+  model: ""
+  # -- Gateway authentication mode.
+  authMode: ""
+  # -- Removed direct credential setting; must remain empty.
+  apiKey: ""
+  # -- Operator-selected AI Gateway URL.
+  apiBase: ""
+  # -- Gateway authentication token
+  openclawGatewayToken: ""
+# -- Liveness probe configuration
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 30
+  periodSeconds: 180
+  timeoutSeconds: 180
+  failureThreshold: 3
+  successThreshold: 1
+
+# -- Readiness probe configuration
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 30
+  periodSeconds: 30
+  timeoutSeconds: 10
+  failureThreshold: 6
+  successThreshold: 1
+
+# -- Startup probe configuration
+startupProbe:
+  enabled: true
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  # -- Null selects 60 for common-executor OpenClaw Sandboxes, otherwise 30. An explicit positive integer is preserved.
+  failureThreshold: null
+  successThreshold: 1
+
+# -- ttyd web terminal configuration
+ttyd:
+  # -- Enable ttyd web terminal
+  enabled: true
+  # -- ttyd listening port
+  port: 7681
+  # -- Shell to launch (zsh matches the container's default shell)
+  shell: /bin/zsh
+  # -- Base path prefix for ttyd web UI (passed as --base-path flag).
+  # Required so ttyd generates correct WebSocket URLs when served behind a path prefix.
+  basePath: /term
+  # -- Custom Agents use an isolated terminal workload and this dedicated image.
+  image:
+    repository: mcr.microsoft.com/aks/ai-runtime/cetirun/cetirun-terminal
+    tag: ""
+    digest: ""
+    pullPolicy: IfNotPresent
+  # -- Maximum lifetime before a browser terminal must authenticate again.
+  sessionSeconds: 1800
+  # -- Ingress gateway identity allowed to reach the Custom terminal.
+  gatewayServiceAccount: aks-istio-ingressgateway-external
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+# -- Tailscale configuration
+# Enabled automatically when secrets.tailscaleAuthKey is set.
+# Each StatefulSet pod registers as <hostname>-<ordinal> on the Tailscale network.
+# Uses kernel networking (NET_ADMIN added automatically).
+tailscale:
+  # -- Hostname prefix on the Tailscale network.
+  # Each pod appends its StatefulSet ordinal: <hostname>-0, <hostname>-1, etc.
+  hostname: "cetirun"
+  # -- Enable `tailscale serve` to proxy the gateway with Tailscale HTTPS.
+  # When true, the gateway port is automatically used as the serve target.
+  serve: false
+
+# -- Session logger sidecar configuration.
+# Tails session JSONL files to stdout so Container Insights (Azure Monitor)
+# captures full I/O audit logs. Query with:
+#   ContainerLogV2 | where ContainerName == "logger"
+logger:
+  # -- Enable session logger sidecar
+  enabled: true
+  # -- Resource requests and limits
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 10m
+      memory: 64Mi
+  # -- Interval (seconds) between scans for new session files
+  scanInterval: 30
+
+# -- Desktop sidecar configuration.
+# Runs Chrome + noVNC (Xvfb, Fluxbox, x11vnc, websockify) in a separate container.
+# The gateway connects to Chrome via CDP on localhost:18800.
+# Disable for headless instances that don't need a browser GUI.
+desktop:
+  # -- Enable desktop sidecar
+  enabled: true
+  # -- Desktop sidecar image configuration
+  image:
+    # -- Image repository
+    repository: mcr.microsoft.com/aks/ai-runtime/cetirun/cetirun-desktop
+    # -- Image pull policy
+    pullPolicy: Always
+    # -- Image tag (defaults to chart appVersion if not set)
+    tag: ""
+    # -- Image digest for pinning to an exact image
+    digest: ""
+  # -- noVNC WebSocket path prefix injected by the operator (e.g. "example-agent/desktop/").
+  # Used in the auto-connect redirect: ?path=<novncPathPrefix>websockify
+  novncPathPrefix: ""
+  # -- Route x11vnc and websockify output to container stderr (visible via kubectl logs).
+  # Off by default; enable via spec.helm.values.desktop.logging=true for troubleshooting.
+  logging: false
+  # -- Resource requests and limits for the desktop sidecar
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  # -- Virtual display resolution (WxHxD)
+  screenResolution: "1920x1080x24"
+
+# -- Istio Sidecar scope configuration
+# Restricts Envoy service discovery so each user namespace only sees its own
+# services plus explicitly listed shared namespaces. Without this, any pod can
+# query localhost:15000/clusters and enumerate every other user namespace,
+# backend services, and infrastructure topology.
+sidecarScope:
+  # -- Enable Istio Sidecar resource for discovery scoping
+  enabled: true
+  # -- Additional namespace/host entries beyond the auto-included ones
+  # (own namespace, istioNamespace, istioIngressNamespace).
+  # Format: "namespace/hostname" or "namespace/*"
+  additionalEgressHosts: []
+
+# -- Network Policy configuration
+# Default deny-all with explicit allows for Istio ingress, DNS,
+# and external egress (RFC 1918 + IMDS always blocked).
+networkPolicy:
+  # -- Enable NetworkPolicy
+  enabled: true
+  # -- Namespace where istiod runs; also used as the default ingress gateway
+  # namespace unless istioIngressNamespace is set. Used for istiod mTLS egress
+  # (port 15012) and as the default ingress source. Typical istiod namespaces:
+  # AKS managed Istio: aks-istio-system; upstream Istio: istio-system.
+  istioNamespace: istio-system
+  # -- (Optional) Override namespace for the Istio ingress gateway.
+  # Only needed when the ingress gateway runs in a different namespace than istiod
+  # (e.g., AKS managed Istio uses aks-istio-ingress). Falls back to istioNamespace.
+  # istioIngressNamespace: ""
+  # -- Namespace where kube-dns runs (egress DNS)
+  dnsNamespace: kube-system
+  # -- Namespace hosting the deployment-level Agent Identity Broker.
+  agentIdentityBrokerNamespace: cetirun-credentials
+  # -- Namespace of the platform AI Gateway, used when aiGateway.enabled.
+  gatewayNamespace: cetirun-system
+  # -- Service port of the platform AI Gateway.
+  gatewayPort: 4000
+  # -- CIDRs to block from external egress.
+  # kube-dns is allowed via namespace selectors
+  # regardless of these blocks.
+  # -- Internal IPs/CIDRs to explicitly allow despite blockedCIDRs.
+  # Each entry needs a cidr and a list of ports.
+  allowedInternalCIDRs:
+    - cidr: 10.230.0.4/32
+      ports:
+        - port: 80
+          protocol: TCP
+  blockedCIDRs:
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+    # Azure IMDS — always blocked; workload identity uses token exchange, not IMDS
+    - 169.254.169.254/32
+
+# -- Shared skills volume configuration.
+# Auto-creates PV/PVC backed by Azure Blob CSI (NFS by default; Fuse/Fuse2 supported).
+# Protocol, secretName, and mountOptions are install-time-only PV settings.
+skills:
+  # -- Enable shared skills PV/PVC
+  shared: false
+  # -- Use a separately owned skills PVC without creating a PV or PVC.
+  # Native protected rendering sets this only when adopting an existing claim.
+  # existingClaim: ""
+  # -- Team subtree of the shared skills claim, set by the operator for a
+  # Skill Marketplace Team: "teams/<team-uid>". Only the HOME initializer
+  # mounts it, read-only, and copies the Team's release, which the Agent then
+  # reads at skills.mountPath, or a Custom Agent in $HOME/.agents/skills.
+  # Requires skills.shared, the composed Agent context, and a reconciled
+  # Sandbox workload.
+  # subPath: ""
+  # -- Skill Marketplace selection, set by the operator together with subPath.
+  # selectionDigest is the Team selection digest "sha256:<64 hex>" that the
+  # HOME initializer waits for.
+  # marketplace:
+  #   selectionDigest: ""
+  # -- StorageClass for the shared skills PV/PVC
+  storageClassName: azureblob-nfs-premium
+  # -- Install-time-only Blob CSI protocol. Use fuse2 for HTTPS-only storage accounts.
+  protocol: nfs
+  # -- Install-time-only namespace-local secret used by Blob Fuse mounts.
+  secretName: ""
+  # -- Install-time-only static PV mount options. Blobfuse2 commonly needs "-o allow_other".
+  mountOptions: []
+  # -- Azure resource group containing the storage account
+  resourceGroup: ""
+  # -- Azure storage account name
+  storageAccount: ""
+  # -- Blob container name
+  containerName: aks-skills
+  # -- Shared skills are included in $HOME/.agents/skills. A different path
+  # adds a read-only alias to the same composed view for native Agents.
+  mountPath: /home/vibe/.aks/skills
+  # -- ClawHub skill package names (reserved for future init-skills implementation).
+  clawHub: []
+  # -- npm package names installed into /home/vibe/.cetirun/skills/npm/<name>
+  # by the init-skills init container. Specs can be bare ("matrix"),
+  # scoped ("@scope/name"), or version-pinned ("name@1.2.3").
+  npm: []
+  # -- npm registry for runtime npm skill installation.
+  # Defaults to public npm; override to use a different package mirror.
+  npmRegistry: "https://registry.npmjs.org/"
+  # -- Storage capacity
+  storageSize: 100Gi
+
+# -- Pod Disruption Budget configuration
+podDisruptionBudget:
+  # -- Enable Pod Disruption Budget
+  enabled: false
+  # -- Minimum available pods (number or percentage)
+  minAvailable: 1
+  # -- Maximum unavailable pods (number or percentage)
+  # maxUnavailable: 1
+
+# -- Block kubectl exec into openclaw pods via ValidatingAdmissionPolicy.
+# Requires Kubernetes 1.30+.
+execRestriction:
+  # -- Enable the exec restriction policy
+  enabled: true
+memoryContext:
+  # -- Install the helper in ordinary Agent runtimes; protected Sandbox rendering retains its upstream contract.
+  enabled: true
+  # -- Optional full image reference; empty follows global.registry/version.
+  image: ""
+  home: /home/vibe

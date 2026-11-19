@@ -1,0 +1,37 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "cetirun-connections-mcp.fullname" . }}
+  labels:
+    {{- include "cetirun-connections-mcp.labels" . | nindent 4 }}
+rules:
+  {{- if .Values.nativeSandbox.enabled }}
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources: ["validatingwebhookconfigurations"]
+    resourceNames: ["cetirun-sandbox-pods"]
+    verbs: ["get"]
+  {{- end }}
+  - apiGroups: ["authentication.k8s.io"]
+    resources: ["tokenreviews"]
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["pods", "serviceaccounts", "namespaces"]
+    verbs: ["get"]
+  - apiGroups: ["cetirun.microsoft.com"]
+    resources: ["agents"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "cetirun-connections-mcp.fullname" . }}
+  labels:
+    {{- include "cetirun-connections-mcp.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "cetirun-connections-mcp.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "cetirun-connections-mcp.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}

@@ -1,0 +1,69 @@
+{{- if eq (include "cetirun.agent.type" .) "custom" }}
+Custom runtime resources are rendered for {{ .Release.Name }}.
+{{- if .Values.runtime.http }}
+The Agent HTTP endpoint is internal only. This Agent has no Chat UI or native Agent UI.
+{{- else }}
+This Agent has no HTTP endpoint or HTTP readiness probe.
+{{- end }}
+{{- if .Values.desktop.enabled }}
+The platform desktop stays available through its authenticated gateway route.
+{{- end }}
+ttyd is temporarily disabled for Custom Agents until a terminal integration review is complete.
+Model access, context use, image identity and storage qualification are separate checks.
+{{- else }}
+{{- $aksPodSandboxing := eq (.Values.runtimeClassName | default "") "kata-vm-isolation" }}
+Thank you. The {{ .Chart.Name }} chart is installed.
+
+Your release is named {{ .Release.Name }}.
+
+To get more information about the release, run these commands:
+
+  $ helm status {{ .Release.Name }} -n {{ .Release.Namespace }}
+  $ helm get all {{ .Release.Name }} -n {{ .Release.Namespace }}
+
+{{ if and $aksPodSandboxing (not .Values.ingress.enabled) (contains "ClusterIP" .Values.service.type) -}}
+On AKS Pod Sandboxing (runtime class kata-vm-isolation), kubectl port-forward
+cannot reach the Pod. Reach the agent through an ingress route instead.
+{{- else -}}
+To get the application URL, run these commands:
+{{- if .Values.ingress.enabled }}
+{{- range $host := .Values.ingress.hosts }}
+  {{- range .paths }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}{{ .path }}
+  {{- end }}
+{{- end }}
+{{- else if contains "NodePort" .Values.service.type }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "cetirun.fullname" . }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo http://$NODE_IP:$NODE_PORT
+{{- else if contains "LoadBalancer" .Values.service.type }}
+     NOTE: The LoadBalancer IP can take a few minutes to become available.
+           To monitor the status, run 'kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "cetirun.fullname" . }}'
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "cetirun.fullname" . }} --template "{{ "{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}" }}")
+  echo http://$SERVICE_IP:{{ .Values.service.port }}
+{{- else if contains "ClusterIP" .Values.service.type }}
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "cetirun.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+  export CONTAINER_PORT=$(kubectl get pod --namespace {{ .Release.Namespace }} $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
+  export token=$(kubectl get secret --namespace {{ .Release.Namespace }} {{ include "cetirun.secretName" . }} -o jsonpath="{.data.OPENCLAW_GATEWAY_TOKEN}" | base64 --decode)
+  echo "Visit http://localhost:{{ .Values.service.port }}/?token=$token to use your application"
+  kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME {{ .Values.service.port }}:$CONTAINER_PORT
+{{- end }}
+{{- end }}
+
+Gateway Token:
+  kubectl get secret --namespace {{ .Release.Namespace }} {{ include "cetirun.secretName" . }} -o jsonpath="{.data.OPENCLAW_GATEWAY_TOKEN}" | base64 --decode
+{{- if .Values.ttyd.enabled }}
+
+Web Terminal (ttyd):
+  ttyd is enabled on port {{ .Values.ttyd.port }}.
+{{- if $aksPodSandboxing }}
+  On AKS Pod Sandboxing, kubectl port-forward cannot reach it.
+{{- else }}
+  To reach ttyd through a port-forward, run this command:
+
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "cetirun.fullname" . }} {{ .Values.ttyd.port }}:{{ .Values.ttyd.port }}
+
+  Then open http://localhost:{{ .Values.ttyd.port }}{{ regexReplaceAll "/+$" (.Values.ttyd.basePath | default "") "" }}/ in your browser.
+{{- end }}
+{{- end }}
+{{- end }}

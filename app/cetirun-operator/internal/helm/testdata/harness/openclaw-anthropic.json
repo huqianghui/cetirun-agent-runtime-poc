@@ -1,0 +1,134 @@
+{
+  "native": {
+    "openclaw.json": {
+      "acp": {
+        "allowedAgents": [
+          "claude",
+          "codex",
+          "opencode"
+        ],
+        "backend": "acpx",
+        "defaultAgent": "claude",
+        "dispatch": {
+          "enabled": true
+        },
+        "enabled": true
+      },
+      "agents": {
+        "defaults": {
+          "compaction": {
+            "memoryFlush": {
+              "enabled": true,
+              "softThresholdTokens": 4000
+            }
+          },
+          "model": {
+            "primary": "anthropic/test-model"
+          },
+          "modelPolicy": {
+            "allow": [
+              "anthropic/test-model"
+            ]
+          },
+          "models": {
+            "anthropic/test-model": {}
+          },
+          "verboseDefault": "on"
+        }
+      },
+      "auth": {
+        "profiles": {
+          "anthropic:default": {
+            "mode": "api_key",
+            "provider": "anthropic"
+          }
+        }
+      },
+      "browser": {
+        "attachOnly": true,
+        "defaultProfile": "openclaw",
+        "enabled": true,
+        "headless": false,
+        "noSandbox": true,
+        "profiles": {
+          "openclaw": {
+            "cdpPort": 18800
+          }
+        },
+        "ssrfPolicy": {
+          "dangerouslyAllowPrivateNetwork": true
+        }
+      },
+      "gateway": {
+        "controlUi": {
+          "dangerouslyAllowHostHeaderOriginFallback": true
+        },
+        "mode": "local",
+        "port": 18789,
+        "trustedProxies": [
+          "127.0.0.6"
+        ]
+      },
+      "logging": {
+        "level": "info"
+      },
+      "memory": {
+        "search": {
+          "enabled": false,
+          "rememberAcrossConversations": false
+        }
+      },
+      "meta": {
+        "lastTouchedVersion": "0.1.0"
+      },
+      "models": {
+        "providers": {
+          "anthropic": {
+            "baseUrl": "https://models.example.com/v1",
+            "models": [
+              {
+                "id": "test-model",
+                "name": "test-model"
+              }
+            ]
+          }
+        }
+      },
+      "plugins": {
+        "allow": [
+          "github",
+          "acpx"
+        ],
+        "entries": {
+          "acpx": {
+            "config": {
+              "nonInteractivePermissions": "deny",
+              "permissionMode": "approve-all"
+            },
+            "enabled": true
+          },
+          "github": {
+            "enabled": true
+          }
+        }
+      },
+      "tools": {
+        "profile": "full",
+        "sessions": {
+          "visibility": "all"
+        }
+      },
+      "update": {
+        "checkOnStart": false
+      }
+    }
+  },
+  "manifestHashes": {
+    "configmap.yaml": "7d359cebae91bfd6ea7f20a3fcc7cd9117b00c6b0b868a9ee551660499de9f92",
+    "deny-exec-policy.yaml": "7dd9900c6cb720cda23eae4abebcdd68e7d868d91be7df00bac133f63acb4267",
+    "networkpolicy.yaml": "6c57b76bb0ecee3288edfc78b188519894908e356083989a683c5e9d21c4a47f",
+    "pre-upgrade-hook.yaml": "06438617ca6f50d2ea5d2e0e898f95cad13438e19e07b141c52a7b19725f60fc",
+    "service.yaml": "32f5e1f17661d94fbec319327628e7977d04d6231befc907400dc4f2ae84c0c1",
+    "statefulset.yaml": "198cb95b28b83d2aaf82c68c31d42db768167c0add005e1e319eb38a1dad639d"
+  }
+}

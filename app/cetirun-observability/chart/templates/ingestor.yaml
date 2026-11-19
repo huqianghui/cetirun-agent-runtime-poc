@@ -1,0 +1,300 @@
+{{- include "cetirun-observability.validate" . -}}
+{{- $name := include "cetirun-observability.ingestorName" . -}}
+{{- $labels := dict "name" $name "context" . -}}
+{{- $databases := .Values.adx.databases -}}
+{{- $endpoint := .Values.adx.endpoint -}}
+{{- /*
+The ADX-Mon ingestor: it receives the collectors' write-ahead log segments
+over TLS and uploads them to Azure Data Explorer with its workload identity.
+As the leader it also applies the Function resources. Its write-ahead log is
+on a volume, so a restart keeps what it has not uploaded yet.
+*/}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.ingestor.serviceAccount.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cetirun-observability.labels" $labels | nindent 4 }}
+  annotations:
+    azure.workload.identity/client-id: {{ .Values.ingestor.clientId | quote }}
+automountServiceAccountToken: false
+---
+# Peer discovery and leader selection read the ingestor Pods; at shutdown an
+# ingestor marks its own Pod.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cetirun-observability.labels" $labels | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cetirun-observability.labels" $labels | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $name }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.ingestor.serviceAccount.name }}
+    namespace: {{ .Release.Namespace }}
+---
+# The leader reads the ADX-Mon resources of every namespace and records their
+# state.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "cetirun-observability.labels" $labels | nindent 4 }}
+rules:
+  - apiGroups: ["adx-mon.azure.com"]
+    resources: ["functions"]
+    verbs: ["get", "list", "update"]
+  - apiGroups: ["adx-mon.azure.com"]
+    resources: ["managementcommands", "summaryrules"]
+    verbs: ["get", "list"]
+  - apiGroups: ["adx-mon.azure.com"]
+    resources: ["functions/status", "managementcommands/status", "summaryrules/status"]
+    verbs: ["update"]
+  - apiGroups: ["adx-mon.azure.com"]
+    resources: ["functions/finalizers"]
+    verbs: ["update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "cetirun-observability.labels" $labels | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ $name }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.ingestor.serviceAccount.name }}
+    namespace: {{ .Release.Namespace }}
+{{- if not .Values.ingestor.tls.secretName }}
+---
+{{- /* The CA and certificate are created once and kept: a new one would
+make every collector reject the ingestor until it restarts. */}}
+{{- $secretName := include "cetirun-observability.ingestorTLSSecret" . }}
+{{- $existing := lookup "v1" "Secret" .Release.Namespace $secretName }}
+{{- $data := dict }}
+{{- if and $existing $existing.data (index $existing.data "tls.crt") (index $existing.data "tls.key") (index $existing.data "ca.crt") }}
+{{- $data = $existing.data }}
+{{- else }}
+{{- $ca := genCA (printf "%s-ca" $name) 3650 }}
+{{- $host := printf "%s.%s.svc" $name .Release.Namespace }}
+{{- $cert := genSignedCert $host nil (list $host (printf "%s.cluster.local" $host) (printf "%s.%s" $name .Release.Namespace) $name) 3650 $ca }}
+{{- $data = dict "tls.crt" ($cert.Cert | b64enc) "tls.key" ($cert.Key | b64enc) "ca.crt" ($ca.Cert | b64enc) }}
+{{- end }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $secretName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cetirun-observability.labels" $labels | nindent 4 }}
+type: kubernetes.io/tls
+data:
+  tls.crt: {{ index $data "tls.crt" }}
+  tls.key: {{ index $data "tls.key" }}
+  ca.crt: {{ index $data "ca.crt" }}
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cetirun-observability.labels" $labels | nindent 4 }}
+spec:
+  selector:
+    {{- include "cetirun-observability.selectorLabels" $labels | nindent 4 }}
+  ports:
+    - name: transfer
+      port: 9090
+      targetPort: transfer
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cetirun-observability.labels" $labels | nindent 4 }}
+spec:
+  serviceName: {{ $name }}
+  replicas: {{ int .Values.ingestor.replicas }}
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      {{- include "cetirun-observability.selectorLabels" $labels | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "cetirun-observability.selectorLabels" $labels | nindent 8 }}
+        # ADX-Mon finds its peers, and the leader, by this label.
+        app: ingestor
+        azure.workload.identity/use: "true"
+      annotations:
+        sidecar.istio.io/inject: "false"
+        adx-mon/scrape: "true"
+        adx-mon/port: "9091"
+        adx-mon/path: /metrics
+        {{- with .Values.ingestor.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ .Values.ingestor.serviceAccount.name }}
+      automountServiceAccountToken: true
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 120
+      containers:
+        - name: ingestor
+          image: {{ include "cetirun-observability.image" (dict "image" .Values.image "name" "cetirun-observability" "context" .) | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/ingestor"]
+          args:
+            - --storage-dir=/var/lib/cetirun-adx-mon/ingestor
+            - --namespace=$(POD_NAMESPACE)
+            - --hostname=$(POD_NAME)
+            - --metrics-kusto-endpoints={{ $databases.metrics }}={{ $endpoint }}
+            - --logs-kusto-endpoints={{ $databases.logs }}={{ $endpoint }}
+            - --logs-kusto-endpoints={{ $databases.agentLogs }}={{ $endpoint }}
+            # The server certificate and key, despite the flag's name.
+            - --ca-cert=/etc/cetirun-adx-mon/tls/tls.crt
+            - --key=/etc/cetirun-adx-mon/tls/tls.key
+            # Each ingestor uploads what it receives.
+            - --disable-peer-transfer
+            - --max-disk-usage={{ int64 .Values.ingestor.maxDiskUsage }}
+            - --max-segment-age={{ .Values.ingestor.maxSegmentAge }}
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            # Workload identity only: no fallback to the node's identity.
+            - name: AZURE_TOKEN_CREDENTIALS
+              value: WorkloadIdentityCredential
+            - name: AZMON_COLLECT_ENV
+              value: "False"
+          ports:
+            - name: transfer
+              containerPort: 9090
+              protocol: TCP
+            - name: metrics
+              containerPort: 9091
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              scheme: HTTPS
+              path: /readyz
+              port: transfer
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: transfer
+            periodSeconds: 30
+            failureThreshold: 4
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .Values.ingestor.resources | nindent 12 }}
+          volumeMounts:
+            - name: storage
+              mountPath: /var/lib/cetirun-adx-mon/ingestor
+            - name: tls
+              mountPath: /etc/cetirun-adx-mon/tls
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tls
+          secret:
+            secretName: {{ include "cetirun-observability.ingestorTLSSecret" . }}
+        - name: tmp
+          emptyDir:
+            sizeLimit: 1Gi
+      {{- with .Values.ingestor.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.ingestor.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.ingestor.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  volumeClaimTemplates:
+    - metadata:
+        name: storage
+        labels:
+          {{- include "cetirun-observability.selectorLabels" $labels | nindent 10 }}
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- with .Values.ingestor.storage.storageClassName }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.ingestor.storage.size | quote }}
+---
+# Only the collectors send segments, and scrape the ingestor's metrics.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cetirun-observability.labels" $labels | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "cetirun-observability.selectorLabels" $labels | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "cetirun-observability.selectorLabels" (dict "name" (include "cetirun-observability.collectorName" .) "context" .) | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: 9090
+        - protocol: TCP
+          port: 9091

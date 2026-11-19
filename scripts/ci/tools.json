@@ -1,0 +1,57 @@
+{
+  "actionlint": {
+    "version": "1.7.12",
+    "source": "https://github.com/rhysd/actionlint/releases/tag/v1.7.12",
+    "url": "https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_{arch}.tar.gz",
+    "member": "actionlint",
+    "sha256": {
+      "amd64": "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8",
+      "arm64": "325e971b6ba9bfa504672e29be93c24981eeb1c07576d730e9f7c8805afff0c6"
+    }
+  },
+  "shellcheck": {
+    "version": "0.11.0",
+    "source": "https://github.com/koalaman/shellcheck/releases/tag/v0.11.0",
+    "url": "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.{arch}.tar.gz",
+    "architectures": {"amd64": "x86_64", "arm64": "aarch64"},
+    "member": "shellcheck-v0.11.0/shellcheck",
+    "sha256": {
+      "amd64": "b7af85e41cc99489dcc21d66c6d5f3685138f06d34651e6d34b42ec6d54fe6f6",
+      "arm64": "68a8133197a50beb8803f8d42f9908d1af1c5540d4bb05fdfca8c1fa47decefc"
+    }
+  },
+  "bicep": {
+    "version": "0.47.16",
+    "source": "https://github.com/Azure/bicep/releases/tag/v0.47.16",
+    "url": "https://github.com/Azure/bicep/releases/download/v0.47.16/bicep-linux-{arch}",
+    "architectures": {"amd64": "x64", "arm64": "arm64"},
+    "sha256": {
+      "amd64": "64c345a58e0c3e48b1bc98a4e62d6b3adb1d238281297de3400aeafb2697aa5a",
+      "arm64": "4406214cc274cfac7c821552aec2178b80aec637d91ed8b244282964c1cf24e3"
+    }
+  },
+  "helm": {
+    "version": "3.22.0",
+    "source": "https://github.com/helm/helm/releases/tag/v3.22.0",
+    "url": "https://get.helm.sh/helm-v3.22.0-linux-{arch}.tar.gz",
+    "member": "linux-{arch}/helm",
+    "sha256": {
+      "amd64": "1e4ab49e429626cf6c6958d914248b78c9730803c2751b87627e171dc800e7bb",
+      "arm64": "f14e804dfee240f55525b667488fe9adca349e63e00c9af634c0beb1421ac310"
+    }
+  },
+  "envtest": {
+    "version": "1.37.0",
+    "source": "https://github.com/kubernetes-sigs/controller-tools/releases/tag/envtest-v1.37.0",
+    "url": "https://github.com/kubernetes-sigs/controller-tools/releases/download/envtest-v1.37.0/envtest-v1.37.0-linux-{arch}.tar.gz",
+    "members": {
+      "kube-apiserver": "controller-tools/envtest/kube-apiserver",
+      "etcd": "controller-tools/envtest/etcd",
+      "kubectl": "controller-tools/envtest/kubectl"
+    },
+    "sha256": {
+      "amd64": "f03faedfc68d2a78cee5cb02618bb44e7f67044f4c5fc957f72d3307fda61a9c",
+      "arm64": "ff2a0cdcadd0a6b3181faa4758e28fc63b774d2e40f29f62645dd7fa0b881a2c"
+    }
+  }
+}

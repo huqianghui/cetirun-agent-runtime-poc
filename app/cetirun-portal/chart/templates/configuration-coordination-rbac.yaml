@@ -1,0 +1,51 @@
+{{- $coordination := .Values.configurationCoordination -}}
+{{- if not (kindIs "map" $coordination) -}}
+{{- fail "configurationCoordination must be an object" -}}
+{{- end -}}
+{{- range $field := list "namespace" "name" "uid" -}}
+{{- if not (kindIs "string" (get $coordination $field)) -}}
+{{- fail (printf "configurationCoordination.%s must be a string" $field) -}}
+{{- end -}}
+{{- end -}}
+{{- if or $coordination.namespace $coordination.name $coordination.uid -}}
+{{- if or (not $coordination.namespace) (not $coordination.name) (not $coordination.uid) -}}
+{{- fail "configurationCoordination requires namespace, name and uid together" -}}
+{{- end -}}
+{{- if or (gt (len $coordination.namespace) 63) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" $coordination.namespace)) -}}
+{{- fail "configurationCoordination.namespace must be a valid namespace name" -}}
+{{- end -}}
+{{- if or (gt (len $coordination.name) 253) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$" $coordination.name)) -}}
+{{- fail "configurationCoordination.name must be a valid ConfigMap name" -}}
+{{- end -}}
+{{- if or (gt (len $coordination.uid) 128) (not (regexMatch "^[!-~]+$" $coordination.uid)) -}}
+{{- fail "configurationCoordination.uid must pin a bounded exact UID without whitespace" -}}
+{{- end -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "cetirun-portal.fullname" . }}-configuration-coordination
+  namespace: {{ $coordination.namespace | quote }}
+  labels:
+    {{- include "cetirun-portal.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: [{{ $coordination.name | quote }}]
+    verbs: ["get", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "cetirun-portal.fullname" . }}-configuration-coordination
+  namespace: {{ $coordination.namespace | quote }}
+  labels:
+    {{- include "cetirun-portal.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "cetirun-portal.fullname" . }}-configuration-coordination
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.serviceAccount.name | quote }}
+    namespace: {{ .Release.Namespace | quote }}
+{{- end -}}

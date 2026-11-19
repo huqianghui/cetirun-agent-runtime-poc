@@ -1,0 +1,289 @@
+{{- $mode := .Values.oauth2Proxy.mode -}}
+{{- if not (has $mode (list "entra-id" "oidc" "local-oidc")) -}}
+{{- fail "oauth2Proxy.mode must be entra-id, oidc or local-oidc" -}}
+{{- end -}}
+{{- $isLocalOIDC := eq $mode "local-oidc" -}}
+{{- $isOIDC := has $mode (list "oidc" "local-oidc") -}}
+{{- $cloud := "AzureCloud" -}}
+{{- if hasKey .Values "cloud" -}}{{- $cloud = .Values.cloud -}}{{- end -}}
+{{- if not (has $cloud (list "AzureCloud" "AzureChinaCloud")) -}}
+{{- fail "cloud must be AzureCloud or AzureChinaCloud" -}}
+{{- end -}}
+{{- if and (eq $mode "entra-id") (ne $cloud "AzureCloud") -}}
+{{- fail "AzureChinaCloud requires oauth2Proxy.mode=oidc: the bundled entra-id provider only accepts global Entra issuers" -}}
+{{- end -}}
+{{- $authority := get (dict "AzureCloud" "login.microsoftonline.com" "AzureChinaCloud" "login.partner.microsoftonline.cn") $cloud -}}
+{{- $ingressSettings := include "cetirun-istio.ingressSettings" . | fromJson -}}
+{{- $localOIDC := .Values.oauth2Proxy.localOIDC -}}
+{{- if not (kindIs "map" $localOIDC) -}}
+{{- fail "oauth2Proxy.localOIDC must be an object" -}}
+{{- end -}}
+{{- range $key, $_ := $localOIDC -}}
+{{- if not (has $key (list "issuerURL" "clientID" "existingSecret" "clientSecretKey" "allowHTTP")) -}}
+{{- fail (printf "oauth2Proxy.localOIDC.%s is not supported; client credentials must reference an existing Secret" $key) -}}
+{{- end -}}
+{{- end -}}
+{{- if not (kindIs "bool" $localOIDC.allowHTTP) -}}
+{{- fail "oauth2Proxy.localOIDC.allowHTTP must be a boolean" -}}
+{{- end -}}
+{{- if and (not $isLocalOIDC) (or $localOIDC.issuerURL $localOIDC.clientID $localOIDC.existingSecret $localOIDC.allowHTTP (ne $localOIDC.clientSecretKey "client-secret")) -}}
+{{- fail "oauth2Proxy.localOIDC settings require oauth2Proxy.mode=local-oidc" -}}
+{{- end -}}
+{{- $remoteOIDC := dict -}}
+{{- if hasKey .Values.oauth2Proxy "oidc" -}}{{- $remoteOIDC = .Values.oauth2Proxy.oidc -}}{{- end -}}
+{{- if not (kindIs "map" $remoteOIDC) -}}
+{{- fail "oauth2Proxy.oidc must be an object" -}}
+{{- end -}}
+{{- range $key, $_ := $remoteOIDC -}}
+{{- if not (has $key (list "issuerURL" "clientID" "existingSecret" "clientSecretKey")) -}}
+{{- fail (printf "oauth2Proxy.oidc.%s is not supported; client credentials must reference an existing Secret" $key) -}}
+{{- end -}}
+{{- end -}}
+{{- if and (ne $mode "oidc") (or $remoteOIDC.issuerURL $remoteOIDC.clientID $remoteOIDC.existingSecret (and $remoteOIDC.clientSecretKey (ne $remoteOIDC.clientSecretKey "client-secret"))) -}}
+{{- fail "oauth2Proxy.oidc settings require oauth2Proxy.mode=oidc" -}}
+{{- end -}}
+{{- $provider := "entra-id" -}}
+{{- $issuerArg := "" -}}
+{{- $clientIdArg := "" -}}
+{{- $tenantId := "" -}}
+{{- $allowedGroups := "" -}}
+{{- $oidc := $localOIDC -}}
+{{- $oidcPath := "oauth2Proxy.localOIDC" -}}
+{{- if eq $mode "oidc" -}}
+{{- $oidc = deepCopy $remoteOIDC -}}
+{{- $oidcPath = "oauth2Proxy.oidc" -}}
+{{- range $key, $value := dict "issuerURL" "" "clientSecretKey" "client-secret" -}}
+{{- if not (hasKey $oidc $key) -}}
+{{- $_ := set $oidc $key $value -}}
+{{- end -}}
+{{- end -}}
+{{- $_ := set $oidc "allowHTTP" false -}}
+{{- if not (kindIs "string" $oidc.issuerURL) -}}
+{{- fail "oauth2Proxy.oidc.issuerURL must be a string" -}}
+{{- end -}}
+{{- if eq $oidc.issuerURL "" -}}
+{{- $tenantId = required "tenantId is required when oauth2Proxy.oidc.issuerURL is empty" .Values.tenantId -}}
+{{- $_ := set $oidc "issuerURL" (printf "https://%s/%s/v2.0" $authority $tenantId) -}}
+{{- end -}}
+{{- $allowedGroups = required "allowedGroups is required for OAuth2 Proxy group authorization" .Values.allowedGroups -}}
+{{- end -}}
+{{- if $isOIDC -}}
+{{- range $key := list "issuerURL" "clientID" "existingSecret" "clientSecretKey" -}}
+{{- $value := get $oidc $key -}}
+{{- if or (not (kindIs "string" $value)) (eq (trim $value) "") -}}
+{{- fail (printf "%s.%s must be a non-empty string" $oidcPath $key) -}}
+{{- end -}}
+{{- if regexMatch `[[:space:][:cntrl:]]` $value -}}
+{{- fail (printf "%s.%s must not contain whitespace or control characters" $oidcPath $key) -}}
+{{- end -}}
+{{- end -}}
+{{- if not (regexMatch `^https?://[^/?#@]+(/[^?#]*)?$` $oidc.issuerURL) -}}
+{{- fail (printf "%s.issuerURL must be an absolute HTTPS URL without userinfo, query or fragment; local HTTP also requires allowHTTP" $oidcPath) -}}
+{{- end -}}
+{{- $issuer := urlParse $oidc.issuerURL -}}
+{{- $port := trimPrefix ":" (regexFind `:[0-9]+$` $issuer.host) -}}
+{{- if or (not $issuer.hostname) (hasSuffix ":" $issuer.host) (and $port (or (lt (atoi $port) 1) (gt (atoi $port) 65535))) -}}
+{{- fail (printf "%s.issuerURL must have a hostname and a valid port" $oidcPath) -}}
+{{- end -}}
+{{- if eq $issuer.scheme "http" -}}
+{{- if not $oidc.allowHTTP -}}
+{{- fail (printf "%s.issuerURL requires HTTPS; only oauth2Proxy.localOIDC.allowHTTP permits local HTTP" $oidcPath) -}}
+{{- end -}}
+{{- if not (regexMatch `^(([a-z0-9]([-a-z0-9]*[a-z0-9])?\.)*localhost|127(\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3}|\[::1\])(:[0-9]+)?$` (lower $issuer.host)) -}}
+{{- fail "oauth2Proxy.localOIDC.issuerURL with HTTP must use a loopback address, localhost or a .localhost hostname" -}}
+{{- end -}}
+{{- end -}}
+{{- if or (gt (len $oidc.existingSecret) 253) (not (regexMatch `^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$` $oidc.existingSecret)) -}}
+{{- fail (printf "%s.existingSecret must be a valid Secret name" $oidcPath) -}}
+{{- end -}}
+{{- if or (gt (len $oidc.clientSecretKey) 253) (not (regexMatch `^[-._a-zA-Z0-9]+$` $oidc.clientSecretKey)) (eq $oidc.clientSecretKey ".") (hasPrefix ".." $oidc.clientSecretKey) -}}
+{{- fail (printf "%s.clientSecretKey must be a valid Secret key" $oidcPath) -}}
+{{- end -}}
+{{- $provider = "oidc" -}}
+{{- $issuerArg = printf "--oidc-issuer-url=%s" $oidc.issuerURL | quote -}}
+{{- $clientIdArg = printf "--client-id=%s" $oidc.clientID | quote -}}
+{{- else -}}
+{{- $clientId := required "clientId is required for OAuth2 Proxy OIDC configuration" .Values.clientId -}}
+{{- $tenantId = required "tenantId is required for OAuth2 Proxy OIDC configuration" .Values.tenantId -}}
+{{- $allowedGroups = required "allowedGroups is required for OAuth2 Proxy group authorization" .Values.allowedGroups -}}
+{{- $issuerArg = printf "--oidc-issuer-url=https://login.microsoftonline.com/%v/v2.0" $tenantId -}}
+{{- $clientIdArg = printf "--client-id=%v" $clientId -}}
+{{- end -}}
+{{- if and (not $isLocalOIDC) (or (not (kindIs "string" $allowedGroups)) (not (regexMatch `[^,[:space:]]` $allowedGroups))) -}}
+{{- fail (printf "allowedGroups must contain at least one group for %s mode" $mode) -}}
+{{- end -}}
+{{- $session := include "cetirun-istio.sessionSettings" . | fromJson -}}
+{{- $cookieSettings := default (dict) (get .Values.oauth2Proxy "cookie") -}}
+{{- $redisSettings := default (dict) (get .Values.oauth2Proxy "redis") -}}
+{{- $oidcEmailClaim := default "preferred_username" (get .Values.oauth2Proxy "emailClaim") -}}
+{{- $sessionStoreType := $session.type -}}
+{{- $redisConnectionURL := $session.connectionURL -}}
+{{- $redisExistingSecret := $session.secretName -}}
+{{- $redisPasswordKey := $session.passwordKey -}}
+{{- $redisSecretData := dict -}}
+{{- $cookieExpire := default "45m" (get $cookieSettings "expire") -}}
+{{- $csrfPerRequestLimit := 20 -}}
+{{- if hasKey $cookieSettings "csrfPerRequestLimit" -}}
+{{- $csrfPerRequestLimit = get $cookieSettings "csrfPerRequestLimit" -}}
+{{- end -}}
+{{- $redisCookieExpire := default "8h" (get $redisSettings "cookieExpire") -}}
+{{- $redisCookieRefresh := default "30m" (get $redisSettings "cookieRefresh") -}}
+{{- if not (regexMatch "^[1-9][0-9]*$" (toString $csrfPerRequestLimit)) -}}
+{{- fail "oauth2Proxy.cookie.csrfPerRequestLimit must be a positive integer" -}}
+{{- end -}}
+{{- if not (has $oidcEmailClaim (list "preferred_username" "email")) -}}
+{{- fail "oauth2Proxy.emailClaim must be preferred_username or email" -}}
+{{- end -}}
+{{- if eq $sessionStoreType "redis" -}}
+{{- $redisSecret := lookup "v1" "Secret" .Release.Namespace $redisExistingSecret -}}
+{{- if and $redisSecret $redisSecret.data -}}
+{{- $redisSecretData = $redisSecret.data -}}
+{{- end -}}
+{{- end -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oauth2-proxy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: oauth2-proxy
+    {{- include "cetirun-istio.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.oauth2Proxy.replicas }}
+  selector:
+    matchLabels:
+      app: oauth2-proxy
+  template:
+    metadata:
+      {{- if eq $sessionStoreType "redis" }}
+      annotations:
+        checksum/redis-session-credentials: {{ toJson $redisSecretData | sha256sum | quote }}
+      {{- end }}
+      labels:
+        app: oauth2-proxy
+        {{- if not $isOIDC }}
+        azure.workload.identity/use: "true"
+        {{- end }}
+    spec:
+      serviceAccountName: oauth2-proxy
+      containers:
+        - name: oauth2-proxy
+          image: {{ .Values.oauth2Proxy.image.repository }}:{{ .Values.oauth2Proxy.image.tag }}{{- if .Values.oauth2Proxy.image.digest }}@{{ .Values.oauth2Proxy.image.digest }}{{- end }}
+          ports:
+            - containerPort: 4180
+              name: http
+              protocol: TCP
+            - containerPort: 44180
+              name: metrics
+              protocol: TCP
+          env:
+            # Container Insights copies a container's environment, the cookie
+            # secret included, unless collection is off for it.
+            - name: AZMON_COLLECT_ENV
+              value: "False"
+            - name: COOKIE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: oauth2-proxy-credentials
+                  key: cookie-secret
+            {{- if $isOIDC }}
+            - name: OAUTH2_PROXY_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $oidc.existingSecret | quote }}
+                  key: {{ $oidc.clientSecretKey | quote }}
+            {{- end }}
+            {{- if eq $sessionStoreType "redis" }}
+            - name: OAUTH2_PROXY_REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $redisExistingSecret }}
+                  key: {{ $redisPasswordKey }}
+            {{- end }}
+          args:
+            - --http-address=0.0.0.0:4180
+            - --provider={{ $provider }}
+            - {{ $issuerArg }}
+            - --oidc-email-claim={{ $oidcEmailClaim }}
+            - {{ $clientIdArg }}
+            - --redirect-url=https://{{ .Values.domain }}/oauth2/callback
+            {{- if not $isOIDC }}
+            - --entra-id-federated-token-auth
+            {{- end }}
+            - --cookie-secret=$(COOKIE_SECRET)
+            - --cookie-domain={{ .Values.domain }}
+            - --cookie-name=_cetirun_oauth2
+            - --cookie-secure=true
+            - --cookie-httponly=true
+            - --code-challenge-method=S256
+            - --insecure-oidc-skip-nonce=false
+            - --request-logging={{ $ingressSettings.logging.request }}
+            - --auth-logging={{ $ingressSettings.logging.auth }}
+            - --standard-logging={{ $ingressSettings.logging.standard }}
+            - --cookie-samesite=lax
+            # Every sign-in keeps its own CSRF cookie, so sign-ins started at
+            # the same time, by a page reload and a background request or by
+            # two tabs, do not overwrite each other's.
+            - --cookie-csrf-per-request=true
+            - --cookie-csrf-per-request-limit={{ $csrfPerRequestLimit }}
+            {{- if eq $sessionStoreType "redis" }}
+            - --cookie-expire={{ $redisCookieExpire }}
+            - --cookie-refresh={{ $redisCookieRefresh }}
+            - --session-store-type=redis
+            - --redis-connection-url={{ $redisConnectionURL }}
+            {{- else }}
+            - --cookie-expire={{ $cookieExpire }}
+            {{- end }}
+            - --email-domain={{ .Values.emailDomain }}
+            - --skip-provider-button=true
+            # A browser cannot follow a sign-in redirect from a script. Requests
+            # to the Portal API, to Agent UI APIs and for Agent UI assets (an
+            # Agent UI can request dozens at once) answer 401 when the session
+            # has expired, instead of each starting a sign-in.
+            - --api-route=^/api/
+            - --api-route=^/ui/[^/]+/api/
+            - --api-route=^/ui/[^/]+/assets/
+            - --api-route=^/[^/]+/cetirun-auth/
+            {{- range (splitList "," $allowedGroups) }}
+            {{- if ne (. | trim) "" }}
+            - {{ printf "--allowed-group=%s" (. | trim) | quote }}
+            {{- end }}
+            {{- end }}
+            {{- if eq $sessionStoreType "redis" }}
+            - --scope=openid email profile offline_access
+            {{- else }}
+            - --scope=openid email profile
+            {{- end }}
+            - --upstream=static://200
+            - --reverse-proxy=true
+            - --set-xauthrequest=true
+            - --whitelist-domain={{ .Values.domain }}
+            - --pass-access-token=false
+            # Return the validated OIDC ID token to Envoy. The ingress Lua
+            # filter moves it into a Portal-only header and removes Authorization
+            # before routing, so Agent workloads never receive this token.
+            - --pass-authorization-header=true
+            - --set-authorization-header=true
+            - --skip-jwt-bearer-tokens={{ $ingressSettings.skipJwtBearerTokens }}
+            - --silence-ping-logging=true
+            - --footer=-
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: http
+            periodSeconds: 30
+          resources:
+            {{- toYaml .Values.oauth2Proxy.resources | nindent 12 }}
+      {{- with .Values.oauth2Proxy.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.oauth2Proxy.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

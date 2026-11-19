@@ -1,0 +1,24 @@
+{
+  "id": "cetirun-memory-context",
+  "name": "CetiRun private memory contract",
+  "contracts": { "tools": ["cetirun_memory"] },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "owner_access": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "platforms": { "type": "array", "maxItems": 32, "items": { "type": "string" } },
+          "senders": { "type": "object", "additionalProperties": { "type": "array", "maxItems": 32, "items": { "type": "string" } } },
+          "chats": { "type": "object", "additionalProperties": { "type": "array", "maxItems": 32, "items": { "type": "string" } } },
+          "chat_types": { "type": "object", "additionalProperties": { "type": "array", "maxItems": 32, "items": { "type": "string" } } },
+          "subagents": { "type": "boolean" },
+          "cron": { "type": "boolean" },
+          "acp": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

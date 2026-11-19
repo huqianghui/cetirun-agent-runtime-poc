@@ -1,0 +1,51 @@
+{{- if .Values.istio.enabled }}
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: {{ include "cetirun-agent-broker.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "cetirun-agent-broker.selectorLabels" . | nindent 6 }}
+  mtls:
+    mode: STRICT
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ include "cetirun-agent-broker.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "cetirun-agent-broker.selectorLabels" . | nindent 6 }}
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/{{ .Values.portal.namespace }}/sa/{{ .Values.portal.serviceAccount }}
+      to:
+        - operation:
+            ports: ["8080"]
+            paths: ["/v1/connections*", "/v1/connection-authorizations/*", "/v1/instances*", "/api/v1/connections/callback", "/healthz", "/readyz"]
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/{{ .Values.operator.namespace }}/sa/{{ .Values.operator.serviceAccount }}
+      to:
+        - operation:
+            ports: ["8080"]
+            methods: ["GET", "PUT", "DELETE"]
+            # Istio StringMatch supports a trailing prefix wildcard. The Go
+            # ServeMux exposes only bounded cleanup and credential-policy routes.
+            paths: ["/operator/v1/instances/*"]
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/{{ .Values.toolService.namespace }}/sa/{{ .Values.toolService.serviceAccount }}
+      to:
+        - operation:
+            ports: ["8443"]
+{{- end }}

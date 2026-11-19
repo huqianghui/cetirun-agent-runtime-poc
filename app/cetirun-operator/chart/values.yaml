@@ -1,0 +1,512 @@
+# Default values for cetirun-operator chart.
+
+# -- Shared release coordinates. An umbrella chart can set these once for all
+# CetiRun subcharts.
+global:
+  # -- Optional registry hostname override for all CetiRun images and charts.
+  # Empty preserves the component defaults below.
+  registry: ""
+  # -- Optional shared image and chart version override.
+  # Empty preserves the component and Chart.appVersion defaults below.
+  version: ""
+  registryCredentialNamespace: ""
+
+# -- This chart owns the Registry source namespace. Portal and Operator must
+# use the same namespace; do not reuse the Agent Identity Broker namespace.
+registryCredentials:
+  namespace: cetirun-registry-credentials
+  createNamespace: true
+
+# -- Number of operator replicas (leader election keeps only one active).
+replicaCount: 2
+
+# -- Operator container image.
+image:
+  repository: mcr.microsoft.com/aks/ai-runtime/cetirun/cetirun-operator
+  pullPolicy: IfNotPresent
+  tag: "" # Defaults to .Chart.AppVersion
+  # -- Image digest for pinning (e.g. sha256:abc123...). When set, pins the image; the tag is kept for readability.
+  digest: ""
+
+# -- Image pull secrets.
+imagePullSecrets: []
+
+# -- Name of a kubernetes.io/dockerconfigjson Secret in the operator namespace
+# whose credentials are passed to the Helm registry client via DOCKER_CONFIG.
+# Required when the OCI chart registry (e.g. ACR) is private and the node's
+# kubelet identity does not surface docker credentials inside the pod.
+acrDockerSecret: ""
+
+# -- Namespace to deploy the operator into.
+# The namespace is created by the operator's Helm chart installation, not by the operator itself.
+namespace: cetirun-system
+
+# -- Istio revision label for AKS managed Istio sidecar injection.
+# When empty (default), the operator auto-detects the revision from
+# ConfigMaps in aks-istio-system. Set explicitly to override auto-detection
+# or to pin a specific revision (e.g. "asm-1-22").
+istioRevision: ""
+
+# -- Namespace/name of the Istio Gateway used by instance VirtualServices.
+istioGateway: "aks-istio-ingress/cetirun-gateway"
+
+# -- Base domain suffix for instance access URLs (e.g. alias.example.com).
+domainSuffix: ""
+
+# -- CetiRun Helm chart configuration.
+cetirun:
+  # -- Default GitHub Copilot model for instances that do not specify spec.model.
+  # Override this only with a model authorized for the deployment's Copilot users.
+  defaultModel: "gpt-6-astra"
+  chart:
+    # -- OCI registry URL.
+    repoURL: oci://mcr.microsoft.com/aks/ai-runtime/cetirun/helm/cetirun
+    # -- Chart version to deploy.
+    version: "0.1.1-src.20261111"
+  # -- Operator-level Helm value overrides applied to every CetiRun instance.
+  # Merged on top of the operator's hardcoded defaults but beneath
+  # per-instance spec.helm.values, so instances can still override them.
+  # Example:
+  #   cetirun:
+  #     helmValues:
+  #       skills:
+  #         shared: true
+  #         resourceGroup: "my-rg"
+  #         storageAccount: "cetirunskills"
+  helmValues: {}
+
+# -- One Operator-owned ordinary Hermes installation. The umbrella uses these
+# same values under cetirun-operator.cetiadmin; this chart never renders an Agent.
+cetiadmin:
+  enabled: true
+  # A first upgrade can stop an existing old-format installation while the
+  # admission Deployment changes version. Enable only with enabled: false.
+  legacyDisabledSource: false
+  instanceName: cetiadmin
+  owner:
+    alias: ""
+    tenantID: ""
+    objectID: ""
+  # Extra platform diagnostics only. All ordinary managed Agents are included
+  # automatically, regardless of their Team or namespace.
+  platformReadNamespaces: []
+  kubernetes:
+    apiServer: https://kubernetes.default.svc
+    apiAudience: ""
+    caConfigMapName: kube-root-ca.crt
+    apiEgressCIDRs: []
+  model:
+    default: auto
+    initialMonthlyBudgetUSD: ""
+    githubCopilot: false
+  # Empty coordinates use this release's runtime chart and its Hermes profile.
+  # An explicit version must match the Operator release. The controller checks
+  # the selected chart's capability and image/port profile before granting access.
+  runtime:
+    version: ""
+    image: ""
+    port: null
+  azureWorkloadIdentity:
+    enabled: false
+    clientId: ""
+  sharedSkills:
+    enabled: false
+  monitor:
+    enabled: false
+    schedule: every 30m
+    timezone: UTC
+    deliver: local
+    slackChannel: ""
+    slackSecretName: ""
+  retainedAgentUID: ""
+  # Hook wait budget. Helm's own --timeout must also allow this duration.
+  hookTimeoutSeconds: 600
+
+# -- Enable leader election (recommended for production with replicaCount > 1).
+leaderElection: true
+
+# -- Resource requests/limits for the operator pod.
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 2Gi
+
+# -- Node selector for the operator pod.
+nodeSelector: {}
+
+# -- Tolerations for the operator pod.
+tolerations: []
+
+# -- Affinity rules for the operator pod.
+affinity: {}
+
+# -- Additional pod annotations.
+podAnnotations: {}
+
+# -- Trusted callers of private Custom Chat endpoints; not tenant overrides.
+chatAccess:
+  enabled: false
+  callers: []
+
+# -- Service account configuration.
+serviceAccount:
+  create: true
+  name: cetirun-operator-controller-manager
+  annotations: {}
+
+# -- Configuration admission only; this does not enable governed execution or
+# provide a qualified Sandbox capability registration.
+sandboxAdmission:
+  # -- CR object decoding: compatible tolerates fields from a newer schema;
+  # strict rejects them. Authorization, Pod checks and server config stay strict.
+  validationMode: compatible
+  # -- Deploy the independent, read-only admission server first.
+  # Requires Kubernetes >= 1.37, the validated admission minimum. The server
+  # uses native lifecycle sleep for an image-independent shutdown delay.
+  enabled: false
+  # -- Install fail-closed webhooks only after the server and TLS are ready.
+  # Requires Kubernetes >= 1.37, including native admission matchConditions.
+  enforce: false
+  # -- Serve final-Pod checks; matching is installed only with enforce=true.
+  # Also denies exec/attach/portforward in controller-marked namespaces.
+  # Requires immutable namespace protection and a qualified lifecycle producer
+  # of controller-owned expectations. No execution-ready producer is installed;
+  # protected writes fail closed and execution stays held. Other Pod mutators
+  # must exclude these namespaces; arbitrary injected metadata is not accepted.
+  podsEnabled: false
+  # -- Optional operator-namespace placement.json ConfigMap. Requires Pod
+  # admission. When enforced, placement checks cover every namespace's Pod
+  # writes and bindings; an unavailable registry/server fails those requests.
+  # This does not supply a fencing receipt or authorize Agent execution.
+  placementConfigMapName: ""
+  # -- Optional UID-pinned coordination authority for Team/Sandbox/AgentPolicy
+  # updates and deletions. Requires strict, enforced configuration and Pod admission.
+  # Both fields are required. No state is created and no execution is enabled.
+  # Native execution uses this same authority for selected-source reservations;
+  # there is no separate sandboxSources coordination setting. Keep it configured
+  # until existing native executions have stopped and released their reservations.
+  coordinationConfigMapName: ""
+  coordinationConfigMapUID: ""
+  # -- Timeout for each fail-closed webhook call; integer 1..30 when enforce=true.
+  # Pod validation uses 80% of this budget, with at most four concurrent source
+  # GETs per request; the remainder is reserved for transport and response.
+  timeoutSeconds: 10
+  replicaCount: 2
+  # -- Optional existing platform-managed PriorityClass. No class is created
+  # or selected automatically.
+  priorityClassName: ""
+  # -- Admission-only placement; never inherits the operator's placement.
+  nodeSelector: {}
+  affinity: {}
+  tolerations: []
+  # -- Existing platform-issued TLS Secret in namespace, containing tls.crt and
+  # tls.key. The certificate must cover cetirun-sandbox-admission.<namespace>.svc.
+  # This chart does not issue certificates or install cert-manager.
+  tlsSecretName: ""
+  # -- Base64-encoded PEM CA bundle supplied by the platform issuer. Required
+  # when enforce=true. Helm checks encoding/framing, not certificate trust,
+  # expiry, CA constraints, or the serving certificate's subject names.
+  caBundle: ""
+  # -- Exact authenticated Kubernetes usernames/groups allowed to administer
+  # configuration. At least one nonempty list is required even before enforce.
+  # Blanket groups (system:authenticated, system:unauthenticated and the
+  # system:serviceaccounts groups) are refused; list service accounts as users.
+  adminUsers: []
+  adminGroups: []
+  # -- Name of a ServiceAccount in this release's namespace that is added once
+  # to the administrators, as system:serviceaccount:<release namespace>:<name>,
+  # when admission is enabled. The CetiRun platform chart sets it to the
+  # Portal's ServiceAccount, with which the Portal writes Agents, Teams,
+  # Sandboxes and AgentPolicies. It does not count as the administrator
+  # required above: operations without a Portal page, such as reauthorization,
+  # still need one in adminUsers or adminGroups. Empty adds nothing.
+  portalServiceAccount: ""
+  # -- Trusted Kubernetes user/group to Team creation assignments. Conflicting
+  # memberships reject; Portal roles or caller-provided Team names are not proof.
+  teamAssignments: []
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+# -- Kubernetes capability declarations for configuration admission and held
+# native Sandbox preparation. Both use the same operator-namespace platform.json.
+# Does not qualify a platform or implement physical writer fencing.
+# Adds controller write permissions for compiled namespaced CiliumNetworkPolicies.
+# Adds only get permission on shared Istio Gateways for pinned access inputs.
+sandboxSources:
+  enabled: false
+  # -- Opt in to common OpenClaw/Hermes reconciliation with registered Kata RWO/RWOP HOME.
+  # Requires owned bootstrap, enforced admission and the AI Gateway.
+  # Existing receipts retain their recorded mode and owned resources.
+  # Neither Kubernetes updates nor observed shutdown are physical fencing.
+  # Disabling starts retains recorded cleanup and Pod finalization RBAC.
+  nativeExecution: false
+  # -- Allow new healthy-source moves of common-executor Agents with one filesystem CSI RWO/RWOP HOME.
+  # Upgrade CRDs, Operator, admission and Portal readers before enabling.
+  # Existing checkpoints remain readable and cleanup permissions are retained when disabled.
+  plannedMigration: false
+  # -- Create owned namespace, HOME and native authentication only for new namespaces.
+  # Requires chart/image/port pins; the common flow can record them first.
+  # Published content stays external.
+  bootstrapOwnedPrerequisites: false
+  # -- Existing operator-namespace ConfigMap containing versioned platform.json.
+  # Shared by configuration admission and the controller only when enabled.
+  # The platform owner supplies qualification, topology and exact object pins.
+  platformConfigMapName: ""
+  # -- Claims in each protected Agent namespace; never adopted by name.
+  homeClaimName: home
+  # Native execution with no catalog and an empty effective skill selection uses
+  # a read-only in-Pod directory instead. The name may be empty only without a catalog;
+  # selecting any skill still requires a configured, existing skills claim.
+  skillsClaimName: skills
+  # -- Optional separate operator-namespace ConfigMap containing skills.json.
+  # Requires owned bootstrap. Selects already-published Blob NFS content by Team UID;
+  # creates only retained, read-only static PV/PVC bindings, never source content.
+  skillsCatalogConfigMapName: ""
+  # -- Optional placement.json registry for durable namespace/HOME/Node binding.
+  # Must match sandboxAdmission.placementConfigMapName. Records the existing
+  # reservation after zero-replica staging; does not enroll Nodes or grant execution.
+  placementConfigMapName: ""
+  # -- Approved helpers for legacy held preparation only.
+  # Reconciled (v2) lifetimes use runtime chart helper settings instead.
+  helpers:
+    doctor: false
+    logger: false
+    desktop: false
+
+skillMarketplace:
+  # -- Use the Skill Marketplace for Team skills of policy-bound Agents. On,
+  # every skill entry without the npm: prefix names a marketplace skill: the
+  # operator stops passing such Team entries to the reserved ClawHub list, and
+  # refuses an Agent whose skillOverrides add or remove one (marketplace skills
+  # are selected on the Team). The operator lists the policy-bound Teams for the
+  # worker and gives each of their Agents a read-only claim of the storage,
+  # named sandboxSources.skillsClaimName. The worker, a separate Deployment
+  # that runs the operator image, synchronizes the repository, publishes the
+  # Team releases and writes the catalog. Requires sandboxSources.enabled and
+  # sandboxSources.nativeExecution, and an empty
+  # sandboxSources.skillsCatalogConfigMapName: the marketplace replaces the
+  # published skills catalog.
+  enabled: false
+  # -- One Git repository of skills for the installation. Every directory that
+  # holds a SKILL.md below `path` is a skill. The worker never executes
+  # repository content.
+  repository:
+    # -- https:// URL, or ssh:// / user@host:path with auth ssh. Never put credentials in the URL.
+    url: ""
+    # -- Branch, tag or full ref. Empty uses the remote HEAD.
+    ref: ""
+    # -- Directory of the repository that holds the skills. Empty is the root.
+    path: ""
+    syncInterval: 5m
+    # -- none, token or ssh.
+    auth: none
+    # -- Existing Secret in the operator namespace: key `token` for auth token;
+    # keys `ssh-privatekey` and `known_hosts` for auth ssh.
+    existingSecret: ""
+    tokenUsername: x-access-token
+    # -- Allows an http:// URL. Only for tests inside a private network.
+    allowInsecureHTTP: false
+  # -- The Blob NFS container that holds the Team releases. Use a storage
+  # account that only private endpoints can reach: NFS 3.0 has no client
+  # authentication.
+  storage:
+    resourceGroup: ""
+    storageAccount: ""
+    containerName: ""
+    storageClassName: azureblob-nfs-premium
+    # -- Capacity of the worker's read-write volume and claim. The storage is
+    # part of their names: a change of these values gives the worker a new
+    # volume and claim, and the operator moves the Agents' claims.
+    size: 100Gi
+  # -- Skill names that the platform or images supply.
+  reservedNames:
+    - cetirun-memory
+    - connected-services
+  # -- How long the releases of a Team that left the policy-bound Teams stay
+  # after the worker found it gone.
+  teamGCGrace: 1h
+  # -- Limits of the repository and of each skill. The worker does not publish
+  # a skill that exceeds a limit, and the Skills page shows the reason. Agents
+  # copy their Team's skills into the scratch space of their Sandbox when they
+  # start, so raise the size limits only together with that space.
+  limits:
+    # -- Largest repository commit that the worker loads: the pack that the Git
+    # server sends for the commit, the commit's objects together, and the paths
+    # of the files and directories below repository.path together. The worker
+    # checks the pack and the objects before it decodes the commit, and the
+    # paths while it reads the tree. Keep worker.resources.limits.memory at
+    # least three times this size plus 256Mi.
+    maxRepositorySize: 256Mi
+    # -- Most objects in the repository commit: its files, its directories and
+    # the commit itself. Below repository.path, the worker also counts each
+    # path: a directory that the commit holds at two paths counts twice.
+    maxRepositoryObjects: 100000
+    # -- Most files in one skill.
+    maxSkillFiles: 500
+    # -- Largest total size of the files of one skill.
+    maxSkillSize: 5Mi
+    # -- Largest SKILL.md file. At most maxSkillSize.
+    maxSkillMDSize: 256Ki
+    # -- Deepest directory level of a file in a skill.
+    maxSkillDepth: 8
+    # -- Longest description in the SKILL.md frontmatter, in characters. The
+    # Agent Skills specification allows 1024.
+    maxDescriptionLength: 1024
+  # -- The worker Deployment `cetirun-skill-marketplace`. It runs without an
+  # Istio sidecar and talks only to the Kubernetes API, the Git host and its
+  # NFS mount.
+  worker:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+    podAnnotations: {}
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+# -- Native MCP runtime integration and optional access to Agent credential records.
+connectionsMCP:
+  # Opt-in common-executor integration, using current/default SA source pins.
+  # Requires a registered managed MCP peer and matching MCP nativeSandbox settings.
+  nativeEnabled: false
+  url: ""
+  audience: cetirun-connections-mcp
+  # The Broker ServiceAccount receives Secret access only through Roles in
+  # Agent namespaces. Both fields are required together. Keep them configured
+  # until all records are cleaned; leave both empty to disable Broker access.
+  brokerNamespace: ""
+  brokerServiceAccount: ""
+  # Native runtime allowlist. Restrict to hermes during a Hermes-only rollout.
+  runtimeTypes:
+    - hermes
+    - openclaw
+  # Existing CA-only source Secret in the operator namespace; distributed to each Agent.
+  caSecretName: ""
+
+# -- Microsoft Entra Agent Identity lifecycle configuration. The feature is
+# deployment-scoped and remains disabled unless every required field is set.
+agentIdentity:
+  enabled: false
+  # Keep lifecycle credentials available while existing identities are being
+  # disabled or deleted after creation has been turned off.
+  cleanupEnabled: false
+  tenantId: ""
+  blueprintClientId: ""
+  namePrefix: "cetirun-agent"
+  brokerURL: "http://cetirun-agent-broker.cetirun-credentials.svc.cluster.local:8080"
+
+# -- Platform AI Gateway integration: the operator gives each built-in Agent
+# its own virtual key and routes OpenClaw model traffic through the Gateway:
+# the shared models every Agent may use and, per Agent, a GitHub Copilot proxy
+# for the owner's account. The cetirun-platform chart installs the Gateway and
+# requires this. While the operator has a Gateway to call, with enabled on or
+# url set, deleting an Agent waits until its key is revoked; turning enabled
+# off stops creating keys, not revoking them. Set neither to stop calling the
+# Gateway, for example once it has been removed.
+aiGateway:
+  # -- Every Agent harness takes its models from the platform AI Gateway.
+  # The platform chart requires it. Disabling it holds Agent execution;
+  # there is no platform-provided direct-provider fallback.
+  enabled: true
+  # -- In-cluster Gateway URL: http://<service>.<namespace>.svc.cluster.local:<port>.
+  # Empty means the Gateway named cetirun-ai-gateway in the operator namespace,
+  # where the platform chart installs it.
+  url: ""
+  # -- Secret in the operator namespace that holds the Gateway master key. A
+  # Gateway installed separately must run in the operator namespace, or its
+  # master key Secret must be copied there.
+  masterKeySecret:
+    name: cetirun-ai-gateway-auth
+    key: master-key
+  # -- Monthly budget in US dollars written when a key is created. Changes an
+  # administrator makes later in the Gateway are kept.
+  defaultBudget: 10000
+  # -- Preferred default model of Agents that name none. Agents fall back to
+  # the first model available to them when it is not: a shared model, then a
+  # GitHub Copilot model, and an auto router of the Gateway only when nothing
+  # else is offered (a router picks a model per request, at a cost the Agent
+  # did not choose). Naming a router here or on the Agent makes it the default.
+  defaultModel: ""
+  # -- Per-Agent GitHub Copilot proxy. Agents keep it unless their owner
+  # turns GitHub Copilot off. It runs the AI Gateway image. Turned off here,
+  # OpenClaw Agents use only shared models, and the Portal creates none while
+  # no shared model is offered.
+  copilotProxy:
+    enabled: true
+    image:
+      repository: mcr.microsoft.com/aks/ai-runtime/cetirun/cetirun-ai-gateway
+      # -- Defaults to the release version.
+      tag: ""
+      digest: ""
+    # -- Let the Gateway's background health checks probe each Agent's GitHub
+    # Copilot routes. Off by default: each probe is a real model call on the
+    # Agent owner's own Copilot allowance, about 288 a day per route at the
+    # Gateway's default interval, and an Agent has a route per Copilot model.
+    # On, the routes are probed like the Gateway's other deployments (its
+    # router.healthChecks), without retries. Off, a route whose proxy cannot
+    # be reached stays in rotation: where it shares a model's name with shared
+    # deployments, the requests that land on it fail until the proxy is back.
+    # A change registers each Agent's routes again within about ten minutes,
+    # without restarting Agents.
+    healthChecks:
+      enabled: false
+
+# -- Override the chart's default skills storage account.
+# Empty string (default) means use the chart's built-in default.
+# Deprecated: use cetirun.helmValues.skills.storageAccount instead.
+skillsStorageAccount: ""
+
+# -- Provisioning for approved Custom images. Qualify each image's
+# UID/GID against this HOME storage. Every approved image must consume the
+# platform AI Gateway binding (OPENAI_BASE_URL and OPENAI_API_KEY).
+customRuntime:
+  enabled: true
+  # -- Empty denies all Custom images until the administrator approves them.
+  approvedImages: []
+  # -- Numeric image identities required for approved Custom FQDN capture.
+  # Map each immutable approved image to {uid: N, gid: N}; UID 1337 is reserved.
+  imageUsers: {}
+  storageClass: default
+  storageSize: 100Gi
+  accessMode: ReadWriteOnce
+  fsGroup: 1024
+  context:
+    AGENTS.md: |
+      # CetiRun agent context
+      Work within the owner's requested scope. Approved skills are available
+      under $HOME/.agents/skills. Read a relevant SKILL.md before using it.
+      This context and the skills view are read-only. Preserve user files.
+      Use cetirun-memory for durable notes in private HOME. Do not put credentials
+      or private session content into shared skills.
+    skills/cetirun-memory/SKILL.md: |
+      ---
+      name: cetirun-memory
+      description: Preserve useful owner-approved notes in the instance's private HOME.
+      ---
+      Store durable notes under $HOME/memory. Read relevant existing notes before
+      extending them. Preserve unrelated notes and distinguish facts from assumptions.
+      Do not store passwords, tokens or authentication responses. Never write memory
+      into the read-only skills directory or shared storage.
+
+# -- Azure workload identity configuration for the Operator.
+azure:
+  # -- Client ID of the operator's managed identity (enables workload identity).
+  clientId: ""
+memoryContext:
+  # -- Install Memory for Agents with a compatible pinned Chart. Request-level restrictions still apply.
+  enabled: true
+  # -- Optional full image reference. Empty uses cetirun-memory-context from
+  # each selected runtime chart's registry and appVersion. A digest may pin exact bytes.
+  image: ""

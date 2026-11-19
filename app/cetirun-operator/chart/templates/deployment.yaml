@@ -1,0 +1,216 @@
+{{- if empty .Values.connectionsMCP.runtimeTypes }}{{ fail "connectionsMCP.runtimeTypes must include at least one qualified runtime" }}{{ end }}
+{{- range .Values.connectionsMCP.runtimeTypes }}
+{{- if not (has . (list "hermes" "openclaw" "custom")) }}{{ fail "connectionsMCP.runtimeTypes supports only hermes, openclaw and governed custom" }}{{ end }}
+{{- end }}
+{{- if ne (empty .Values.connectionsMCP.brokerNamespace) (empty .Values.connectionsMCP.brokerServiceAccount) }}{{ fail "connectionsMCP.brokerNamespace and connectionsMCP.brokerServiceAccount must be set together" }}{{ end }}
+{{- $sandboxSources := include "cetirun-operator.sandboxSourcesConfig" . -}}
+{{- $skillMarketplace := include "cetirun-operator.skillMarketplaceConfig" . -}}
+{{- $chat := deepCopy .Values.chatAccess -}}
+{{- if default false ((.Values.global.portalChat | default dict).enabled) -}}
+{{- $_ := set $chat "enabled" true -}}
+{{- $_ := set $chat "callers" (list (dict "namespace" .Release.Namespace "podLabels" (dict "app.kubernetes.io/name" "cetirun-portal" "app.kubernetes.io/instance" .Release.Name))) -}}
+{{- end -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cetirun-operator
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: cetirun-operator
+    app.kubernetes.io/version: {{ include "cetirun-operator.version" . | default .Chart.AppVersion | quote }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cetirun-operator
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cetirun-operator
+        app.kubernetes.io/version: {{ include "cetirun-operator.version" . | default .Chart.AppVersion | quote }}
+        {{- if or .Values.azure.clientId .Values.agentIdentity.enabled .Values.agentIdentity.cleanupEnabled }}
+        azure.workload.identity/use: "true"
+        {{- end }}
+      annotations:
+        {{- /* The ADX-Mon collector of the cetirun-observability chart scrapes
+        the metrics port of Pods with these annotations. */}}
+        adx-mon/scrape: "true"
+        adx-mon/port: "8080"
+        adx-mon/path: /metrics
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: manager
+          image: "{{ include "cetirun-operator.image" . }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - --leader-elect={{ .Values.leaderElection }}
+            - --chart-repo-url={{ include "cetirun-operator.chartRepoURL" . }}
+            - --chart-version={{ include "cetirun-operator.chartVersion" . }}
+            - --domain-suffix={{ .Values.domainSuffix }}
+            - {{ printf "--istio-gateway=%s" .Values.istioGateway | quote }}
+            - {{ printf "--default-model=%s" .Values.cetirun.defaultModel | quote }}
+            - --memory-context-enabled={{ .Values.memoryContext.enabled }}
+            - {{ printf "--memory-context-image=%s" (default (dig "memoryContext" "image" "" (.Values.global | default dict)) .Values.memoryContext.image) | quote }}
+          env:
+            - name: CETIRUN_CETIADMIN_CONFIG_MAP
+              value: {{ include "cetirun-operator.cetiadminConfigName" . | quote }}
+            - name: CETIRUN_OPERATOR_IMAGE
+              value: {{ include "cetirun-operator.image" . | quote }}
+            - name: CETIRUN_CHAT_ACCESS
+              value: {{ $chat | toJson | quote }}
+            - name: REGISTRY_CREDENTIAL_NAMESPACE
+              value: {{ default .Values.registryCredentials.namespace .Values.global.registryCredentialNamespace | quote }}
+            - name: OPERATOR_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: OPERATOR_SA_NAME
+              value: {{ .Values.serviceAccount.name }}
+            {{- if .Values.istioRevision }}
+            - name: ISTIO_REVISION
+              value: {{ .Values.istioRevision | quote }}
+            {{- end }}
+            # Workaround for https://github.com/kubernetes/kubernetes/issues/135895
+            # client-go v0.35 enables WatchListClient by default, but cache.ListWatch
+            # (used by controller-runtime v0.19) does not declare WatchListSemantics
+            # support. The reflector falsely assumes support, then never receives the
+            # required InitialEventsEnd bookmark, causing informer sync to hang.
+            # Remove once controller-runtime ships a fix.
+            {{- if .Values.skillsStorageAccount }}
+            - name: SKILLS_STORAGE_ACCOUNT
+              value: {{ .Values.skillsStorageAccount | quote }}
+            {{- end }}
+            {{- if .Values.cetirun.helmValues }}
+            - name: CETIRUN_HELM_VALUES
+              value: {{ .Values.cetirun.helmValues | toJson | quote }}
+            {{- end }}
+            {{- if .Values.customRuntime.enabled }}
+            - name: CETIRUN_CUSTOM_RUNTIME
+              value: {{ .Values.customRuntime | toJson | quote }}
+            {{- end }}
+            {{- if $sandboxSources }}
+            - name: CETIRUN_SANDBOX_SOURCES
+              value: {{ $sandboxSources | quote }}
+            {{- end }}
+            {{- if $skillMarketplace }}
+            - name: CETIRUN_SKILL_MARKETPLACE
+              value: {{ $skillMarketplace | quote }}
+            {{- end }}
+            - name: AGENT_ID_ENABLED
+              value: {{ .Values.agentIdentity.enabled | quote }}
+            - name: CONNECTIONS_MCP_URL
+              value: {{ .Values.connectionsMCP.url | quote }}
+            - name: CONNECTIONS_MCP_NATIVE_ENABLED
+              value: {{ .Values.connectionsMCP.nativeEnabled | quote }}
+            - name: WORKLOAD_TOKEN_AUDIENCE
+              value: {{ .Values.connectionsMCP.audience | quote }}
+            - name: CONNECTIONS_MCP_RUNTIME_TYPES
+              value: {{ join "," .Values.connectionsMCP.runtimeTypes | quote }}
+            - name: CONNECTIONS_MCP_CA_SECRET_NAME
+              value: {{ .Values.connectionsMCP.caSecretName | quote }}
+            - name: CONNECTIONS_MCP_BROKER_NAMESPACE
+              value: {{ .Values.connectionsMCP.brokerNamespace | quote }}
+            - name: CONNECTIONS_MCP_BROKER_SERVICE_ACCOUNT
+              value: {{ .Values.connectionsMCP.brokerServiceAccount | quote }}
+            - name: AGENT_ID_CLEANUP_ENABLED
+              value: {{ .Values.agentIdentity.cleanupEnabled | quote }}
+            {{- if or .Values.agentIdentity.enabled .Values.agentIdentity.cleanupEnabled }}
+            - name: AGENT_ID_TENANT_ID
+              value: {{ required "agentIdentity.tenantId is required for Agent Identity lifecycle operations" .Values.agentIdentity.tenantId | quote }}
+            - name: AGENT_ID_BLUEPRINT_CLIENT_ID
+              value: {{ required "agentIdentity.blueprintClientId is required for Agent Identity lifecycle operations" .Values.agentIdentity.blueprintClientId | quote }}
+            - name: AGENT_ID_NAME_PREFIX
+              value: {{ .Values.agentIdentity.namePrefix | quote }}
+            {{- end }}
+            {{- if or .Values.agentIdentity.enabled .Values.agentIdentity.cleanupEnabled .Values.connectionsMCP.brokerNamespace .Values.connectionsMCP.url }}
+            - name: AGENT_ID_BROKER_URL
+              value: {{ required "agentIdentity.brokerURL is required for Agent identity and grant cleanup" .Values.agentIdentity.brokerURL | quote }}
+            {{- end }}
+            - name: AI_GATEWAY_ENABLED
+              value: {{ .Values.aiGateway.enabled | quote }}
+            {{- if or .Values.aiGateway.enabled .Values.aiGateway.url }}
+            - name: AI_GATEWAY_URL
+              value: {{ .Values.aiGateway.url | default (printf "http://cetirun-ai-gateway.%s.svc.cluster.local:4000" .Values.namespace) | quote }}
+            - name: AI_GATEWAY_MASTER_KEY_SECRET
+              value: {{ required "aiGateway.masterKeySecret.name is required" .Values.aiGateway.masterKeySecret.name | quote }}
+            - name: AI_GATEWAY_MASTER_KEY_SECRET_KEY
+              value: {{ .Values.aiGateway.masterKeySecret.key | quote }}
+            - name: AI_GATEWAY_DEFAULT_BUDGET
+              value: {{ .Values.aiGateway.defaultBudget | toString | quote }}
+            - name: AI_GATEWAY_DEFAULT_MODEL
+              value: {{ .Values.aiGateway.defaultModel | quote }}
+            - name: AI_GATEWAY_COPILOT_PROXY_IMAGE
+              value: {{ include "cetirun-operator.copilotProxyImage" . | quote }}
+            {{- /* Read key by key: a release upgraded with --reuse-values from
+            a chart without the setting keeps the probes off. */}}
+            - name: AI_GATEWAY_COPILOT_HEALTH_CHECKS
+              value: {{ dig "copilotProxy" "healthChecks" "enabled" false .Values.aiGateway | quote }}
+            {{- end }}
+            - name: KUBE_FEATURE_WatchListClient
+              value: "false"
+            {{- if .Values.acrDockerSecret }}
+            - name: DOCKER_CONFIG
+              value: /etc/docker
+            {{- end }}
+          {{- if .Values.acrDockerSecret }}
+          volumeMounts:
+            - name: acr-docker-config
+              mountPath: /etc/docker
+              readOnly: true
+          {{- end }}
+          ports:
+            - name: metrics
+              containerPort: 8080
+              protocol: TCP
+            - name: health
+              containerPort: 8081
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: health
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.acrDockerSecret }}
+      volumes:
+        - name: acr-docker-config
+          secret:
+            secretName: {{ .Values.acrDockerSecret }}
+            items:
+              - key: .dockerconfigjson
+                path: config.json
+      {{- end }}

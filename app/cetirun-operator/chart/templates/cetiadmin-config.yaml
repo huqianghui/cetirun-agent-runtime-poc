@@ -1,0 +1,13 @@
+{{- $config := include "cetirun-operator.cetiadminConfig" . -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cetirun-operator.cetiadminConfigName" . }}
+  namespace: {{ .Values.namespace | quote }}
+  labels:
+    app.kubernetes.io/name: cetirun-cetiadmin
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+  annotations:
+    helm.sh/resource-policy: keep
+data:
+  config.json: {{ $config | quote }}

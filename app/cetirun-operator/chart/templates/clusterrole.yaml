@@ -1,0 +1,187 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cetirun-operator-manager-role
+  labels:
+    app.kubernetes.io/name: cetirun-operator
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+rules:
+  # Agent CRD
+  - apiGroups: ["cetirun.microsoft.com"]
+    resources: ["agents"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["cetirun.microsoft.com"]
+    resources: ["agents/status"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: ["cetirun.microsoft.com"]
+    resources: ["agents/finalizers"]
+    verbs: ["update"]
+
+  # Team CRD (cluster-scoped; operator watches to re-enqueue instances on team changes)
+  - apiGroups: ["cetirun.microsoft.com"]
+    resources: ["teams"]
+    verbs: ["get", "list", "watch"]
+  {{- if include "cetirun-operator.cetiadminAdmission" . }}
+  # The installation reconciler creates only the source-bound CetiAdmin Team.
+  # Kubernetes cannot resourceNames-restrict create; admission checks ownership.
+  - apiGroups: ["cetirun.microsoft.com"]
+    resources: ["teams"]
+    verbs: ["create"]
+  - apiGroups: ["cetirun.microsoft.com"]
+    resources: ["teams"]
+    resourceNames: [{{ .Values.cetiadmin.instanceName | quote }}]
+    verbs: ["update", "patch"]
+  {{- end }}
+  - apiGroups: ["cetirun.microsoft.com"]
+    resources: ["teams/status"]
+    verbs: ["get", "update", "patch"]
+
+  # Shared Sandbox configuration and controller-owned conditions.
+  - apiGroups: ["cetirun.microsoft.com"]
+    resources: ["sandboxes", "agentpolicies"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["cetirun.microsoft.com"]
+    resources: ["sandboxes/status", "agentpolicies/status"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: ["node.k8s.io"]
+    resources: ["runtimeclasses"]
+    verbs: ["get"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get"]
+  # Recorded migrations require observation and finalization even when new starts are disabled.
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["csinodes", "csidrivers"]
+    verbs: ["get"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["volumeattachments"]
+    verbs: ["get", "list", "patch"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["clusterroles"]
+    verbs: ["get"]
+
+  # Namespaces
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+  - apiGroups: ["authorization.k8s.io"]
+    resources: ["subjectaccessreviews"]
+    verbs: ["create"]
+  # The operator also creates per-instance Roles. This ClusterRole grants its
+  # own permissions cluster-wide; those Roles do not narrow this grant. Runtime
+  # ownership and namespace checks still apply before acting on bound resources.
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Per-Agent terminal readers contain only get on the named Agent resource.
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["clusterroles", "clusterrolebindings"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["clusterroles"]
+    resourceNames: ["cetirun-terminal-exec"]
+    verbs: ["bind"]
+
+  # Batch Jobs (pre-upgrade hook creates Jobs in instance namespaces)
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+  # Secrets, ConfigMaps, Services, StatefulSets, PVCs, ServiceAccounts:
+  # Required so the operator can delegate these permissions via ensureNamespacedRBAC.
+  # See the RBAC delegation note above — Kubernetes prevents granting permissions
+  # not held by the grantor, so these must appear here even though the operator only
+  # exercises them inside cetirun-<alias> namespaces.
+  - apiGroups: [""]
+    resources: ["secrets", "configmaps", "services", "persistentvolumeclaims", "serviceaccounts"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["statefulsets", "deployments"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["controllerrevisions"]
+    verbs: ["get"]
+  - apiGroups: ["apps"]
+    resources: ["replicasets"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    # Recorded native lifetimes still need finalization after starts are disabled.
+    verbs: ["get", "list", "delete", "patch"]
+  - apiGroups: [""]
+    resources: ["endpoints"]
+    resourceNames: ["kubernetes"]
+    verbs: ["get"]
+  - apiGroups: ["discovery.k8s.io"]
+    resources: ["endpointslices"]
+    verbs: ["list"]
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+  # PersistentVolumes (cluster-scoped, created by the openclaw chart for shared-skills)
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+  # NetworkPolicies (created by the openclaw Helm chart in each instance namespace)
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+  {{- if .Values.sandboxSources.enabled }}
+  # Held Sandbox staging applies the compiler's namespaced Cilium policy.
+  - apiGroups: ["cilium.io"]
+    resources: ["ciliumnetworkpolicies"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["networking.istio.io"]
+    resources: ["gateways"]
+    {{- if .Values.sandboxSources.nativeExecution }}
+    # Only the native executor registers Gateway metadata watches.
+    verbs: ["get", "list", "watch"]
+    {{- else }}
+    verbs: ["get"]
+    {{- end }}
+  {{- end }}
+
+  # Istio VirtualServices + Sidecar (egress scope)
+  - apiGroups: ["networking.istio.io"]
+    resources: ["virtualservices", "sidecars", "destinationrules"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["security.istio.io"]
+    resources: ["authorizationpolicies", "peerauthentications"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+  # ValidatingAdmissionPolicy (cluster-scoped, created by the openclaw chart to block kubectl exec)
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources: ["validatingadmissionpolicies", "validatingadmissionpolicybindings"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+  {{- if include "cetirun-operator.cetiadminAdmission" . }}
+  # Read the exact protection registered by this installation before granting access.
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources: ["validatingwebhookconfigurations", "mutatingwebhookconfigurations"]
+    resourceNames: ["cetirun-cetiadmin-admission", "cetirun-sandbox-admission"]
+    verbs: ["get"]
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    resourceNames: ["agents.cetirun.microsoft.com", "teams.cetirun.microsoft.com", "sandboxes.cetirun.microsoft.com", "agentpolicies.cetirun.microsoft.com"]
+    verbs: ["get"]
+  {{- end }}
+
+  # Events
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+
+  # Leader election (Lease objects)
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]

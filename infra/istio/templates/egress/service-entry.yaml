@@ -1,0 +1,21 @@
+{{- if .Values.egress.externalServices }}
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: {{ printf "%s-external-services" .Release.Name | trunc 63 | trimSuffix "-" }}
+  namespace: {{ .Values.egress.namespace }}
+spec:
+  hosts:
+  {{- range .Values.egress.externalServices }}
+  - {{ . | quote }}
+  {{- end }}
+  location: MESH_EXTERNAL
+  ports:
+  - number: 443
+    name: https
+    protocol: HTTPS
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: DNS
+{{- end }}

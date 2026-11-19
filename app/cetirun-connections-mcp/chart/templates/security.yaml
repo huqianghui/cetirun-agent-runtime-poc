@@ -1,0 +1,55 @@
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: {{ include "cetirun-connections-mcp.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "cetirun-connections-mcp.selectorLabels" . | nindent 6 }}
+  mtls:
+    mode: STRICT
+  {{- if .Values.nativeSandbox.enabled }}
+  # The service terminates HTTPS and authenticates the Pod-bound proof itself.
+  # Native Pods intentionally have no Istio sidecar/certificate.
+  portLevelMtls:
+    "8443":
+      mode: DISABLE
+  {{- end }}
+{{- if .Values.nativeSandbox.enabled }}
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: {{ include "cetirun-connections-mcp.fullname" . }}-application-tls
+  namespace: {{ .Release.Namespace }}
+spec:
+  host: {{ include "cetirun-connections-mcp.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local
+  exportTo: ["*"]
+  trafficPolicy: {tls: {mode: DISABLE}}
+{{- end }}
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ include "cetirun-connections-mcp.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "cetirun-connections-mcp.selectorLabels" . | nindent 6 }}
+  action: ALLOW
+  rules:
+    {{- if .Values.nativeSandbox.enabled }}
+    - to:
+        - operation:
+            ports: ["8443"]
+    {{- else }}
+    - from:
+        - source:
+            namespaces:
+              {{- toYaml .Values.istio.agentNamespaces | nindent 14 }}
+      to:
+        - operation:
+            ports: ["8443"]
+    {{- end }}

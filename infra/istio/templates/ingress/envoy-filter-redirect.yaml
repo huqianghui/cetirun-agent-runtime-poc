@@ -1,0 +1,37 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: cetirun-redirect-header
+  namespace: {{ .Values.gateway.namespace }}
+  labels:
+    {{- include "cetirun-istio.labels" . | nindent 4 }}
+spec:
+  workloadSelector:
+    labels:
+      {{- toYaml .Values.gateway.selector | nindent 6 }}
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          portNumber: 443
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+              subFilter:
+                name: envoy.filters.http.ext_authz
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: cetirun.set_redirect_url
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
+            inline_code: |
+              function envoy_on_request(handle)
+                local host = handle:headers():get(":authority")
+                local path = handle:headers():get(":path") or "/"
+                if host ~= nil then
+                  handle:headers():remove("X-Auth-Request-Redirect")
+                  handle:headers():replace("X-Auth-Request-Redirect", "https://" .. host .. path)
+                end
+              end

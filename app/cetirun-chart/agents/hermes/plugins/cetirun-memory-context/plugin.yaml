@@ -1,0 +1,6 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+name: cetirun-memory-context
+version: "1"
+requires_hermes: ">=0.22.7"
+description: CetiRun private Memory adapter from the configured, digest-checked asset package.

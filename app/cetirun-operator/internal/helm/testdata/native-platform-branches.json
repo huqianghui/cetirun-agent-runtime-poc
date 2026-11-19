@@ -1,0 +1,434 @@
+{
+  "hermes/desktop=false/ttyd=false/mesh=none/sa=false": {
+    "NOTES.txt": "60486448c59e4e55f6b11821927c7c953e54f97e20a92daf668f3e92c90c1ba0",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "dc1e0cce4ee02987c73bdca3b5d0a356210e7a909df884b3c68c08fd4afb6ca1",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "95ec5330703d8d7bef21fbd3e232ee745505d28e830812dc041ad375a990bb27",
+    "serviceaccount.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sidecar.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "hermes/desktop=false/ttyd=false/mesh=none/sa=true": {
+    "NOTES.txt": "60486448c59e4e55f6b11821927c7c953e54f97e20a92daf668f3e92c90c1ba0",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "dc1e0cce4ee02987c73bdca3b5d0a356210e7a909df884b3c68c08fd4afb6ca1",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "95ec5330703d8d7bef21fbd3e232ee745505d28e830812dc041ad375a990bb27",
+    "serviceaccount.yaml": "2494b52852ffbd16f576f20eb2a479eca0941773ce66d00b177c23fba1c5ebc5",
+    "sidecar.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "hermes/desktop=false/ttyd=false/mesh=v1/sa=false": {
+    "NOTES.txt": "60486448c59e4e55f6b11821927c7c953e54f97e20a92daf668f3e92c90c1ba0",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "dc1e0cce4ee02987c73bdca3b5d0a356210e7a909df884b3c68c08fd4afb6ca1",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "95ec5330703d8d7bef21fbd3e232ee745505d28e830812dc041ad375a990bb27",
+    "serviceaccount.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sidecar.yaml": "20cc1beb07fdb7035b18d4856136c386231a1a7562430c8f091eb7a1f98c375e"
+  },
+  "hermes/desktop=false/ttyd=false/mesh=v1/sa=true": {
+    "NOTES.txt": "60486448c59e4e55f6b11821927c7c953e54f97e20a92daf668f3e92c90c1ba0",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "dc1e0cce4ee02987c73bdca3b5d0a356210e7a909df884b3c68c08fd4afb6ca1",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "95ec5330703d8d7bef21fbd3e232ee745505d28e830812dc041ad375a990bb27",
+    "serviceaccount.yaml": "2494b52852ffbd16f576f20eb2a479eca0941773ce66d00b177c23fba1c5ebc5",
+    "sidecar.yaml": "20cc1beb07fdb7035b18d4856136c386231a1a7562430c8f091eb7a1f98c375e"
+  },
+  "hermes/desktop=false/ttyd=false/mesh=v1beta1/sa=false": {
+    "NOTES.txt": "60486448c59e4e55f6b11821927c7c953e54f97e20a92daf668f3e92c90c1ba0",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "dc1e0cce4ee02987c73bdca3b5d0a356210e7a909df884b3c68c08fd4afb6ca1",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "95ec5330703d8d7bef21fbd3e232ee745505d28e830812dc041ad375a990bb27",
+    "serviceaccount.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sidecar.yaml": "2b9694897934c34cc78ff083e37d13ad7fdc08f2a9e1587b6ea90abd2848b0cd"
+  },
+  "hermes/desktop=false/ttyd=false/mesh=v1beta1/sa=true": {
+    "NOTES.txt": "60486448c59e4e55f6b11821927c7c953e54f97e20a92daf668f3e92c90c1ba0",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "dc1e0cce4ee02987c73bdca3b5d0a356210e7a909df884b3c68c08fd4afb6ca1",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "95ec5330703d8d7bef21fbd3e232ee745505d28e830812dc041ad375a990bb27",
+    "serviceaccount.yaml": "2494b52852ffbd16f576f20eb2a479eca0941773ce66d00b177c23fba1c5ebc5",
+    "sidecar.yaml": "2b9694897934c34cc78ff083e37d13ad7fdc08f2a9e1587b6ea90abd2848b0cd"
+  },
+  "hermes/desktop=false/ttyd=true/mesh=none/sa=false": {
+    "NOTES.txt": "7b958f5a2ebef00d7ee51b4ad69818a326713da356acbfe81e5af23c5c69bb5d",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "1c85c047bf2a7fc7b96ed3397188f3e93e89193537faaeb601bbdbebb65d1cf4",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "915ab6c92bf0d7773446da1e19250d6ac2d17bdb1a41165bedf28af149303eb9",
+    "serviceaccount.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sidecar.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "hermes/desktop=false/ttyd=true/mesh=none/sa=true": {
+    "NOTES.txt": "7b958f5a2ebef00d7ee51b4ad69818a326713da356acbfe81e5af23c5c69bb5d",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "1c85c047bf2a7fc7b96ed3397188f3e93e89193537faaeb601bbdbebb65d1cf4",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "915ab6c92bf0d7773446da1e19250d6ac2d17bdb1a41165bedf28af149303eb9",
+    "serviceaccount.yaml": "2494b52852ffbd16f576f20eb2a479eca0941773ce66d00b177c23fba1c5ebc5",
+    "sidecar.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "hermes/desktop=false/ttyd=true/mesh=v1/sa=false": {
+    "NOTES.txt": "7b958f5a2ebef00d7ee51b4ad69818a326713da356acbfe81e5af23c5c69bb5d",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "1c85c047bf2a7fc7b96ed3397188f3e93e89193537faaeb601bbdbebb65d1cf4",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "915ab6c92bf0d7773446da1e19250d6ac2d17bdb1a41165bedf28af149303eb9",
+    "serviceaccount.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sidecar.yaml": "20cc1beb07fdb7035b18d4856136c386231a1a7562430c8f091eb7a1f98c375e"
+  },
+  "hermes/desktop=false/ttyd=true/mesh=v1/sa=true": {
+    "NOTES.txt": "7b958f5a2ebef00d7ee51b4ad69818a326713da356acbfe81e5af23c5c69bb5d",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "1c85c047bf2a7fc7b96ed3397188f3e93e89193537faaeb601bbdbebb65d1cf4",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "915ab6c92bf0d7773446da1e19250d6ac2d17bdb1a41165bedf28af149303eb9",
+    "serviceaccount.yaml": "2494b52852ffbd16f576f20eb2a479eca0941773ce66d00b177c23fba1c5ebc5",
+    "sidecar.yaml": "20cc1beb07fdb7035b18d4856136c386231a1a7562430c8f091eb7a1f98c375e"
+  },
+  "hermes/desktop=false/ttyd=true/mesh=v1beta1/sa=false": {
+    "NOTES.txt": "7b958f5a2ebef00d7ee51b4ad69818a326713da356acbfe81e5af23c5c69bb5d",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "1c85c047bf2a7fc7b96ed3397188f3e93e89193537faaeb601bbdbebb65d1cf4",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "915ab6c92bf0d7773446da1e19250d6ac2d17bdb1a41165bedf28af149303eb9",
+    "serviceaccount.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sidecar.yaml": "2b9694897934c34cc78ff083e37d13ad7fdc08f2a9e1587b6ea90abd2848b0cd"
+  },
+  "hermes/desktop=false/ttyd=true/mesh=v1beta1/sa=true": {
+    "NOTES.txt": "7b958f5a2ebef00d7ee51b4ad69818a326713da356acbfe81e5af23c5c69bb5d",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "1c85c047bf2a7fc7b96ed3397188f3e93e89193537faaeb601bbdbebb65d1cf4",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "915ab6c92bf0d7773446da1e19250d6ac2d17bdb1a41165bedf28af149303eb9",
+    "serviceaccount.yaml": "2494b52852ffbd16f576f20eb2a479eca0941773ce66d00b177c23fba1c5ebc5",
+    "sidecar.yaml": "2b9694897934c34cc78ff083e37d13ad7fdc08f2a9e1587b6ea90abd2848b0cd"
+  },
+  "hermes/desktop=true/ttyd=false/mesh=none/sa=false": {
+    "NOTES.txt": "60486448c59e4e55f6b11821927c7c953e54f97e20a92daf668f3e92c90c1ba0",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "490f2d2ddeafedaf8020f1cb166534ec6e72876c7d2d40d9ef7ba22f8db73fc2",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "fed04c072365346d8ba2e8b7c03c69b8605faec8973b8bc6f49243cef9e05f54",
+    "serviceaccount.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sidecar.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "hermes/desktop=true/ttyd=false/mesh=none/sa=true": {
+    "NOTES.txt": "60486448c59e4e55f6b11821927c7c953e54f97e20a92daf668f3e92c90c1ba0",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "490f2d2ddeafedaf8020f1cb166534ec6e72876c7d2d40d9ef7ba22f8db73fc2",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "fed04c072365346d8ba2e8b7c03c69b8605faec8973b8bc6f49243cef9e05f54",
+    "serviceaccount.yaml": "2494b52852ffbd16f576f20eb2a479eca0941773ce66d00b177c23fba1c5ebc5",
+    "sidecar.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "hermes/desktop=true/ttyd=false/mesh=v1/sa=false": {
+    "NOTES.txt": "60486448c59e4e55f6b11821927c7c953e54f97e20a92daf668f3e92c90c1ba0",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "490f2d2ddeafedaf8020f1cb166534ec6e72876c7d2d40d9ef7ba22f8db73fc2",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "fed04c072365346d8ba2e8b7c03c69b8605faec8973b8bc6f49243cef9e05f54",
+    "serviceaccount.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sidecar.yaml": "20cc1beb07fdb7035b18d4856136c386231a1a7562430c8f091eb7a1f98c375e"
+  },
+  "hermes/desktop=true/ttyd=false/mesh=v1/sa=true": {
+    "NOTES.txt": "60486448c59e4e55f6b11821927c7c953e54f97e20a92daf668f3e92c90c1ba0",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "490f2d2ddeafedaf8020f1cb166534ec6e72876c7d2d40d9ef7ba22f8db73fc2",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "fed04c072365346d8ba2e8b7c03c69b8605faec8973b8bc6f49243cef9e05f54",
+    "serviceaccount.yaml": "2494b52852ffbd16f576f20eb2a479eca0941773ce66d00b177c23fba1c5ebc5",
+    "sidecar.yaml": "20cc1beb07fdb7035b18d4856136c386231a1a7562430c8f091eb7a1f98c375e"
+  },
+  "hermes/desktop=true/ttyd=false/mesh=v1beta1/sa=false": {
+    "NOTES.txt": "60486448c59e4e55f6b11821927c7c953e54f97e20a92daf668f3e92c90c1ba0",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "490f2d2ddeafedaf8020f1cb166534ec6e72876c7d2d40d9ef7ba22f8db73fc2",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "fed04c072365346d8ba2e8b7c03c69b8605faec8973b8bc6f49243cef9e05f54",
+    "serviceaccount.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sidecar.yaml": "2b9694897934c34cc78ff083e37d13ad7fdc08f2a9e1587b6ea90abd2848b0cd"
+  },
+  "hermes/desktop=true/ttyd=false/mesh=v1beta1/sa=true": {
+    "NOTES.txt": "60486448c59e4e55f6b11821927c7c953e54f97e20a92daf668f3e92c90c1ba0",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "490f2d2ddeafedaf8020f1cb166534ec6e72876c7d2d40d9ef7ba22f8db73fc2",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "fed04c072365346d8ba2e8b7c03c69b8605faec8973b8bc6f49243cef9e05f54",
+    "serviceaccount.yaml": "2494b52852ffbd16f576f20eb2a479eca0941773ce66d00b177c23fba1c5ebc5",
+    "sidecar.yaml": "2b9694897934c34cc78ff083e37d13ad7fdc08f2a9e1587b6ea90abd2848b0cd"
+  },
+  "hermes/desktop=true/ttyd=true/mesh=none/sa=false": {
+    "NOTES.txt": "7b958f5a2ebef00d7ee51b4ad69818a326713da356acbfe81e5af23c5c69bb5d",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "2dc5a875a67bdb63b078af0bcc0453118431d8d9c7086969a611e5084d2b17c9",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "1265855689c40659775d2fa052216fe5e448932d5bce088ffbcdd511e09c8cd7",
+    "serviceaccount.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sidecar.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "hermes/desktop=true/ttyd=true/mesh=none/sa=true": {
+    "NOTES.txt": "7b958f5a2ebef00d7ee51b4ad69818a326713da356acbfe81e5af23c5c69bb5d",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "2dc5a875a67bdb63b078af0bcc0453118431d8d9c7086969a611e5084d2b17c9",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "1265855689c40659775d2fa052216fe5e448932d5bce088ffbcdd511e09c8cd7",
+    "serviceaccount.yaml": "2494b52852ffbd16f576f20eb2a479eca0941773ce66d00b177c23fba1c5ebc5",
+    "sidecar.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "hermes/desktop=true/ttyd=true/mesh=v1/sa=false": {
+    "NOTES.txt": "7b958f5a2ebef00d7ee51b4ad69818a326713da356acbfe81e5af23c5c69bb5d",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "2dc5a875a67bdb63b078af0bcc0453118431d8d9c7086969a611e5084d2b17c9",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "1265855689c40659775d2fa052216fe5e448932d5bce088ffbcdd511e09c8cd7",
+    "serviceaccount.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sidecar.yaml": "20cc1beb07fdb7035b18d4856136c386231a1a7562430c8f091eb7a1f98c375e"
+  },
+  "hermes/desktop=true/ttyd=true/mesh=v1/sa=true": {
+    "NOTES.txt": "7b958f5a2ebef00d7ee51b4ad69818a326713da356acbfe81e5af23c5c69bb5d",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "2dc5a875a67bdb63b078af0bcc0453118431d8d9c7086969a611e5084d2b17c9",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "1265855689c40659775d2fa052216fe5e448932d5bce088ffbcdd511e09c8cd7",
+    "serviceaccount.yaml": "2494b52852ffbd16f576f20eb2a479eca0941773ce66d00b177c23fba1c5ebc5",
+    "sidecar.yaml": "20cc1beb07fdb7035b18d4856136c386231a1a7562430c8f091eb7a1f98c375e"
+  },
+  "hermes/desktop=true/ttyd=true/mesh=v1beta1/sa=false": {
+    "NOTES.txt": "7b958f5a2ebef00d7ee51b4ad69818a326713da356acbfe81e5af23c5c69bb5d",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "2dc5a875a67bdb63b078af0bcc0453118431d8d9c7086969a611e5084d2b17c9",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "1265855689c40659775d2fa052216fe5e448932d5bce088ffbcdd511e09c8cd7",
+    "serviceaccount.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sidecar.yaml": "2b9694897934c34cc78ff083e37d13ad7fdc08f2a9e1587b6ea90abd2848b0cd"
+  },
+  "hermes/desktop=true/ttyd=true/mesh=v1beta1/sa=true": {
+    "NOTES.txt": "7b958f5a2ebef00d7ee51b4ad69818a326713da356acbfe81e5af23c5c69bb5d",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "2dc5a875a67bdb63b078af0bcc0453118431d8d9c7086969a611e5084d2b17c9",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "1265855689c40659775d2fa052216fe5e448932d5bce088ffbcdd511e09c8cd7",
+    "serviceaccount.yaml": "2494b52852ffbd16f576f20eb2a479eca0941773ce66d00b177c23fba1c5ebc5",
+    "sidecar.yaml": "2b9694897934c34cc78ff083e37d13ad7fdc08f2a9e1587b6ea90abd2848b0cd"
+  },
+  "openclaw/desktop=false/ttyd=false/mesh=none/sa=false": {
+    "NOTES.txt": "60486448c59e4e55f6b11821927c7c953e54f97e20a92daf668f3e92c90c1ba0",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "b2d486845443f3fae02ddbb282e0f3a7ff6c48d03d3fe786c334c909bf7e55b1",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "7a2caf6651e4350ab50812943d8f46d8779233a75c047237f09de00a20313747",
+    "serviceaccount.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sidecar.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "openclaw/desktop=false/ttyd=false/mesh=none/sa=true": {
+    "NOTES.txt": "60486448c59e4e55f6b11821927c7c953e54f97e20a92daf668f3e92c90c1ba0",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "b2d486845443f3fae02ddbb282e0f3a7ff6c48d03d3fe786c334c909bf7e55b1",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "7a2caf6651e4350ab50812943d8f46d8779233a75c047237f09de00a20313747",
+    "serviceaccount.yaml": "2494b52852ffbd16f576f20eb2a479eca0941773ce66d00b177c23fba1c5ebc5",
+    "sidecar.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "openclaw/desktop=false/ttyd=false/mesh=v1/sa=false": {
+    "NOTES.txt": "60486448c59e4e55f6b11821927c7c953e54f97e20a92daf668f3e92c90c1ba0",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "b2d486845443f3fae02ddbb282e0f3a7ff6c48d03d3fe786c334c909bf7e55b1",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "7a2caf6651e4350ab50812943d8f46d8779233a75c047237f09de00a20313747",
+    "serviceaccount.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sidecar.yaml": "20cc1beb07fdb7035b18d4856136c386231a1a7562430c8f091eb7a1f98c375e"
+  },
+  "openclaw/desktop=false/ttyd=false/mesh=v1/sa=true": {
+    "NOTES.txt": "60486448c59e4e55f6b11821927c7c953e54f97e20a92daf668f3e92c90c1ba0",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "b2d486845443f3fae02ddbb282e0f3a7ff6c48d03d3fe786c334c909bf7e55b1",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "7a2caf6651e4350ab50812943d8f46d8779233a75c047237f09de00a20313747",
+    "serviceaccount.yaml": "2494b52852ffbd16f576f20eb2a479eca0941773ce66d00b177c23fba1c5ebc5",
+    "sidecar.yaml": "20cc1beb07fdb7035b18d4856136c386231a1a7562430c8f091eb7a1f98c375e"
+  },
+  "openclaw/desktop=false/ttyd=false/mesh=v1beta1/sa=false": {
+    "NOTES.txt": "60486448c59e4e55f6b11821927c7c953e54f97e20a92daf668f3e92c90c1ba0",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "b2d486845443f3fae02ddbb282e0f3a7ff6c48d03d3fe786c334c909bf7e55b1",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "7a2caf6651e4350ab50812943d8f46d8779233a75c047237f09de00a20313747",
+    "serviceaccount.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sidecar.yaml": "2b9694897934c34cc78ff083e37d13ad7fdc08f2a9e1587b6ea90abd2848b0cd"
+  },
+  "openclaw/desktop=false/ttyd=false/mesh=v1beta1/sa=true": {
+    "NOTES.txt": "60486448c59e4e55f6b11821927c7c953e54f97e20a92daf668f3e92c90c1ba0",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "b2d486845443f3fae02ddbb282e0f3a7ff6c48d03d3fe786c334c909bf7e55b1",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "7a2caf6651e4350ab50812943d8f46d8779233a75c047237f09de00a20313747",
+    "serviceaccount.yaml": "2494b52852ffbd16f576f20eb2a479eca0941773ce66d00b177c23fba1c5ebc5",
+    "sidecar.yaml": "2b9694897934c34cc78ff083e37d13ad7fdc08f2a9e1587b6ea90abd2848b0cd"
+  },
+  "openclaw/desktop=false/ttyd=true/mesh=none/sa=false": {
+    "NOTES.txt": "7b958f5a2ebef00d7ee51b4ad69818a326713da356acbfe81e5af23c5c69bb5d",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "d79228d2db6a033f6414b40e015bf681dc29835bdc56158605acc5ebe856430c",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "cede9d6cd677b2dfabedcf1b814f9a0c71bb71fe32b26eb7d51d9f1b5a3f8afa",
+    "serviceaccount.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sidecar.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "openclaw/desktop=false/ttyd=true/mesh=none/sa=true": {
+    "NOTES.txt": "7b958f5a2ebef00d7ee51b4ad69818a326713da356acbfe81e5af23c5c69bb5d",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "d79228d2db6a033f6414b40e015bf681dc29835bdc56158605acc5ebe856430c",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "cede9d6cd677b2dfabedcf1b814f9a0c71bb71fe32b26eb7d51d9f1b5a3f8afa",
+    "serviceaccount.yaml": "2494b52852ffbd16f576f20eb2a479eca0941773ce66d00b177c23fba1c5ebc5",
+    "sidecar.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "openclaw/desktop=false/ttyd=true/mesh=v1/sa=false": {
+    "NOTES.txt": "7b958f5a2ebef00d7ee51b4ad69818a326713da356acbfe81e5af23c5c69bb5d",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "d79228d2db6a033f6414b40e015bf681dc29835bdc56158605acc5ebe856430c",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "cede9d6cd677b2dfabedcf1b814f9a0c71bb71fe32b26eb7d51d9f1b5a3f8afa",
+    "serviceaccount.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sidecar.yaml": "20cc1beb07fdb7035b18d4856136c386231a1a7562430c8f091eb7a1f98c375e"
+  },
+  "openclaw/desktop=false/ttyd=true/mesh=v1/sa=true": {
+    "NOTES.txt": "7b958f5a2ebef00d7ee51b4ad69818a326713da356acbfe81e5af23c5c69bb5d",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "d79228d2db6a033f6414b40e015bf681dc29835bdc56158605acc5ebe856430c",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "cede9d6cd677b2dfabedcf1b814f9a0c71bb71fe32b26eb7d51d9f1b5a3f8afa",
+    "serviceaccount.yaml": "2494b52852ffbd16f576f20eb2a479eca0941773ce66d00b177c23fba1c5ebc5",
+    "sidecar.yaml": "20cc1beb07fdb7035b18d4856136c386231a1a7562430c8f091eb7a1f98c375e"
+  },
+  "openclaw/desktop=false/ttyd=true/mesh=v1beta1/sa=false": {
+    "NOTES.txt": "7b958f5a2ebef00d7ee51b4ad69818a326713da356acbfe81e5af23c5c69bb5d",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "d79228d2db6a033f6414b40e015bf681dc29835bdc56158605acc5ebe856430c",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "cede9d6cd677b2dfabedcf1b814f9a0c71bb71fe32b26eb7d51d9f1b5a3f8afa",
+    "serviceaccount.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sidecar.yaml": "2b9694897934c34cc78ff083e37d13ad7fdc08f2a9e1587b6ea90abd2848b0cd"
+  },
+  "openclaw/desktop=false/ttyd=true/mesh=v1beta1/sa=true": {
+    "NOTES.txt": "7b958f5a2ebef00d7ee51b4ad69818a326713da356acbfe81e5af23c5c69bb5d",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "d79228d2db6a033f6414b40e015bf681dc29835bdc56158605acc5ebe856430c",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "cede9d6cd677b2dfabedcf1b814f9a0c71bb71fe32b26eb7d51d9f1b5a3f8afa",
+    "serviceaccount.yaml": "2494b52852ffbd16f576f20eb2a479eca0941773ce66d00b177c23fba1c5ebc5",
+    "sidecar.yaml": "2b9694897934c34cc78ff083e37d13ad7fdc08f2a9e1587b6ea90abd2848b0cd"
+  },
+  "openclaw/desktop=true/ttyd=false/mesh=none/sa=false": {
+    "NOTES.txt": "60486448c59e4e55f6b11821927c7c953e54f97e20a92daf668f3e92c90c1ba0",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "a767c9d0defae29d50d861b9d955864eff16fe9e964cff986f3c5e74e84717a7",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "a4876dbcb47df1f360f5864202190a4e8ff0c323f61c1a54fe781decec963f08",
+    "serviceaccount.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sidecar.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "openclaw/desktop=true/ttyd=false/mesh=none/sa=true": {
+    "NOTES.txt": "60486448c59e4e55f6b11821927c7c953e54f97e20a92daf668f3e92c90c1ba0",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "a767c9d0defae29d50d861b9d955864eff16fe9e964cff986f3c5e74e84717a7",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "a4876dbcb47df1f360f5864202190a4e8ff0c323f61c1a54fe781decec963f08",
+    "serviceaccount.yaml": "2494b52852ffbd16f576f20eb2a479eca0941773ce66d00b177c23fba1c5ebc5",
+    "sidecar.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "openclaw/desktop=true/ttyd=false/mesh=v1/sa=false": {
+    "NOTES.txt": "60486448c59e4e55f6b11821927c7c953e54f97e20a92daf668f3e92c90c1ba0",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "a767c9d0defae29d50d861b9d955864eff16fe9e964cff986f3c5e74e84717a7",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "a4876dbcb47df1f360f5864202190a4e8ff0c323f61c1a54fe781decec963f08",
+    "serviceaccount.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sidecar.yaml": "20cc1beb07fdb7035b18d4856136c386231a1a7562430c8f091eb7a1f98c375e"
+  },
+  "openclaw/desktop=true/ttyd=false/mesh=v1/sa=true": {
+    "NOTES.txt": "60486448c59e4e55f6b11821927c7c953e54f97e20a92daf668f3e92c90c1ba0",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "a767c9d0defae29d50d861b9d955864eff16fe9e964cff986f3c5e74e84717a7",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "a4876dbcb47df1f360f5864202190a4e8ff0c323f61c1a54fe781decec963f08",
+    "serviceaccount.yaml": "2494b52852ffbd16f576f20eb2a479eca0941773ce66d00b177c23fba1c5ebc5",
+    "sidecar.yaml": "20cc1beb07fdb7035b18d4856136c386231a1a7562430c8f091eb7a1f98c375e"
+  },
+  "openclaw/desktop=true/ttyd=false/mesh=v1beta1/sa=false": {
+    "NOTES.txt": "60486448c59e4e55f6b11821927c7c953e54f97e20a92daf668f3e92c90c1ba0",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "a767c9d0defae29d50d861b9d955864eff16fe9e964cff986f3c5e74e84717a7",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "a4876dbcb47df1f360f5864202190a4e8ff0c323f61c1a54fe781decec963f08",
+    "serviceaccount.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sidecar.yaml": "2b9694897934c34cc78ff083e37d13ad7fdc08f2a9e1587b6ea90abd2848b0cd"
+  },
+  "openclaw/desktop=true/ttyd=false/mesh=v1beta1/sa=true": {
+    "NOTES.txt": "60486448c59e4e55f6b11821927c7c953e54f97e20a92daf668f3e92c90c1ba0",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "a767c9d0defae29d50d861b9d955864eff16fe9e964cff986f3c5e74e84717a7",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "a4876dbcb47df1f360f5864202190a4e8ff0c323f61c1a54fe781decec963f08",
+    "serviceaccount.yaml": "2494b52852ffbd16f576f20eb2a479eca0941773ce66d00b177c23fba1c5ebc5",
+    "sidecar.yaml": "2b9694897934c34cc78ff083e37d13ad7fdc08f2a9e1587b6ea90abd2848b0cd"
+  },
+  "openclaw/desktop=true/ttyd=true/mesh=none/sa=false": {
+    "NOTES.txt": "7b958f5a2ebef00d7ee51b4ad69818a326713da356acbfe81e5af23c5c69bb5d",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "04bd80698cd862ad52947714bd612398865d268c89776f7509ebe33609689d2d",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "9f73ff63c10150322a493c1636be9e29a76b4f5cd0e9331556745f9923dbed89",
+    "serviceaccount.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sidecar.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "openclaw/desktop=true/ttyd=true/mesh=none/sa=true": {
+    "NOTES.txt": "7b958f5a2ebef00d7ee51b4ad69818a326713da356acbfe81e5af23c5c69bb5d",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "04bd80698cd862ad52947714bd612398865d268c89776f7509ebe33609689d2d",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "9f73ff63c10150322a493c1636be9e29a76b4f5cd0e9331556745f9923dbed89",
+    "serviceaccount.yaml": "2494b52852ffbd16f576f20eb2a479eca0941773ce66d00b177c23fba1c5ebc5",
+    "sidecar.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "openclaw/desktop=true/ttyd=true/mesh=v1/sa=false": {
+    "NOTES.txt": "7b958f5a2ebef00d7ee51b4ad69818a326713da356acbfe81e5af23c5c69bb5d",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "04bd80698cd862ad52947714bd612398865d268c89776f7509ebe33609689d2d",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "9f73ff63c10150322a493c1636be9e29a76b4f5cd0e9331556745f9923dbed89",
+    "serviceaccount.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sidecar.yaml": "20cc1beb07fdb7035b18d4856136c386231a1a7562430c8f091eb7a1f98c375e"
+  },
+  "openclaw/desktop=true/ttyd=true/mesh=v1/sa=true": {
+    "NOTES.txt": "7b958f5a2ebef00d7ee51b4ad69818a326713da356acbfe81e5af23c5c69bb5d",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "04bd80698cd862ad52947714bd612398865d268c89776f7509ebe33609689d2d",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "9f73ff63c10150322a493c1636be9e29a76b4f5cd0e9331556745f9923dbed89",
+    "serviceaccount.yaml": "2494b52852ffbd16f576f20eb2a479eca0941773ce66d00b177c23fba1c5ebc5",
+    "sidecar.yaml": "20cc1beb07fdb7035b18d4856136c386231a1a7562430c8f091eb7a1f98c375e"
+  },
+  "openclaw/desktop=true/ttyd=true/mesh=v1beta1/sa=false": {
+    "NOTES.txt": "7b958f5a2ebef00d7ee51b4ad69818a326713da356acbfe81e5af23c5c69bb5d",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "04bd80698cd862ad52947714bd612398865d268c89776f7509ebe33609689d2d",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "9f73ff63c10150322a493c1636be9e29a76b4f5cd0e9331556745f9923dbed89",
+    "serviceaccount.yaml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sidecar.yaml": "2b9694897934c34cc78ff083e37d13ad7fdc08f2a9e1587b6ea90abd2848b0cd"
+  },
+  "openclaw/desktop=true/ttyd=true/mesh=v1beta1/sa=true": {
+    "NOTES.txt": "7b958f5a2ebef00d7ee51b4ad69818a326713da356acbfe81e5af23c5c69bb5d",
+    "hpa.yaml": "78f7935173015a6bb4f4f35061d9f0c27d4f46df625b126bdd0a64df7ea01819",
+    "networkpolicy.yaml": "04bd80698cd862ad52947714bd612398865d268c89776f7509ebe33609689d2d",
+    "poddisruptionbudget.yaml": "2768f633bb662c0dd5791cf05e5d6970b3e2b0a1ee8aeee1296c420376a0b743",
+    "service.yaml": "9f73ff63c10150322a493c1636be9e29a76b4f5cd0e9331556745f9923dbed89",
+    "serviceaccount.yaml": "2494b52852ffbd16f576f20eb2a479eca0941773ce66d00b177c23fba1c5ebc5",
+    "sidecar.yaml": "2b9694897934c34cc78ff083e37d13ad7fdc08f2a9e1587b6ea90abd2848b0cd"
+  }
+}

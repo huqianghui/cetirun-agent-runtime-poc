@@ -1,0 +1,31 @@
+apiVersion: v2
+name: cetirun-platform
+description: Helm umbrella chart for CetiRun platform control-plane components
+type: application
+version: 0.1.1-src.20261111
+appVersion: "0.1.1-src.20261111"
+keywords:
+  - cetirun
+  - platform
+  - kubernetes
+dependencies:
+  - name: cetirun-connections-mcp
+    version: 0.1.1-src.20261111
+    repository: file://../cetirun-connections-mcp/chart
+    condition: cetirun-connections-mcp.enabled
+  - name: cetirun-operator
+    version: 0.1.1-src.20261111
+    repository: file://../cetirun-operator/chart
+    condition: cetirun-operator.enabled
+  - name: cetirun-portal
+    version: 0.1.1-src.20261111
+    repository: file://../cetirun-portal/chart
+    condition: cetirun-portal.enabled
+  - name: cetirun-ai-gateway
+    version: 0.1.1-src.20261111
+    repository: file://../cetirun-ai-gateway/chart
+    condition: cetirun-ai-gateway.enabled
+  - name: cetirun-observability
+    version: 0.1.1-src.20261111
+    repository: file://../cetirun-observability/chart
+    condition: cetirun-observability.enabled

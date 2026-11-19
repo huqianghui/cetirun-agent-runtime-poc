@@ -1,0 +1,93 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: cetirun-security-headers
+  namespace: {{ .Values.gateway.namespace }}
+  labels:
+    {{- include "cetirun-istio.labels" . | nindent 4 }}
+spec:
+  workloadSelector:
+    labels:
+      {{- toYaml .Values.gateway.selector | nindent 6 }}
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          portNumber: 443
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+              subFilter:
+                name: envoy.filters.http.ext_authz
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: cetirun.security_headers
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
+            inline_code: |
+              -- Strip X-Auth-Request-* headers on ingress to prevent client spoofing.
+              -- These headers are injected by OAuth2 Proxy after authentication;
+              -- any client-supplied values must be removed before that happens.
+              -- Also strip X-Internal-* headers to prevent bypass of the Lua ownership check.
+              local AUTH_HEADERS_TO_STRIP = {
+                "x-auth-request-user",
+                "x-auth-request-email",
+                "x-auth-request-preferred-username",
+                "x-auth-request-groups",
+                "x-auth-request-access-token",
+                "x-forwarded-user",
+                "x-forwarded-email",
+                "x-forwarded-groups",
+                "x-internal-instance",
+                "x-internal-alias",
+              }
+
+              -- Store request path and host in dynamic metadata so the response
+              -- phase can access them (response handles cannot read request headers).
+              -- Also record the Authorization header the client sent: ext-auth
+              -- replaces it with the user's ID token, and the ownership filter
+              -- restores the client's own value on native Agent UI routes.
+              -- Dynamic metadata is never forwarded outside the gateway.
+              function envoy_on_request(handle)
+                for _, h in ipairs(AUTH_HEADERS_TO_STRIP) do
+                  handle:headers():remove(h)
+                end
+                local path = handle:headers():get(":path") or ""
+                local host = handle:headers():get(":authority") or ""
+                handle:streamInfo():dynamicMetadata():set("cetirun", "path", path)
+                handle:streamInfo():dynamicMetadata():set("cetirun", "host", host)
+                local authorization = handle:headers():get("authorization")
+                if authorization and authorization ~= "" then
+                  handle:streamInfo():dynamicMetadata():set("cetirun", "client_authorization", authorization)
+                end
+              end
+
+              function envoy_on_response(handle)
+                handle:headers():replace("strict-transport-security", "{{ .Values.securityHeaders.strictTransportSecurity }}")
+                handle:headers():replace("x-content-type-options", "{{ .Values.securityHeaders.xContentTypeOptions }}")
+                handle:headers():replace("referrer-policy", "{{ .Values.securityHeaders.referrerPolicy }}")
+                local meta = handle:streamInfo():dynamicMetadata():get("cetirun")
+                local path = (meta and meta["path"]) or ""
+                path = path:match("^([^?]*)") or ""
+                local is_ui_path = path:match("^/ui/[^/]+/") ~= nil
+                -- For iframe-embedded paths, allow same-origin framing
+                local is_iframe_path = path:find("/term") ~= nil or path:find("/desktop") ~= nil or path:find("/chat") ~= nil
+                -- The AI Gateway console is embedded in the Portal's admin pages
+                is_iframe_path = is_iframe_path or path:find("^/ai%-gateway/") ~= nil
+
+                if is_ui_path then
+                  -- Applications own their CSP, including per-response nonces and hashes.
+                  -- Authentication and ownership checks still run on every UI request.
+                  handle:headers():replace("x-frame-options", "{{ .Values.securityHeaders.xFrameOptions }}")
+                elseif is_iframe_path then
+                  handle:headers():replace("content-security-policy",
+                    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' wss:; img-src 'self' data:; font-src 'self'; frame-ancestors 'self'")
+                  handle:headers():remove("x-frame-options")
+                else
+                  handle:headers():replace("content-security-policy", "{{ .Values.securityHeaders.contentSecurityPolicy }}")
+                  handle:headers():replace("x-frame-options", "{{ .Values.securityHeaders.xFrameOptions }}")
+                end
+                handle:headers():remove("server")
+              end

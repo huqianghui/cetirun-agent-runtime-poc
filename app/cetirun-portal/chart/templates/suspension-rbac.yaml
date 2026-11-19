@@ -1,0 +1,29 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "cetirun-portal.fullname" . }}-suspension-state
+  namespace: {{ default .Values.aiGateway.catalogNamespace .Values.chat.sandboxStateNamespace | quote }}
+  labels:
+    {{- include "cetirun-portal.labels" . | nindent 4 }}
+rules:
+  # A pre-bootstrap suspension checks only whether the Agent's UID-derived
+  # receipts exist. Their names cannot be known in static chart values.
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "cetirun-portal.fullname" . }}-suspension-state
+  namespace: {{ default .Values.aiGateway.catalogNamespace .Values.chat.sandboxStateNamespace | quote }}
+  labels:
+    {{- include "cetirun-portal.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "cetirun-portal.fullname" . }}-suspension-state
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.serviceAccount.name }}
+    namespace: {{ .Release.Namespace }}

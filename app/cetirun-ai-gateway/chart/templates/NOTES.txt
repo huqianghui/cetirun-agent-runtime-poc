@@ -1,0 +1,95 @@
+The CetiRun AI Gateway is installed as {{ include "cetirun-ai-gateway.fullname" . }}.
+
+Endpoint, reachable from inside the cluster:
+
+  http://{{ include "cetirun-ai-gateway.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}
+
+Models configured at install: {{ len .Values.models }}
+{{- range .Values.models }}
+  - {{ .model_name }}
+{{- end }}
+
+{{- if .Values.auth.adminUI.enabled }}
+
+Admin console. The chart creates no Ingress. Use a port-forward to reach the
+console:
+
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "cetirun-ai-gateway.fullname" . }} {{ .Values.service.port }}:{{ .Values.service.port }}
+
+Then open http://localhost:{{ .Values.service.port }}/ui in a browser. Sign in as {{ .Values.auth.adminUI.username }}.
+{{- if not .Values.auth.adminUI.passwordSecret.existingSecret }}
+
+  kubectl --namespace {{ .Release.Namespace }} get secret {{ include "cetirun-ai-gateway.secretName" . }} -o jsonpath='{.data.ui-password}' | base64 -d
+{{- end }}
+{{- end }}
+
+{{- if not .Values.auth.masterKey.existingSecret }}
+
+Admin API key, for the management API:
+
+  kubectl --namespace {{ .Release.Namespace }} get secret {{ include "cetirun-ai-gateway.secretName" . }} -o jsonpath='{.data.master-key}' | base64 -d
+{{- end }}
+
+{{- if not .Values.auth.saltKey.existingSecret }}
+
+The chart generated a salt key and keeps it across upgrades. The salt key
+encrypts provider credentials stored in the database. You cannot rotate it. If
+the Secret {{ include "cetirun-ai-gateway.secretName" . }} is deleted, every
+model added through the console becomes unreadable. The Gateway does not tell
+you about this. Back up the salt key:
+
+  kubectl --namespace {{ .Release.Namespace }} get secret {{ include "cetirun-ai-gateway.secretName" . }} -o jsonpath='{.data.salt-key}' | base64 -d
+
+For the same reason, `helm uninstall` keeps that Secret. A later installation
+under this release name uses it again. Delete the Secret yourself only if you
+also discard the database.
+{{- end }}
+
+{{- if .Values.postgresql.bundled.enabled }}
+
+The chart bundles PostgreSQL as {{ include "cetirun-ai-gateway.postgresqlName" . }}. It is one
+instance on a persistent volume. `helm uninstall` keeps the volume and its
+password Secret. As a result, a later installation under this release name
+finds the data again. If backups or high availability are necessary, use a
+managed database instead (postgresql.bundled.enabled=false and
+postgresql.urlSecret).
+{{- end }}
+
+{{- if .Values.redis.bundled.enabled }}
+
+The chart bundles Valkey, the Redis-compatible server, as {{ include "cetirun-ai-gateway.valkeyName" . }}.
+Valkey has no persistence because it contains only in-flight coordination data.
+{{- else if eq (int .Values.replicaCount) 1 }}
+
+Redis is not necessary because the Gateway runs a single replica. Before you
+increase the replica count, enable the bundled Valkey or set redis.host. If you
+do not, each replica keeps its own copy of every key budget and rate limit.
+This multiplies the effective limit by the replica count.
+{{- end }}
+
+{{- $settings := include "cetirun-ai-gateway.logsAndMetrics" . | fromJson }}
+{{- if $settings.requestLog.enabled }}
+
+Each model call writes one JSON line of metadata to the Gateway's stdout, with
+"log_type":"cetirun.ai_gateway.request", for the cluster's log collection. It
+carries no request or response content.
+{{- end }}
+
+{{- if not $settings.spendLogs.enabled }}
+
+LiteLLM writes no row per call to LiteLLM_SpendLogs. As a result, the console's
+request log pages stay empty. Spend, budgets and daily usage totals are kept.
+An image built before the request log still writes those rows.
+{{- end }}
+
+{{- if $settings.metrics.enabled }}
+
+Prometheus metrics are served on port {{ include "cetirun-ai-gateway.metricsPort" . }} of each Gateway pod, at
+/metrics, without authentication. They name every key, user and Team with its
+spend. Keep that port away from workloads that are not allowed to read them.
+{{- if and $settings.metrics.podMonitor.enabled (not (include "cetirun-ai-gateway.podMonitorAvailable" .)) }}
+
+The chart created no PodMonitor because the cluster does not serve {{ $settings.metrics.podMonitor.apiVersion }}/PodMonitor.
+On AKS, enable Azure Monitor managed Prometheus. Then upgrade the release.
+{{- end }}
+{{- end }}

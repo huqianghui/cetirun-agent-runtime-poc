@@ -1,0 +1,184 @@
+{{- $publicTLS := .Values.publicTLS | default dict }}
+{{- if not (kindIs "map" $publicTLS) }}
+{{- fail "publicTLS must be an object" }}
+{{- end }}
+{{- $publicTLSEnabled := default false $publicTLS.enabled }}
+{{- if not (kindIs "bool" $publicTLSEnabled) }}
+{{- fail "publicTLS.enabled must be a boolean" }}
+{{- end }}
+{{- $bootstrapOnly := default false $publicTLS.bootstrapOnly }}
+{{- if not (kindIs "bool" $bootstrapOnly) }}
+{{- fail "publicTLS.bootstrapOnly must be a boolean" }}
+{{- end }}
+{{- $portal := index .Values "cetirun-portal" }}
+{{- $operator := index .Values "cetirun-operator" }}
+{{- $tools := index .Values "cetirun-connections-mcp" }}
+{{- $gateway := index .Values "cetirun-ai-gateway" }}
+{{- if $publicTLSEnabled }}
+{{- include "cetirun-platform.publicTLS.validate" . }}
+{{- end }}
+{{- if $bootstrapOnly }}
+{{- if or (le (int $publicTLS.bootstrapRevision) 0) (ne (toString $publicTLS.bootstrapRevision) (toString .Release.Revision)) }}
+{{- fail "publicTLS.bootstrapRevision does not match the next Helm revision; recheck the release before certificate preparation" }}
+{{- end }}
+{{- if not $publicTLSEnabled }}
+{{- fail "publicTLS.bootstrapOnly requires publicTLS.enabled=true" }}
+{{- end }}
+{{- if or $tools.enabled $operator.enabled $portal.enabled $gateway.enabled }}
+{{- fail "publicTLS.bootstrapOnly requires cetirun-connections-mcp, cetirun-operator, cetirun-portal, and cetirun-ai-gateway to be disabled" }}
+{{- end }}
+{{- if default false ((.Values.global.portalChat | default dict).enabled) }}
+{{- fail "publicTLS.bootstrapOnly requires global.portalChat.enabled=false" }}
+{{- end }}
+{{- else }}
+{{- if and $publicTLSEnabled (not (and $publicTLS.acme.stagingCertificateEnabled $publicTLS.acme.productionCertificateEnabled)) }}
+{{- fail "full publicTLS deployments require both staging and production Certificates" }}
+{{- end }}
+{{- if not .Values.istio.enabled }}
+{{- fail "istio.enabled must be true: install and verify the separate cetirun-istio release first" }}
+{{- end }}
+{{- if not .Values.istio.oauth2Proxy.name }}
+{{- fail "istio.oauth2Proxy.name is required" }}
+{{- end }}
+{{- if not .Values.istio.oauth2Proxy.namespace }}
+{{- fail "istio.oauth2Proxy.namespace is required" }}
+{{- end }}
+{{- $broker := index .Values "cetirun-agent-broker" }}
+{{- if $broker.enabled }}
+{{- fail "Install the Agent Broker separately in its private credential namespace; do not colocate it with CetiRun Connections MCP in this umbrella release" }}
+{{- end }}
+{{- if $tools.enabled }}
+{{- if not ($tools.broker | default dict).baseURL }}
+{{- fail "cetirun-connections-mcp.broker.baseURL is required" }}
+{{- end }}
+{{- if not ($operator.connectionsMCP | default dict).url }}
+{{- fail "cetirun-operator.connectionsMCP.url is required when CetiRun Connections MCP is enabled" }}
+{{- end }}
+{{- if not ($portal.features | default dict).agentToolsEnabled }}
+{{- fail "cetirun-portal.features.agentToolsEnabled must be true when CetiRun Connections MCP is enabled" }}
+{{- end }}
+{{- end }}
+{{- if and $portal.enabled ($portal.sandboxRuntimeDefaultsFromController | default false) }}
+{{- $sources := $operator.sandboxSources | default dict }}
+{{- if not (and $operator.enabled $sources.enabled $sources.nativeExecution) }}
+{{- fail "cetirun-portal.sandboxRuntimeDefaultsFromController requires an enabled Operator with sandboxSources.enabled and nativeExecution" }}
+{{- end }}
+{{- end }}
+{{- $portalStorage := $portal.sandboxStorage | default dict }}
+{{- $operatorSources := $operator.sandboxSources | default dict }}
+{{- if and $portal.enabled $operator.enabled $operatorSources.enabled }}
+{{- if not $operatorSources.platformConfigMapName }}
+{{- fail "enabled cetirun-operator.sandboxSources requires platformConfigMapName" }}
+{{- end }}
+{{- if or (ne $portalStorage.platformNamespace $operator.namespace) (ne $portalStorage.platformConfigMapName $operatorSources.platformConfigMapName) }}
+{{- fail "cetirun-portal.sandboxStorage must exactly match the Operator namespace and sandboxSources platform ConfigMap" }}
+{{- end }}
+{{- else if and $portal.enabled (or $portalStorage.platformNamespace $portalStorage.platformConfigMapName) }}
+{{- fail "cetirun-portal.sandboxStorage requires an enabled Operator with sandboxSources.platformConfigMapName" }}
+{{- end }}
+{{- /* The Operator runs the Skill Marketplace: it lists the policy-bound Teams
+       for its worker, creates the Agents' skills claims, and its worker writes
+       the catalog in the operator namespace, where the Portal reads it. The
+       Operator chart checks the marketplace's own values. */}}
+{{- $operatorMarketplace := ($operator.skillMarketplace | default dict).enabled | default false }}
+{{- $portalMarketplace := $portal.skillMarketplace | default dict }}
+{{- if and $operator.enabled $operatorMarketplace $portal.enabled }}
+{{- if not $portalMarketplace.enabled }}
+{{- fail "cetirun-portal.skillMarketplace.enabled must be true when cetirun-operator.skillMarketplace.enabled is: the Portal offers and checks Team skills from the marketplace catalog" }}
+{{- end }}
+{{- $portalCatalog := $portalMarketplace.catalogNamespace | default "cetirun-system" }}
+{{- if ne $portalCatalog $operator.namespace }}
+{{- fail (printf "cetirun-portal.skillMarketplace.catalogNamespace is %s, but cetirun-operator.namespace is %s: the marketplace writes its catalog in the operator namespace, where the Portal reads it, so set both to the same namespace" $portalCatalog $operator.namespace) }}
+{{- end }}
+{{- end }}
+{{- if and $portal.enabled $portalMarketplace.enabled (not (and $operator.enabled $operatorMarketplace)) }}
+{{- fail "cetirun-portal.skillMarketplace.enabled requires the bundled Operator with skillMarketplace.enabled: the Operator runs the Skill Marketplace that writes the catalog" }}
+{{- end }}
+{{- if default false ((.Values.global.portalChat | default dict).enabled) }}
+{{- if or (not $portal.enabled) (not $operator.enabled) }}
+{{- fail "global.portalChat requires both Portal and Operator" }}
+{{- end }}
+{{- if and $portal.nameOverride (ne $portal.nameOverride "cetirun-portal") }}
+{{- fail "global.portalChat requires the standard Portal selector; use explicit standalone chatAccess callers for a renamed Portal" }}
+{{- end }}
+{{- $_ := required "global.portalChat.identityRealm is required" .Values.global.portalChat.identityRealm }}
+{{- end }}
+{{- if and $operator.enabled (not $operator.domainSuffix) }}
+{{- fail "cetirun-operator.domainSuffix is required when cetirun-operator is enabled" }}
+{{- end }}
+{{- if and $operator.enabled (not $operator.istioGateway) }}
+{{- fail "cetirun-operator.istioGateway is required when cetirun-operator is enabled" }}
+{{- end }}
+{{- if and $operator.enabled (not (regexMatch "^[^/]+/[^/]+$" $operator.istioGateway)) }}
+{{- fail "cetirun-operator.istioGateway must use namespace/name format when cetirun-operator is enabled" }}
+{{- end }}
+{{- if and $portal.enabled (not $portal.istio.host) }}
+{{- fail "cetirun-portal.istio.host is required when cetirun-portal is enabled" }}
+{{- end }}
+{{- if and $portal.enabled (not $portal.istio.gateway) }}
+{{- fail "cetirun-portal.istio.gateway is required when cetirun-portal is enabled" }}
+{{- end }}
+{{- if and $portal.enabled (not $portal.istio.gatewayNamespace) }}
+{{- fail "cetirun-portal.istio.gatewayNamespace is required when cetirun-portal is enabled" }}
+{{- end }}
+{{- if and $portal.enabled (not $portal.istio.gatewayServiceAccount) }}
+{{- fail "cetirun-portal.istio.gatewayServiceAccount is required when cetirun-portal is enabled" }}
+{{- end }}
+{{- if and $operator.enabled (not (($operator.aiGateway | default dict).enabled)) }}
+{{- fail "cetirun-operator.aiGateway.enabled must be true: all Agent types take their models from the AI Gateway" }}
+{{- end }}
+{{- if and $portal.enabled (not (($portal.features | default dict).aiGatewayEnabled)) }}
+{{- fail "cetirun-portal.features.aiGatewayEnabled must be true: the Portal offers the AI Gateway's model sources and the GitHub Copilot sign-in" }}
+{{- end }}
+{{- if and $gateway.enabled $operator.enabled (ne .Release.Namespace $operator.namespace) }}
+{{- fail (printf "the AI Gateway is installed in the release namespace %s, but cetirun-operator.namespace is %s: the operator reads the Gateway master key from its own namespace, so install both in the same namespace" .Release.Namespace $operator.namespace) }}
+{{- end }}
+{{- if and $gateway.enabled (not $gateway.operatorIntegration) }}
+{{- fail "cetirun-ai-gateway.operatorIntegration must be true: the Gateway serves each Agent's GitHub Copilot models in the Agent's own access group, reserves copilot/ names for Team routers' GitHub Copilot tiers, and must check router fallback targets against the caller's key" }}
+{{- end }}
+{{- if and $portal.enabled $operator.enabled (($portal.features | default dict).aiGatewayEnabled) }}
+{{- $catalogNamespace := (($portal.aiGateway | default dict).catalogNamespace | default "cetirun-system") }}
+{{- if ne $catalogNamespace $operator.namespace }}
+{{- fail (printf "cetirun-portal.aiGateway.catalogNamespace is %s, but cetirun-operator.namespace is %s: the operator publishes the shared models in its own namespace, where the Portal reads them, so set both to the same namespace" $catalogNamespace $operator.namespace) }}
+{{- end }}
+{{- end }}
+{{- $operatorAdmission := $operator.sandboxAdmission | default dict }}
+{{- $portalCoordination := $portal.configurationCoordination | default dict }}
+{{- $operatorCoordinationName := $operatorAdmission.coordinationConfigMapName | default "" }}
+{{- $operatorCoordinationUID := $operatorAdmission.coordinationConfigMapUID | default "" }}
+{{- $portalCoordinationNamespace := $portalCoordination.namespace | default "" }}
+{{- $portalCoordinationName := $portalCoordination.name | default "" }}
+{{- $portalCoordinationUID := $portalCoordination.uid | default "" }}
+{{- if and $portal.enabled (or $operatorCoordinationName $operatorCoordinationUID $portalCoordinationNamespace $portalCoordinationName $portalCoordinationUID) }}
+{{- if not $operator.enabled }}
+{{- fail "configuration coordination requires both Operator and Portal" }}
+{{- end }}
+{{- if or (ne $portalCoordinationNamespace $operator.namespace) (ne $portalCoordinationName $operatorCoordinationName) (ne $portalCoordinationUID $operatorCoordinationUID) }}
+{{- fail "cetirun-portal.configurationCoordination must exactly match the Operator namespace and sandboxAdmission coordination ConfigMap name/UID" }}
+{{- end }}
+{{- end }}
+{{- /* The Portal writes Agents, Teams, Sandboxes and AgentPolicies with its own
+       service account, which the Sandbox admission webhook accepts for a policy-bound
+       Agent only as an administrator. Without it, Portal writes to such Agents were
+       refused, for example saving the GitHub Copilot models after a sign-in. The
+       Operator chart adds the service account named in
+       sandboxAdmission.portalServiceAccount to the administrators, so it must be the
+       Portal's, and a release without the Portal must not name one. An upgrade with
+       --reuse-values from an older release does not apply this chart's default, so
+       the value is empty there. */}}
+{{- if and $operator.enabled $operatorAdmission.enabled }}
+{{- $portalServiceAccount := get $operatorAdmission "portalServiceAccount" }}
+{{- if $portal.enabled }}
+{{- $portalName := ($portal.serviceAccount | default dict).name | default "cetirun-portal" }}
+{{- $portalAccount := printf "system:serviceaccount:%s:%s" .Release.Namespace $portalName }}
+{{- if and $portalServiceAccount (ne $portalServiceAccount $portalName) }}
+{{- fail (printf "cetirun-operator.sandboxAdmission.portalServiceAccount is %s, but the Portal runs as cetirun-portal.serviceAccount.name %s: set both to the same name" $portalServiceAccount $portalName) }}
+{{- end }}
+{{- if and (not $portalServiceAccount) $operatorAdmission.enforce (not (has $portalAccount ($operatorAdmission.adminUsers | default list))) }}
+{{- fail (printf "cetirun-operator.sandboxAdmission.adminUsers must include %s, or set cetirun-operator.sandboxAdmission.portalServiceAccount to %s: the Portal writes Agents, Teams, Sandboxes and AgentPolicies with its service account, and the Sandbox admission webhook refuses its writes to policy-bound Agents otherwise" $portalAccount $portalName) }}
+{{- end }}
+{{- else if $portalServiceAccount }}
+{{- fail "clear cetirun-operator.sandboxAdmission.portalServiceAccount when the bundled Portal is disabled; list a separately installed Portal's ServiceAccount in cetirun-operator.sandboxAdmission.adminUsers" }}
+{{- end }}
+{{- end }}
+{{- end }}

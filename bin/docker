@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# 最小 docker 替身：只实现 `docker buildx imagetools inspect <ref>`（make deploy 的镜像存在性检查），底层用 skopeo。
+# --raw 只读 manifest / index，不按本机 darwin/arm64 挑架构变体。其他子命令一律报错，避免静默"成功"。
+set -euo pipefail
+if [ "${1:-}" = buildx ] && [ "${2:-}" = imagetools ] && [ "${3:-}" = inspect ] && [ -n "${4:-}" ]; then
+  ref="$4"; host="${ref%%/*}"
+  tmp=$(mktemp); trap 'rm -f "$tmp"' EXIT
+  creds=()
+  if [[ "$host" == *.azurecr.io ]]; then   # 私有 ACR：用 Azure CLI 换一个仓库令牌
+    t=$(az acr login -n "${host%%.*}" --expose-token --query accessToken -o tsv 2>/dev/null)
+    creds=(--creds "00000000-0000-0000-0000-000000000000:$t")
+  fi
+  # 原样落盘：命令替换和 <<< 都会改动末尾换行，digest 就不对了
+  if skopeo inspect --raw ${creds[@]+"${creds[@]}"} "docker://$ref" > "$tmp" 2>/tmp/docker-shim.err; then
+    echo "Name:      $ref"
+    echo "MediaType: $(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("mediaType",""))' "$tmp")"
+    echo "Digest:    $(skopeo manifest-digest "$tmp")"
+    exit 0
+  fi
+  echo "ERROR: $ref: manifest unknown ($(tr '\n' ' ' < /tmp/docker-shim.err))" >&2
+  exit 1
+fi
+echo "docker shim: unsupported command: $*" >&2
+exit 127

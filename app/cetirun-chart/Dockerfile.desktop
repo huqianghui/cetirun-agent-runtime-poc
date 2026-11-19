@@ -1,0 +1,229 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+# Desktop sidecar: Xvfb + Fluxbox + x11vnc + noVNC + Chrome
+# Provides headed Chrome GUI accessible via noVNC (port 6080) and
+# Chrome DevTools Protocol (port 18800) for gateway browser automation.
+#
+# Build strategy: X11 GUI stack compiled from source on Azure Linux 3.0.
+# Azure Linux ships X11 dev headers but not server-side applications.
+
+ARG VERSION=dev
+ARG GIT_SHA=unknown
+
+# ── Stage 1: Build X11 GUI binaries ───────────────────────────────
+ARG AZURELINUX_BASE=mcr.microsoft.com/azurelinux/base/core:3.0@sha256:1c56f09437dfc2910faad39abaaed336265d246cf183e2adb362d4cb3b881ab6
+FROM ${AZURELINUX_BASE} AS desktop-builder
+
+# Build tools and X11 development headers. Azure Linux's package endpoint can
+# intermittently return 504 responses for individual RPMs or refuse
+# connections for a minute or more, so retry a bounded number of times with a
+# growing delay after discarding cached metadata/packages. Every download in
+# this file retries the same way.
+RUN set -eux; \
+  attempt=1; \
+  while [ "$attempt" -le 5 ]; do \
+    if tdnf install -y ca-certificates \
+      gcc gcc-c++ binutils glibc-devel kernel-headers make cmake meson autoconf automake libtool pkgconf git tar xz curl gawk \
+      libX11-devel libXext-devel libXrandr-devel libXinerama-devel libXfixes-devel \
+      libXdamage-devel libXtst-devel libXi-devel libXft-devel libXrender-devel \
+      libXcursor-devel libXcomposite-devel libxkbfile-devel libXpm-devel \
+      libxcb-devel pixman-devel libepoxy-devel mesa-libGL-devel \
+      libXfont2-devel libxshmfence-devel libxcvt-devel libXdmcp-devel libXau-devel \
+      xorg-x11-xkb-utils-devel systemd-devel \
+      xorg-x11-proto-devel xorg-x11-xtrans-devel xorg-x11-font-utils \
+      openssl-devel libjpeg-turbo-devel zlib-devel libgcrypt-devel \
+      freetype-devel fontconfig-devel; then \
+      tdnf clean all; \
+      exit 0; \
+    fi; \
+    if [ "$attempt" -eq 5 ]; then \
+      exit 1; \
+    fi; \
+    tdnf clean all || true; \
+    rm -rf /var/cache/tdnf; \
+    sleep $((attempt * 15)); \
+    attempt=$((attempt + 1)); \
+  done
+
+# Build libvncserver (required by x11vnc)
+ARG LIBVNCSERVER_VERSION=0.9.14
+ARG LIBVNCSERVER_SHA256=83104e4f7e28b02f8bf6b010d69b626fae591f887e949816305daebae527c9a5
+RUN curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors "https://github.com/LibVNC/libvncserver/archive/LibVNCServer-${LIBVNCSERVER_VERSION}.tar.gz" -o /tmp/libvncserver.tar.gz && \
+    echo "${LIBVNCSERVER_SHA256}  /tmp/libvncserver.tar.gz" | sha256sum --check && \
+    tar xzf /tmp/libvncserver.tar.gz -C /tmp && \
+    cd /tmp/libvncserver-LibVNCServer-${LIBVNCSERVER_VERSION} && \
+    mkdir build && cd build && \
+    cmake .. \
+      -DCMAKE_INSTALL_PREFIX=/usr/local \
+      -DWITH_OPENSSL=ON \
+      -DWITH_JPEG=ON \
+      -DWITH_ZLIB=ON \
+      -DWITH_EXAMPLES=OFF \
+      -DWITH_TESTS=OFF && \
+    make -j"$(nproc)" && \
+    make install && \
+    rm -rf /tmp/libvncserver*
+
+# Build xorg-server (Xvfb only)
+# Source switched from www.x.org (releases/individual/xserver/ now 404s for all
+# versions) to the GitLab freedesktop archive, which is what Arch Linux and
+# other distros use as the upstream source today.
+ARG XORG_SERVER_VERSION=21.1.23
+ARG XORG_SERVER_SHA256=ad979d4984c5eaba53dcc1cea369d2fb6f9cca8df473db160a25704b7f67c997
+RUN curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors "https://gitlab.freedesktop.org/xorg/xserver/-/archive/xorg-server-${XORG_SERVER_VERSION}/xserver-xorg-server-${XORG_SERVER_VERSION}.tar.gz" -o /tmp/xorg-server.tar.gz && \
+    echo "${XORG_SERVER_SHA256}  /tmp/xorg-server.tar.gz" | sha256sum --check && \
+    tar xzf /tmp/xorg-server.tar.gz -C /tmp && \
+    cd /tmp/xserver-xorg-server-${XORG_SERVER_VERSION} && \
+    meson setup build \
+      --prefix=/usr/local \
+      -Dxvfb=true \
+      -Dxorg=false \
+      -Dxephyr=false \
+      -Dxnest=false \
+      -Ddri1=false \
+      -Ddri2=false \
+      -Ddri3=false \
+      -Dglamor=false \
+      -Dglx=false \
+      -Dsystemd_logind=false \
+      -Dsecure-rpc=false \
+      -Dxkb_dir=/usr/share/X11/xkb \
+      -Ddefault_font_path=/usr/share/fonts && \
+    ninja -C build && \
+    ninja -C build install && \
+    rm -rf /tmp/xorg-server* /tmp/xserver-xorg-server*
+
+# Build fluxbox (window manager — built without imlib2, theme images not needed)
+ARG FLUXBOX_VERSION=1.3.7
+ARG FLUXBOX_SHA256=fc8c75fe94c54ed5a5dd3fd4a752109f8949d6df67a48e5b11a261403c382ec0
+RUN curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors "https://sourceforge.net/projects/fluxbox/files/fluxbox/${FLUXBOX_VERSION}/fluxbox-${FLUXBOX_VERSION}.tar.xz/download" -o /tmp/fluxbox.tar.xz && \
+    echo "${FLUXBOX_SHA256}  /tmp/fluxbox.tar.xz" | sha256sum --check && \
+    tar xf /tmp/fluxbox.tar.xz -C /tmp && \
+    cd /tmp/fluxbox-${FLUXBOX_VERSION} && \
+    sed -i 's/text_prop\.value > 0/text_prop.value != NULL/' util/fluxbox-remote.cc && \
+    ./configure --prefix=/usr/local --disable-imlib2 --disable-nls && \
+    make -j"$(nproc)" && \
+    make install && \
+    rm -rf /tmp/fluxbox*
+
+# Build x11vnc (links against libvncserver built above)
+ARG X11VNC_VERSION=0.9.16
+ARG X11VNC_SHA256=885e5b5f5f25eec6f9e4a1e8be3d0ac71a686331ee1cfb442dba391111bd32bd
+RUN curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors "https://github.com/LibVNC/x11vnc/archive/${X11VNC_VERSION}.tar.gz" -o /tmp/x11vnc.tar.gz && \
+    echo "${X11VNC_SHA256}  /tmp/x11vnc.tar.gz" | sha256sum --check && \
+    tar xzf /tmp/x11vnc.tar.gz -C /tmp && \
+    cd /tmp/x11vnc-${X11VNC_VERSION} && \
+    autoreconf -fiv && \
+    PKG_CONFIG_PATH=/usr/local/lib64/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH \
+    CFLAGS="-fcommon" \
+    LDFLAGS="-L/usr/local/lib64 -L/usr/local/lib" \
+    CPPFLAGS="-I/usr/local/include" \
+    ./configure --prefix=/usr/local && \
+    make -j"$(nproc)" && \
+    make install && \
+    rm -rf /tmp/x11vnc*
+
+# ── Stage 2: Runtime ──────────────────────────────────────────────
+FROM ${AZURELINUX_BASE}
+ARG VERSION
+ARG GIT_SHA
+
+LABEL org.opencontainers.image.source="https://github.com/Azure/CetiRun"
+LABEL org.opencontainers.image.description="CetiRun desktop sidecar — headed Chrome + noVNC"
+LABEL org.opencontainers.image.version="${VERSION}"
+LABEL org.opencontainers.image.revision="${GIT_SHA}"
+LABEL org.opencontainers.image.licenses="MIT"
+
+# Runtime X11 shared libraries and tools
+RUN for attempt in 1 2 3 4 5; do tdnf install -y ca-certificates \
+  libX11 libXext libXrandr libXinerama libXfixes libXdamage libXtst libXi \
+  libXft libXrender libXcursor libXcomposite libxkbfile libXpm libXdmcp libXau \
+  libXfont2 libxcb libxshmfence libxcvt pixman libepoxy mesa-libGL mesa-dri-drivers \
+  openssl libjpeg-turbo zlib freetype fontconfig libgcrypt \
+  xkeyboard-config xorg-x11-xkb-utils \
+  procps-ng dbus python3 python3-pip shadow-utils bash tar curl \
+  && tdnf update -y && break; \
+  [ "$attempt" -lt 5 ] || exit 1; tdnf clean all; rm -rf /var/cache/tdnf; sleep $((attempt * 15)); \
+  done \
+  && tdnf clean all
+
+# Copy compiled X11 binaries from builder
+COPY --from=desktop-builder /usr/local/bin/Xvfb /usr/local/bin/Xvfb
+COPY --from=desktop-builder /usr/local/bin/fluxbox /usr/local/bin/fluxbox
+COPY --from=desktop-builder /usr/local/bin/x11vnc /usr/local/bin/x11vnc
+COPY --from=desktop-builder /usr/local/lib64/libvncserver.so* /usr/local/lib64/
+COPY --from=desktop-builder /usr/local/lib64/libvncclient.so* /usr/local/lib64/
+
+# Ensure dynamic linker can find libvncserver
+RUN echo "/usr/local/lib64" > /etc/ld.so.conf.d/local.conf && ldconfig
+
+# Install supervisor and websockify (pure Python — not in Azure Linux repos)
+# setuptools required by supervisor for pkg_resources import
+RUN pip install --no-cache-dir --break-system-packages setuptools==75.8.2 supervisor==4.2.5 websockify==0.12.0
+
+# Install noVNC (static JS/HTML assets)
+ARG NOVNC_VERSION=1.5.0
+ARG NOVNC_SHA256=6a73e41f98388a5348b7902f54b02d177cb73b7e5eb0a7a0dcf688cc2c79b42a
+RUN curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors "https://github.com/novnc/noVNC/archive/v${NOVNC_VERSION}.tar.gz" -o /tmp/novnc.tar.gz && \
+    echo "${NOVNC_SHA256}  /tmp/novnc.tar.gz" | sha256sum --check && \
+    tar xzf /tmp/novnc.tar.gz -C /tmp && \
+    mkdir -p /usr/share/novnc && \
+    cp -r /tmp/noVNC-${NOVNC_VERSION}/* /usr/share/novnc/ && \
+    ln -sf vnc.html /usr/share/novnc/vnc_auto.html && \
+    rm -rf /tmp/noVNC-* /tmp/novnc.tar.gz
+
+# Install CJK fonts (Google Noto — standalone download, no distro package)
+ARG NOTO_CJK_SHA256=a927e56f53bd6c3b920bc139c0b94aa36c7d9ad0cf009b159437a1a003581140
+RUN curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors "https://github.com/notofonts/noto-cjk/releases/download/Sans2.004/08_NotoSansCJKsc.zip" -o /tmp/noto-cjk.zip && \
+    echo "${NOTO_CJK_SHA256}  /tmp/noto-cjk.zip" | sha256sum --check && \
+    for attempt in 1 2 3 4 5; do \
+      tdnf install -y unzip && break; \
+      [ "$attempt" -lt 5 ] || exit 1; tdnf clean all; rm -rf /var/cache/tdnf; sleep $((attempt * 15)); \
+    done && \
+    mkdir -p /usr/share/fonts/noto-cjk && \
+    unzip -q /tmp/noto-cjk.zip -d /usr/share/fonts/noto-cjk && \
+    fc-cache -f && \
+    tdnf remove -y unzip && \
+    rm -f /tmp/noto-cjk.zip && \
+    tdnf clean all
+
+# Install Google Chrome stable (GPG-verified RPM, installed with --nodeps)
+# tdnf cannot resolve Chrome's RPM deps on Azure Linux (e.g. liberation-fonts,
+# xdg-utils); --skip-broken silently skips the package. We install the real
+# shared-library deps via tdnf, then force-install the RPM. GPG signature is
+# verified by importing Google's signing key first. Noto CJK fonts above
+# provide glyph coverage in place of liberation-fonts.
+RUN for attempt in 1 2 3 4 5; do \
+      tdnf install -y \
+        atk at-spi2-atk alsa-lib cups-libs gtk3 libdrm mesa-libgbm nss nspr pango && break; \
+      [ "$attempt" -lt 5 ] || exit 1; tdnf clean all; rm -rf /var/cache/tdnf; sleep $((attempt * 15)); \
+    done && \
+    curl --fail --show-error --location --http1.1 --retry 5 --retry-delay 5 --retry-all-errors \
+      https://dl.google.com/linux/linux_signing_key.pub -o /tmp/google-signing-key.pub && \
+    rpm --import /tmp/google-signing-key.pub && \
+    rm -f /tmp/google-signing-key.pub && \
+    curl --fail --show-error --location --http1.1 --retry 5 --retry-delay 5 --retry-all-errors \
+      https://dl.google.com/linux/direct/google-chrome-stable_current_x86_64.rpm \
+      -o /tmp/chrome.rpm && \
+    rpm -K /tmp/chrome.rpm && \
+    rpm -ivh --nodeps /tmp/chrome.rpm && \
+    rm -f /tmp/chrome.rpm && \
+    ln -sf /opt/google/chrome/google-chrome /usr/local/bin/google-chrome && \
+    tdnf clean all
+
+# Create vibe user — UID/GID must match the main container for shared PVC access
+RUN groupadd --gid 1024 vibe && \
+  useradd -s /bin/bash --uid 1024 --gid 1024 -m vibe
+
+WORKDIR /home/vibe
+USER 1024:1024
+
+ENV DISPLAY=:99
+
+EXPOSE 6080 18800
+
+COPY --chown=vibe:vibe configs/desktop-entrypoint.sh /usr/local/bin/desktop-entrypoint.sh
+RUN chmod 755 /usr/local/bin/desktop-entrypoint.sh
+
+ENTRYPOINT [ "/usr/local/bin/desktop-entrypoint.sh" ]

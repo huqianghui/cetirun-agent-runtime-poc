@@ -1,0 +1,165 @@
+{{- if .Values.kubeStateMetrics.enabled }}
+{{- include "cetirun-observability.validate" . -}}
+{{- $name := include "cetirun-observability.kubeStateMetricsName" . -}}
+{{- $labels := dict "name" $name "context" . -}}
+{{- $ksm := .Values.kubeStateMetrics -}}
+{{- $objects := splitList "," $ksm.objects -}}
+{{- /*
+kube-state-metrics reports the state of Kubernetes objects, such as the phase
+and restarts of each Pod. It reads only the kinds that it reports, not Secrets
+or ConfigMaps, and no labels or annotations of the objects.
+*/}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cetirun-observability.labels" $labels | nindent 4 }}
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "cetirun-observability.labels" $labels | nindent 4 }}
+rules:
+  {{- $core := list }}
+  {{- $apps := list }}
+  {{- $batch := list }}
+  {{- range $objects }}
+  {{- if has . (list "pods" "nodes" "namespaces" "persistentvolumeclaims" "persistentvolumes" "services" "endpoints" "resourcequotas" "limitranges" "replicationcontrollers") }}
+  {{- $core = append $core . }}
+  {{- else if has . (list "deployments" "statefulsets" "daemonsets" "replicasets") }}
+  {{- $apps = append $apps . }}
+  {{- else if has . (list "jobs" "cronjobs") }}
+  {{- $batch = append $batch . }}
+  {{- else }}
+  {{- fail (printf "kubeStateMetrics.objects: %s is not supported by this chart" .) }}
+  {{- end }}
+  {{- end }}
+  {{- with $core }}
+  - apiGroups: [""]
+    resources: {{ toJson . }}
+    verbs: ["list", "watch"]
+  {{- end }}
+  {{- with $apps }}
+  - apiGroups: ["apps"]
+    resources: {{ toJson . }}
+    verbs: ["list", "watch"]
+  {{- end }}
+  {{- with $batch }}
+  - apiGroups: ["batch"]
+    resources: {{ toJson . }}
+    verbs: ["list", "watch"]
+  {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "cetirun-observability.labels" $labels | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ $name }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $name }}
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cetirun-observability.labels" $labels | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "cetirun-observability.selectorLabels" $labels | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "cetirun-observability.selectorLabels" $labels | nindent 8 }}
+      annotations:
+        sidecar.istio.io/inject: "false"
+        adx-mon/scrape: "true"
+        adx-mon/port: "8080"
+        adx-mon/path: /metrics
+    spec:
+      serviceAccountName: {{ $name }}
+      automountServiceAccountToken: true
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: kube-state-metrics
+          image: {{ printf "%s:%s@%s" $ksm.image.repository $ksm.image.tag $ksm.image.digest | quote }}
+          imagePullPolicy: {{ $ksm.image.pullPolicy }}
+          args:
+            - --resources={{ join "," $objects }}
+            - --port=8080
+            - --telemetry-port=8081
+          ports:
+            - name: metrics
+              containerPort: 8080
+            - name: telemetry
+              containerPort: 8081
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: telemetry
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml $ksm.resources | nindent 12 }}
+      {{- with $ksm.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $ksm.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+# Only the collectors scrape kube-state-metrics.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cetirun-observability.labels" $labels | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "cetirun-observability.selectorLabels" $labels | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "cetirun-observability.selectorLabels" (dict "name" (include "cetirun-observability.collectorName" .) "context" .) | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: 8080
+{{- end }}

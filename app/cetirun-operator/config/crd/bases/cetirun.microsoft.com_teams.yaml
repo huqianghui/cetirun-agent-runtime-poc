@@ -1,0 +1,602 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+    helm.sh/resource-policy: keep
+  name: teams.cetirun.microsoft.com
+spec:
+  group: cetirun.microsoft.com
+  names:
+    kind: Team
+    listKind: TeamList
+    plural: teams
+    shortNames:
+    - crt
+    singular: team
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.memberContext.role
+      name: Role
+      type: string
+    - jsonPath: .spec.agentPolicyRef
+      name: Policy
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          Team is a cluster-scoped resource that defines team-wide configuration
+          (user context, policy, Sandbox selection, and skills) applied to every Agent that
+          references this team via spec.team.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: TeamSpec defines team-wide configuration applied to every
+              member instance.
+            properties:
+              agentPolicyRef:
+                description: |-
+                  AgentPolicyRef names the policy applied to every Agent in this Team.
+                  A Team without any policy or Sandbox fields retains legacy execution.
+                maxLength: 253
+                minLength: 1
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                type: string
+              defaultSandboxRef:
+                description: DefaultSandboxRef selects a listed Sandbox for newly
+                  created Agents.
+                maxLength: 253
+                minLength: 1
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                type: string
+              memberContext:
+                description: MemberContext defines the team context injected into
+                  USER.md for every member instance.
+                properties:
+                  description:
+                    description: 'Description contains lines injected into the ##
+                      Context section of USER.md.'
+                    items:
+                      type: string
+                    maxItems: 20
+                    type: array
+                  role:
+                    description: Role is the team member's role, e.g. "Engineer".
+                    type: string
+                type: object
+              modelRouters:
+                description: |-
+                  ModelRouters are the Team's smart-routing models, which administrators
+                  define. Each is registered in the AI Gateway under an internal name and
+                  granted to the Agents everything it uses is available to.
+                items:
+                  description: |-
+                    TeamModelRouter is one smart-routing model of a Team: a model name Agents
+                    request, behind which each request goes to the model of the complexity tier
+                    its classifier picks. Administrators define routers; an Agent receives a
+                    router only when everything the router uses is available to it.
+                  properties:
+                    classifier:
+                      default:
+                        type: heuristic
+                      description: Classifier decides the complexity tier of each
+                        request.
+                      properties:
+                        model:
+                          description: |-
+                            Model is the shared model that classifies requests: a chat model for
+                            the llm classifier, a decision model (a shared model whose
+                            model_info.mode is evaluation) for the jev classifier. It must be a
+                            shared model of the AI Gateway, not a GitHub Copilot model or another
+                            router, and need not be listed by the AgentPolicy. Its calls are
+                            charged to the Agent.
+                          maxLength: 256
+                          minLength: 1
+                          pattern: ^[^\s]+$
+                          type: string
+                        type:
+                          default: heuristic
+                          description: |-
+                            Type is heuristic, which scores each request locally without a model
+                            call, llm, which asks a shared model to classify each request, or jev,
+                            which asks a shared decision model, such as Microsoft-Decision-1, to
+                            pick the tier.
+                          enum:
+                          - heuristic
+                          - llm
+                          - jev
+                          type: string
+                      type: object
+                      x-kubernetes-validations:
+                      - message: classifier.model is required for the llm and jev
+                          classifiers and not allowed for the heuristic classifier
+                        rule: (has(self.type) && self.type in ['llm', 'jev']) == has(self.model)
+                    name:
+                      description: |-
+                        Name is the model name Agents request, such as auto-team or auto-claude.
+                        It must differ from the name of every shared model of the AI Gateway,
+                        such as the Gateway's own router auto that make deploy configures.
+                        It has no whitespace or slash and must not start with the reserved
+                        prefix cetirun- (in any letter case).
+                      maxLength: 64
+                      minLength: 1
+                      pattern: ^[^\s/]+$
+                      type: string
+                      x-kubernetes-validations:
+                      - message: a model router name must not start with the reserved
+                          prefix cetirun-
+                        rule: '!self.lowerAscii().startsWith(''cetirun-'')'
+                    tiers:
+                      description: Tiers names the model each complexity tier sends
+                        requests to.
+                      properties:
+                        complex:
+                          description: Complex serves complex requests.
+                          maxLength: 256
+                          minLength: 1
+                          pattern: ^[^\s]+$
+                          type: string
+                        medium:
+                          description: |-
+                            Medium serves ordinary requests. It is also the model the router uses
+                            when a request cannot be classified.
+                          maxLength: 256
+                          minLength: 1
+                          pattern: ^[^\s]+$
+                          type: string
+                        reasoning:
+                          description: |-
+                            Reasoning serves requests that ask for step-by-step reasoning. Empty
+                            uses the complex tier's model.
+                          maxLength: 256
+                          pattern: ^[^\s]+$
+                          type: string
+                        simple:
+                          description: Simple serves the simplest requests.
+                          maxLength: 256
+                          minLength: 1
+                          pattern: ^[^\s]+$
+                          type: string
+                      required:
+                      - complex
+                      - medium
+                      - simple
+                      type: object
+                  required:
+                  - name
+                  - tiers
+                  type: object
+                maxItems: 10
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+              sandboxRefs:
+                description: SandboxRefs lists the Sandboxes permitted for this Team.
+                items:
+                  maxLength: 253
+                  minLength: 1
+                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                  type: string
+                minItems: 1
+                type: array
+                x-kubernetes-list-type: set
+              skillStorage:
+                description: |-
+                  SkillStorage describes a shared Azure Blob NFS container that the operator
+                  mounts read-only into every member instance's pod. When set, the operator
+                  populates the chart's skills.shared mode with the given storage account
+                  coordinates so that a PV+PVC are auto-provisioned per instance namespace.
+                properties:
+                  containerName:
+                    description: ContainerName of the blob container holding the skills
+                      tree.
+                    type: string
+                  mountPath:
+                    description: |-
+                      MountPath selects the read-only shared Skills mount for native Agents.
+                      Custom Agents compose shared Skills into "$HOME/.agents/skills".
+                    type: string
+                  resourceGroup:
+                    description: ResourceGroup of the Azure storage account.
+                    type: string
+                  storageAccount:
+                    description: StorageAccount name (globally unique, lowercase alphanumeric,
+                      3-24 chars).
+                    type: string
+                  storageClassName:
+                    description: |-
+                      StorageClassName for the auto-provisioned PV/PVC. Defaults to the
+                      chart default ("azureblob-nfs-premium") when empty.
+                    type: string
+                  storageSize:
+                    description: |-
+                      StorageSize requested for the PVC. Defaults to the chart default
+                      ("100Gi") when empty.
+                    type: string
+                required:
+                - containerName
+                - resourceGroup
+                - storageAccount
+                type: object
+              skills:
+                description: |-
+                  Skills is the list of default skills for all team members.
+                  Each entry is a Skill Marketplace skill name (when the marketplace is
+                  enabled), or an npm package prefixed with "npm:" (e.g. "npm:@openclaw/matrix").
+                  Without the marketplace, other entries are passed to the reserved
+                  ClawHub list and are not installed.
+                items:
+                  pattern: ^(npm:)?(@[a-z0-9][\w.-]*\/)?[a-z0-9][\w.-]*(@[\w.+-]+)?$
+                  type: string
+                maxItems: 100
+                type: array
+                x-kubernetes-list-type: set
+            type: object
+          status:
+            description: TeamStatus defines the observed state of Team.
+            properties:
+              compatibility:
+                description: |-
+                  Compatibility is the latest configuration-only assessment of this Team's
+                  Policy and selected Sandboxes. It does not authorize an Agent or prove
+                  that a workload, Gateway key, or credential projection is applied.
+                properties:
+                  checkedAt:
+                    format: date-time
+                    type: string
+                  issues:
+                    items:
+                      description: |-
+                        CompatibilityIssue is safe for administrative display and for Kubernetes
+                        admission details. It contains no platform topology or credential data.
+                      properties:
+                        code:
+                          type: string
+                        field:
+                          type: string
+                        message:
+                          type: string
+                        policy:
+                          description: |-
+                            CompatibilityReference pins a configuration object that an assessment read.
+                            A Portal must not show a compatible result after any of these values changes.
+                          properties:
+                            generation:
+                              format: int64
+                              type: integer
+                            name:
+                              type: string
+                            uid:
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        sandbox:
+                          description: |-
+                            CompatibilityReference pins a configuration object that an assessment read.
+                            A Portal must not show a compatible result after any of these values changes.
+                          properties:
+                            generation:
+                              format: int64
+                              type: integer
+                            name:
+                              type: string
+                            uid:
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        team:
+                          description: |-
+                            CompatibilityReference pins a configuration object that an assessment read.
+                            A Portal must not show a compatible result after any of these values changes.
+                          properties:
+                            generation:
+                              format: int64
+                              type: integer
+                            name:
+                              type: string
+                            uid:
+                              type: string
+                          required:
+                          - name
+                          type: object
+                      required:
+                      - code
+                      - message
+                      type: object
+                    type: array
+                  message:
+                    type: string
+                  policy:
+                    description: |-
+                      CompatibilityReference pins a configuration object that an assessment read.
+                      A Portal must not show a compatible result after any of these values changes.
+                    properties:
+                      generation:
+                        format: int64
+                        type: integer
+                      name:
+                        type: string
+                      uid:
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  reason:
+                    type: string
+                  sandboxes:
+                    items:
+                      description: SandboxCompatibilityStatus reports one selected
+                        Sandbox within a Team.
+                      properties:
+                        issues:
+                          items:
+                            description: |-
+                              CompatibilityIssue is safe for administrative display and for Kubernetes
+                              admission details. It contains no platform topology or credential data.
+                            properties:
+                              code:
+                                type: string
+                              field:
+                                type: string
+                              message:
+                                type: string
+                              policy:
+                                description: |-
+                                  CompatibilityReference pins a configuration object that an assessment read.
+                                  A Portal must not show a compatible result after any of these values changes.
+                                properties:
+                                  generation:
+                                    format: int64
+                                    type: integer
+                                  name:
+                                    type: string
+                                  uid:
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                              sandbox:
+                                description: |-
+                                  CompatibilityReference pins a configuration object that an assessment read.
+                                  A Portal must not show a compatible result after any of these values changes.
+                                properties:
+                                  generation:
+                                    format: int64
+                                    type: integer
+                                  name:
+                                    type: string
+                                  uid:
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                              team:
+                                description: |-
+                                  CompatibilityReference pins a configuration object that an assessment read.
+                                  A Portal must not show a compatible result after any of these values changes.
+                                properties:
+                                  generation:
+                                    format: int64
+                                    type: integer
+                                  name:
+                                    type: string
+                                  uid:
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                            required:
+                            - code
+                            - message
+                            type: object
+                          type: array
+                        reason:
+                          type: string
+                        sandbox:
+                          description: |-
+                            CompatibilityReference pins a configuration object that an assessment read.
+                            A Portal must not show a compatible result after any of these values changes.
+                          properties:
+                            generation:
+                              format: int64
+                              type: integer
+                            name:
+                              type: string
+                            uid:
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        state:
+                          description: |-
+                            CompatibilityState is the configuration compatibility of a Team and its
+                            selected Sandboxes. It deliberately does not describe runtime enforcement.
+                          enum:
+                          - Compatible
+                          - Incompatible
+                          - Unknown
+                          type: string
+                      required:
+                      - sandbox
+                      - state
+                      type: object
+                    type: array
+                  state:
+                    description: |-
+                      CompatibilityState is the configuration compatibility of a Team and its
+                      selected Sandboxes. It deliberately does not describe runtime enforcement.
+                    enum:
+                    - Compatible
+                    - Incompatible
+                    - Unknown
+                    type: string
+                  team:
+                    description: |-
+                      CompatibilityReference pins a configuration object that an assessment read.
+                      A Portal must not show a compatible result after any of these values changes.
+                    properties:
+                      generation:
+                        format: int64
+                        type: integer
+                      name:
+                        type: string
+                      uid:
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  validUntil:
+                    format: date-time
+                    type: string
+                required:
+                - checkedAt
+                - policy
+                - state
+                - team
+                - validUntil
+                type: object
+              conditions:
+                description: Conditions contains the latest available observations
+                  of the team's state.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              modelRouters:
+                description: |-
+                  ModelRouters reports the AI Gateway registration of each router in
+                  spec.modelRouters.
+                items:
+                  description: TeamModelRouterStatus is the AI Gateway registration
+                    of one router.
+                  properties:
+                    copilotModels:
+                      description: |-
+                        CopilotModels are the copilot/<ID> tiers registered under the Copilot
+                        model's ID: an Agent needs GitHub Copilot and that model.
+                      items:
+                        type: string
+                      type: array
+                    gatewayModel:
+                      description: |-
+                        GatewayModel is the internal Gateway model name of the router, which
+                        Agents granted the router send their requests to.
+                      type: string
+                    message:
+                      description: Message explains why the router is not ready.
+                      type: string
+                    name:
+                      description: Name is the router's name in spec.modelRouters.
+                      type: string
+                    ready:
+                      description: |-
+                        Ready reports whether the router is registered in the Gateway with its
+                        current configuration.
+                      type: boolean
+                    sharedModels:
+                      description: |-
+                        SharedModels are the shared models the router's tiers send requests
+                        to as registered, a GitHub Copilot tier that joins a shared model
+                        included: an Agent with an AgentPolicy is granted the router only when
+                        the policy allows each. The classifier is not listed.
+                      items:
+                        type: string
+                      type: array
+                  required:
+                  - name
+                  - ready
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+              observedGeneration:
+                description: ObservedGeneration is the last CR generation that was
+                  fully reconciled.
+                format: int64
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

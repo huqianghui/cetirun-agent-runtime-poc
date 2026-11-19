@@ -1,0 +1,1856 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "title": "CetiRun Helm Chart Values Schema",
+    "description": "JSON Schema for validating CetiRun agent chart values",
+    "properties": {
+        "cetiadmin": {
+            "type": "object",
+            "description": "Operator-prepared binding. Final templates require the ordinary Hermes runtime contribution; these values do not grant RBAC.",
+            "additionalProperties": false,
+            "required": ["enabled"],
+            "properties": {
+                "enabled": {"type": "boolean", "default": false},
+                "agentName": {"type": "string", "maxLength": 63, "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"},
+                "agentUID": {"type": "string", "maxLength": 128, "pattern": "^[A-Za-z0-9-]+$"},
+                "namespaceUID": {"type": "string", "maxLength": 128, "pattern": "^[A-Za-z0-9-]+$"},
+                "sourceUID": {"type": "string", "maxLength": 128, "pattern": "^[A-Za-z0-9-]+$"},
+                "configHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+                "serviceAccountName": {"type": "string", "maxLength": 253, "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"},
+                "operatorImage": {"type": "string", "minLength": 1, "maxLength": 512, "pattern": "^\\S+$"},
+                "kubernetes": {
+                    "type": "object", "additionalProperties": false,
+                    "required": ["apiServer", "apiAudience", "caConfigMapName", "apiEgressCIDRs"],
+                    "properties": {
+                        "apiServer": {"type": "string", "maxLength": 512, "pattern": "^https://(\\[[0-9a-fA-F:]+\\]|[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?)(:[0-9]{1,5})?/?$"},
+                        "apiAudience": {"type": "string", "minLength": 1, "maxLength": 512, "pattern": "^\\S+$"},
+                        "caConfigMapName": {"type": "string", "maxLength": 253, "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"},
+                        "apiEgressCIDRs": {
+                            "type": "array", "minItems": 1, "uniqueItems": true,
+                            "items": {"type": "string", "pattern": "^(([0-9]{1,3}\\.){3}[0-9]{1,3}/32|[0-9a-fA-F:]+/128)$"}
+                        }
+                    }
+                },
+                "azureWorkloadIdentity": {
+                    "type": "object", "additionalProperties": false, "required": ["enabled"],
+                    "properties": {
+                        "enabled": {"type": "boolean"},
+                        "clientId": {"type": "string"}
+                    },
+                    "if": {"properties": {"enabled": {"const": true}}},
+                    "then": {"required": ["clientId"], "properties": {"clientId": {"pattern": "^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$", "not": {"const": "00000000-0000-0000-0000-000000000000"}}}}
+                },
+                "monitor": {
+                    "type": "object", "additionalProperties": false,
+                    "required": ["enabled", "timezone", "deliver"],
+                    "properties": {
+                        "enabled": {"type": "boolean"},
+                        "schedule": {"type": "string", "maxLength": 256, "pattern": "^[^\\r\\n\\t]*$"},
+                        "timezone": {"type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[A-Za-z0-9_+/-]+$", "not": {"const": "Local"}},
+                        "deliver": {"enum": ["local", "slack"]},
+                        "slackChannel": {"type": "string", "maxLength": 256},
+                        "slackSecretName": {"type": "string", "maxLength": 253}
+                    },
+                    "allOf": [
+                        {"if": {"properties": {"enabled": {"const": true}}}, "then": {"required": ["schedule"], "properties": {"schedule": {"minLength": 1}}}},
+                        {"if": {"properties": {"enabled": {"const": true}, "deliver": {"const": "slack"}}}, "then": {
+                            "required": ["slackChannel", "slackSecretName"],
+                            "properties": {
+                                "slackChannel": {"pattern": "^[CG][A-Z0-9]{8,31}$"},
+                                "slackSecretName": {"pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"}
+                            }
+                        }}
+                    ]
+                },
+                "runtimeConfig": {"type": "string", "minLength": 1, "maxLength": 8192},
+                "kubeconfig": {"type": "string", "minLength": 1, "maxLength": 8192}
+            },
+            "if": {"properties": {"enabled": {"const": true}}},
+            "then": {"required": ["agentName", "agentUID", "namespaceUID", "sourceUID", "configHash", "serviceAccountName", "operatorImage", "kubernetes", "azureWorkloadIdentity", "monitor", "runtimeConfig", "kubeconfig"]}
+        },
+        "memoryContext": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["enabled", "image", "home"],
+            "properties": {
+                "enabled": {"type": "boolean"},
+                "image": {"type": "string", "maxLength": 512},
+                "home": {"type": "string", "pattern": "^/home/[a-z_][a-z0-9_-]*$"}
+            }
+        },
+        "sandboxWorkload": {
+            "type": ["object", "null"],
+            "description": "Internal protected Sandbox render plan; not an execution authorization",
+            "additionalProperties": false,
+            "properties": {
+                "contractVersion": {"const": "v1"},
+                "executionHeld": {"type": "boolean"},
+                "reconciled": {"const": true},
+                "context": {
+                    "type": "object", "additionalProperties": false,
+                    "properties": {"name": {"type": "string", "minLength": 1}, "files": {"type": "object", "additionalProperties": false, "properties": {"AGENTS.md": {"const": "AGENTS.md"}}, "required": ["AGENTS.md"]}},
+                    "required": ["name", "files"]
+                },
+                "loopbackProbe": {
+                    "type": "object", "additionalProperties": false,
+                    "properties": {"image": {"type": "string", "pattern": "^[^\\s@]+@sha256:[a-f0-9]{64}$"}}, "required": ["image"]
+                },
+                "terminal": {
+                    "type": "object", "additionalProperties": false,
+                    "properties": {"enabled": {"type": "boolean"}, "image": {"type": "string", "pattern": "^[^\\s@]+@sha256:[a-f0-9]{64}$"}, "port": {"type": "integer", "minimum": 1024, "maximum": 65535}, "sessionSeconds": {"type": "integer", "minimum": 60, "maximum": 3600}, "serviceAccountName": {"type": "string", "minLength": 1}, "tlsContainer": {"type": "object"}, "tlsConfigDigest": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "tlsVolumes": {"type": "array", "items": {"type": "object"}}},
+                    "required": ["enabled", "image", "port", "sessionSeconds", "serviceAccountName"]
+                },
+                "ingressMTLS": {"const": true, "description": "Internal common-executor managed Envoy endpoint; absent for ordinary ingress"},
+                "ingressServerName": {"type": "string", "minLength": 1},
+                "egressSNI": {"const": true, "description": "Internal compiler-owned observed-SNI capture; never a user policy override"},
+                "managedInitContainers": {"type": "array", "minItems": 2, "maxItems": 2, "description": "Exact managed Envoy and trusted capture initializer prefix"},
+                "skillsMode": {
+                    "const": "empty",
+                    "description": "Internal native empty-selection source; omitted for the existing skills PVC path"
+                },
+                "podResources": {"type": "object"},
+                "helperResources": {"type": "object"},
+                "securityContext": {"type": "object"},
+                "scratchSizeLimit": {"type": "string", "minLength": 1},
+                "ownerReferences": {"type": "array", "minItems": 1, "maxItems": 1},
+                "podLabels": {"type": "object"},
+                "trustedProxyIPs": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "description": "Compiler-selected ingress IPs or registered Pod CIDRs; not tenant proxy trust",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "anyOf": [
+                            {"format": "ipv4"},
+                            {"format": "ipv6"},
+                            {"pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}/([1-9]|[12][0-9]|3[0-2])$"},
+                            {"pattern": "^[0-9a-fA-F]*:[0-9a-fA-F:]+/([1-9]|[1-9][0-9]|1[01][0-9]|12[0-8])$"}
+                        ]
+                    }
+                },
+                "podFinalizers": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 1,
+                    "items": {"const": "cetirun.microsoft.com/native-pod-lifetime"}
+                },
+                "dnsConfig": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "nameservers": {
+                            "type": "array",
+                            "minItems": 1,
+                            "maxItems": 3,
+                            "uniqueItems": true,
+                            "items": {"type": "string", "minLength": 1}
+                        }
+                    },
+                    "required": ["nameservers"]
+                },
+                "identityVolumes": {"type": "array"},
+                "identityMounts": {"type": "array"},
+                "identityEnvironment": {"type": "array"},
+                "objects": {"type": "array", "minItems": 1}
+            },
+            "required": ["contractVersion", "executionHeld", "podResources", "helperResources", "securityContext", "scratchSizeLimit", "ownerReferences", "podLabels", "dnsConfig", "identityVolumes", "identityMounts", "identityEnvironment", "objects"]
+        },
+        "global": {
+            "type": "object",
+            "description": "Shared release coordinates inherited from an umbrella chart",
+            "properties": {
+                "registry": {
+                    "type": "string",
+                    "description": "Optional registry hostname override for all CetiRun images",
+                    "default": ""
+                },
+                "version": {
+                    "type": "string",
+                    "description": "Shared image and component version; empty defaults to Chart appVersion",
+                    "default": ""
+                }
+            },
+            "required": [
+                "registry"
+            ]
+        },
+        "agentType": {
+            "type": "string",
+            "description": "Agent framework to run in this instance",
+            "enum": [
+                "openclaw",
+                "hermes",
+                "custom"
+            ],
+            "default": "hermes"
+        },
+        "replicaCount": {
+            "type": "integer",
+            "description": "Number of replicas. 0 when suspended, 1 for normal operation.",
+            "default": 1,
+            "enum": [
+                0,
+                1
+            ]
+        },
+        "image": {
+            "type": "object",
+            "description": "Image configuration",
+            "properties": {
+                "repository": {
+                    "type": "string",
+                    "description": "Image repository including registry",
+                    "default": ""
+                },
+                "tag": {
+                    "type": "string",
+                    "description": "Image tag (defaults to Chart appVersion if not set)",
+                    "default": ""
+                },
+                "digest": {
+                    "type": "string",
+                    "description": "Image digest for pinning (e.g. sha256:abc123...). When set, the image reference becomes repository:tag@digest.",
+                    "default": ""
+                },
+                "pullPolicy": {
+                    "type": "string",
+                    "description": "Image pull policy",
+                    "enum": [
+                        "",
+                        "Always",
+                        "IfNotPresent",
+                        "Never"
+                    ],
+                    "default": ""
+                }
+            },
+            "required": [
+                "repository",
+                "pullPolicy"
+            ]
+        },
+        "imagePullSecrets": {
+            "type": "array",
+            "description": "Image pull secrets for private registries",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    }
+                }
+            },
+            "default": []
+        },
+        "nameOverride": {
+            "type": "string",
+            "description": "String to override the default name",
+            "default": ""
+        },
+        "fullnameOverride": {
+            "type": "string",
+            "description": "String to override the default fullname",
+            "default": ""
+        },
+        "serviceAccount": {
+            "type": "object",
+            "description": "Service account configuration",
+            "properties": {
+                "create": {
+                    "type": "boolean",
+                    "description": "Specifies whether a service account should be created",
+                    "default": false
+                },
+                "annotations": {
+                    "type": "object",
+                    "description": "Annotations to add to the service account",
+                    "default": {}
+                },
+                "name": {
+                    "type": "string",
+                    "description": "The name of the service account to use (BYO). If not set and create is true, a name is generated using the fullname template.",
+                    "default": ""
+                },
+                "role": {
+                    "type": "string",
+                    "description": "Bind service account to a built-in Kubernetes ClusterRole. Options: '' (none), 'view' (read-only), 'cluster-admin' (full access). Only applies when create is true and name is not set.",
+                    "enum": [
+                        "",
+                        "view",
+                        "cluster-admin"
+                    ],
+                    "default": ""
+                },
+                "automountToken": {
+                    "type": ["boolean", "null"],
+                    "description": "Explicitly control the default Kubernetes API token mount. Null preserves historical behavior.",
+                    "default": null
+                }
+            }
+        },
+        "azureWorkloadIdentity": {
+            "type": "object",
+            "description": "Azure Workload Identity configuration. Requires AKS cluster with OIDC issuer and workload identity enabled, plus a federated credential linking the managed identity to this service account.",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Enable Azure Workload Identity",
+                    "default": false
+                },
+                "clientId": {
+                    "type": "string",
+                    "description": "Client ID of the User-Assigned Managed Identity",
+                    "default": ""
+                }
+            }
+        },
+        "agentIdentity": {
+            "type": "object",
+            "description": "Operator-owned Microsoft Entra Agent Identity Broker integration",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "brokerURL": {
+                    "type": "string",
+                    "default": ""
+                }
+            }
+        },
+        "aiGateway": {
+            "type": "object",
+            "description": "Operator-owned platform AI Gateway access for the Agent's model traffic",
+            "additionalProperties": false,
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "const": true,
+                    "default": true
+                },
+                "keySecretName": {
+                    "type": "string",
+                    "description": "Secret in the release namespace holding the Agent's virtual key",
+                    "default": ""
+                },
+                "keySecretKey": {
+                    "type": "string",
+                    "description": "Key within the virtual key Secret",
+                    "default": "api-key"
+                },
+                "models": {
+                    "type": "array",
+                    "description": "Models the Gateway offers the Agent",
+                    "default": [],
+                    "maxItems": 256,
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["id"],
+                        "properties": {
+                            "id": {"type": "string", "minLength": 1, "maxLength": 256},
+                            "name": {"type": "string", "maxLength": 256},
+                            "contextWindow": {"type": "integer", "minimum": 0},
+                            "maxTokens": {"type": "integer", "minimum": 0}
+                        }
+                    }
+                },
+                "visionModels": {
+                    "type": "array",
+                    "description": "Ids of the models in models that accept images",
+                    "default": [],
+                    "maxItems": 256,
+                    "items": {"type": "string", "minLength": 1, "maxLength": 256}
+                },
+                "hermes": {
+                    "type": "object",
+                    "description": "Hermes on the Gateway",
+                    "additionalProperties": false,
+                    "properties": {
+                        "keyEnv": {
+                            "type": "string",
+                            "description": "Environment variable that carries the Agent's key to Hermes' Gateway provider",
+                            "pattern": "^[A-Z][A-Z0-9_]{0,63}$",
+                            "default": "CETIRUN_GATEWAY_API_KEY"
+                        }
+                    }
+                },
+                "copilotProxy": {
+                    "type": "object",
+                    "description": "Operator-owned per-Agent GitHub Copilot proxy",
+                    "additionalProperties": false,
+                    "properties": {
+                        "enabled": {"type": "boolean", "default": false},
+                        "replicaCount": {"type": ["integer", "null"], "minimum": 0, "maximum": 1, "default": null},
+                        "image": {"type": "string", "default": ""},
+                        "masterKeySecretName": {"type": "string", "default": ""},
+                        "masterKeyId": {
+                            "type": "string",
+                            "description": "Identifies the proxy's master key; a new value restarts the proxy",
+                            "pattern": "^[0-9a-f]{0,64}$",
+                            "default": ""
+                        },
+                        "signInGeneration": {
+                            "type": "string",
+                            "description": "Generation of the GitHub Copilot sign-in the Agent uses; a new value restarts the proxy",
+                            "pattern": "^[0-9a-f]{0,64}$",
+                            "default": ""
+                        },
+                        "tokenSecretName": {"type": "string", "default": ""},
+                        "responsesModels": {
+                            "type": "array",
+                            "description": "Copilot models served only through the Responses API",
+                            "items": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$"},
+                            "default": []
+                        },
+                        "resources": {"type": "object"}
+                    }
+                }
+            }
+        },
+        "podAnnotations": {
+            "type": "object",
+            "description": "Pod annotations",
+            "default": {}
+        },
+        "podSecurityContext": {
+            "type": "object",
+            "description": "Pod security context",
+            "default": {
+                "fsGroup": 1024,
+                "fsGroupChangePolicy": "OnRootMismatch",
+                "runAsNonRoot": true,
+                "seccompProfile": {
+                    "type": "RuntimeDefault"
+                }
+            }
+        },
+        "securityContext": {
+            "type": "object",
+            "description": "Container security context",
+            "default": {
+                "capabilities": {},
+                "readOnlyRootFilesystem": false,
+                "runAsNonRoot": true,
+                "runAsUser": 1024,
+                "allowPrivilegeEscalation": true,
+                "seccompProfile": {
+                    "type": "RuntimeDefault"
+                }
+            }
+        },
+        "service": {
+            "type": "object",
+            "description": "Service configuration",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "description": "Service type",
+                    "enum": [
+                        "ClusterIP",
+                        "NodePort",
+                        "LoadBalancer"
+                    ],
+                    "default": "ClusterIP"
+                },
+                "port": {
+                    "type": "integer",
+                    "description": "Service port",
+                    "minimum": 1,
+                    "maximum": 65535,
+                    "default": 18789
+                },
+                "targetPort": {
+                    "type": "integer",
+                    "description": "Target port on the container",
+                    "minimum": 1,
+                    "maximum": 65535,
+                    "default": 18789
+                },
+                "nodePort": {
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
+                    "description": "NodePort (only used when service.type is NodePort)",
+                    "minimum": 30000,
+                    "maximum": 32767,
+                    "default": null
+                },
+                "annotations": {
+                    "type": "object",
+                    "description": "Service annotations",
+                    "default": {}
+                }
+            }
+        },
+        "ingress": {
+            "type": "object",
+            "description": "Ingress configuration",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Enable ingress",
+                    "default": false
+                },
+                "className": {
+                    "type": "string",
+                    "description": "Ingress class name",
+                    "default": ""
+                },
+                "annotations": {
+                    "type": "object",
+                    "description": "Ingress annotations",
+                    "default": {
+                        "nginx.ingress.kubernetes.io/proxy-read-timeout": "3600",
+                        "nginx.ingress.kubernetes.io/proxy-send-timeout": "3600",
+                        "nginx.ingress.kubernetes.io/proxy-http-version": "1.1",
+                        "nginx.ingress.kubernetes.io/proxy-buffering": "off"
+                    }
+                },
+                "hosts": {
+                    "type": "array",
+                    "description": "Ingress hosts",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "host": {
+                                "type": "string"
+                            },
+                            "paths": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "path": {
+                                            "type": "string"
+                                        },
+                                        "pathType": {
+                                            "type": "string",
+                                            "enum": [
+                                                "Prefix",
+                                                "Exact",
+                                                "ImplementationSpecific"
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "tls": {
+                    "type": "array",
+                    "description": "TLS configuration",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "secretName": {
+                                "type": "string"
+                            },
+                            "hosts": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "default": []
+                }
+            }
+        },
+        "resources": {
+            "type": "object",
+            "description": "Resource requests and limits (cpu/memory)",
+            "properties": {
+                "limits": {
+                    "type": "object",
+                    "properties": {
+                        "cpu": {
+                            "type": [
+                                "string",
+                                "integer"
+                            ],
+                            "description": "CPU limit",
+                            "default": "2000m"
+                        },
+                        "memory": {
+                            "type": "string",
+                            "description": "Memory limit",
+                            "default": "8Gi"
+                        }
+                    }
+                },
+                "requests": {
+                    "type": "object",
+                    "properties": {
+                        "cpu": {
+                            "type": [
+                                "string",
+                                "integer"
+                            ],
+                            "description": "CPU request",
+                            "default": "250m"
+                        },
+                        "memory": {
+                            "type": "string",
+                            "description": "Memory request",
+                            "default": "1Gi"
+                        }
+                    }
+                }
+            }
+        },
+        "autoscaling": {
+            "type": "object",
+            "description": "Horizontal Pod Autoscaler configuration",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Enable autoscaling",
+                    "default": false
+                },
+                "minReplicas": {
+                    "type": "integer",
+                    "description": "Minimum number of replicas",
+                    "default": 1
+                },
+                "maxReplicas": {
+                    "type": "integer",
+                    "description": "Maximum number of replicas",
+                    "default": 3
+                },
+                "targetCPUUtilizationPercentage": {
+                    "type": "integer",
+                    "description": "Target CPU utilization percentage",
+                    "default": 80
+                },
+                "targetMemoryUtilizationPercentage": {
+                    "type": "integer",
+                    "description": "Target Memory utilization percentage",
+                    "default": 80
+                },
+                "metrics": {
+                    "type": "array",
+                    "description": "Custom metrics for HPA",
+                    "default": []
+                },
+                "behavior": {
+                    "type": "object",
+                    "description": "Scaling behavior configuration",
+                    "default": {}
+                }
+            }
+        },
+        "nodeSelector": {
+            "type": "object",
+            "description": "Node selector for pod scheduling",
+            "default": {}
+        },
+        "tolerations": {
+            "type": "array",
+            "description": "Tolerations for pod scheduling",
+            "default": []
+        },
+        "affinity": {
+            "type": "object",
+            "description": "Affinity rules for pod scheduling",
+            "default": {}
+        },
+        "topologySpreadConstraints": {
+            "type": "array",
+            "description": "Pod topology spread constraints",
+            "default": []
+        },
+        "extraEnv": {
+            "type": "array",
+            "description": "Extra environment variables",
+            "default": []
+        },
+        "extraEnvFrom": {
+            "type": "array",
+            "description": "Extra environment variables from secrets/configmaps",
+            "default": []
+        },
+        "extraVolumeMounts": {
+            "type": "array",
+            "description": "Extra volume mounts for the container",
+            "default": []
+        },
+        "extraVolumes": {
+            "type": "array",
+            "description": "Extra volumes for the pod",
+            "default": []
+        },
+        "initContainers": {
+            "type": "array",
+            "description": "Init containers",
+            "default": []
+        },
+        "sidecars": {
+            "type": "array",
+            "description": "Sidecar containers",
+            "default": []
+        },
+        "persistence": {
+            "type": "object",
+            "description": "Persistent Volume configuration",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Enable persistent storage",
+                    "default": true
+                },
+                "storageClass": {
+                    "type": "string",
+                    "description": "Storage class name (default uses Azure Disk on AKS; empty uses the cluster default)",
+                    "default": "default"
+                },
+                "accessMode": {
+                    "type": "string",
+                    "description": "Access mode for the PVC",
+                    "enum": [
+                        "ReadWriteOnce",
+                        "ReadOnlyMany",
+                        "ReadWriteMany",
+                        "ReadWriteOncePod"
+                    ],
+                    "default": "ReadWriteOnce"
+                },
+                "size": {
+                    "type": "string",
+                    "description": "Size of the persistent volume",
+                    "default": "100Gi"
+                },
+                "existingClaim": {
+                    "type": "string",
+                    "description": "Existing PVC to use (if set, StatefulSet will use this instead of creating new PVCs)",
+                    "default": ""
+                },
+                "annotations": {
+                    "type": "object",
+                    "description": "Annotations for the PVC",
+                    "default": {}
+                },
+                "retainPolicy": {
+                    "type": "string",
+                    "description": "Retain policy for the PVC",
+                    "enum": [
+                        "Retain",
+                        "Delete"
+                    ],
+                    "default": "Retain"
+                },
+                "useStatefulSetVolumeClaim": {
+                    "type": "boolean",
+                    "description": "Use StatefulSet volumeClaimTemplates",
+                    "default": true
+                }
+            }
+        },
+        "openclaw": {
+            "type": "object",
+            "description": "OpenClaw configuration",
+            "properties": {
+                "image": {
+                    "type": "object",
+                    "description": "OpenClaw gateway image configuration",
+                    "properties": {
+                        "repository": {
+                            "type": "string",
+                            "description": "Image repository including registry",
+                            "default": "mcr.microsoft.com/aks/ai-runtime/cetirun/openclaw-gateway"
+                        },
+                        "tag": {
+                            "type": "string",
+                            "description": "Image tag (defaults to Chart appVersion if not set)",
+                            "default": ""
+                        },
+                        "digest": {
+                            "type": "string",
+                            "description": "Image digest for pinning",
+                            "default": ""
+                        },
+                        "pullPolicy": {
+                            "type": "string",
+                            "description": "Image pull policy",
+                            "enum": [
+                                "Always",
+                                "IfNotPresent",
+                                "Never"
+                            ],
+                            "default": "Always"
+                        }
+                    }
+                },
+                "portalSignIn": {
+                    "type": "object",
+                    "description": "Sign the owner in to the Control UI with their Portal sign-in (OpenClaw trusted-proxy mode)",
+                    "additionalProperties": false,
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "default": false
+                        }
+                    }
+                },
+                "doctor": {
+                    "type": "object",
+                    "description": "OpenClaw doctor init container configuration",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Run openclaw doctor --fix on pod start",
+                            "default": true
+                        }
+                    }
+                },
+                "config": {
+                    "type": "object",
+                    "description": "OpenClaw gateway configuration (openclaw.json content)",
+                    "properties": {
+                        "gateway": {
+                            "type": "object",
+                            "properties": {
+                                "port": {
+                                    "type": "integer",
+                                    "default": 18789
+                                }
+                            }
+                        },
+                        "logging": {
+                            "type": "object",
+                            "properties": {
+                                "level": {
+                                    "type": "string",
+                                    "enum": [
+                                        "debug",
+                                        "info",
+                                        "warn",
+                                        "error"
+                                    ],
+                                    "default": "info"
+                                }
+                            }
+                        }
+                    }
+                },
+                "git": {
+                    "type": "object",
+                    "description": "Git credential configuration",
+                    "properties": {
+                        "azureDevOps": {
+                            "type": "object",
+                            "description": "Azure DevOps git credential helper configuration",
+                            "properties": {
+                                "enabled": {
+                                    "type": "boolean",
+                                    "description": "Enable Azure DevOps git credential helper (uses az CLI for tokens)",
+                                    "default": true
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "hermes": {
+            "type": "object",
+            "description": "Hermes configuration",
+            "properties": {
+                "image": {
+                    "type": "object",
+                    "description": "Hermes gateway image configuration",
+                    "properties": {
+                        "repository": {
+                            "type": "string",
+                            "description": "Image repository including registry",
+                            "default": "mcr.microsoft.com/aks/ai-runtime/cetirun/hermes-gateway"
+                        },
+                        "tag": {
+                            "type": "string",
+                            "description": "Image tag (defaults to Chart appVersion if not set)",
+                            "default": ""
+                        },
+                        "digest": {
+                            "type": "string",
+                            "description": "Image digest for pinning",
+                            "default": ""
+                        },
+                        "pullPolicy": {
+                            "type": "string",
+                            "description": "Image pull policy",
+                            "enum": [
+                                "Always",
+                                "IfNotPresent",
+                                "Never"
+                            ],
+                            "default": "Always"
+                        }
+                    }
+                },
+                "config": {
+                    "type": "object",
+                    "description": "Hermes native config.yaml content",
+                    "properties": {
+                        "webapp": false,
+                        "api_server": false,
+                        "platforms": {"properties": {"api_server": false}},
+                        "gateway": {"properties": {
+                            "api_server": false,
+                            "platforms": {"properties": {"api_server": false}}
+                        }},
+                        "dashboard": {"properties": {"basic_auth": false}},
+                        "secrets": {
+                            "type": "object",
+                            "properties": {
+                                "sources": {"type": "array", "items": {"type": "string"}},
+                                "preserve_existing": {"type": "array", "items": {"type": "string"}},
+                                "profile_alias": {"type": "boolean"},
+                                "onepassword": {
+                                    "type": "object",
+                                    "properties": {
+                                        "enabled": {"type": "boolean"},
+                                        "env": {"type": "object", "propertyNames": {"pattern": "^[A-Za-z_][A-Za-z0-9_]*$", "not": {"pattern": "^(API_SERVER_|HERMES_WEBAPP_|HERMES_DASHBOARD_|CETIRUN_|HERMES_(HOME$|PROFILE|CONFIG|ENV|MANAGED|PYTHON$|INSTALL_|RUNTIME_DIR$|IGNORE_USER_CONFIG$|GATEWAY_CONFIG$)|HOME$|PATH$|PYTHONPATH$|PYTHONHOME$|NODE_PATH$|NODE_OPTIONS$)"}}},
+                                        "service_account_token_env": {"type": "string", "not": {"pattern": "^(API_SERVER_|HERMES_WEBAPP_|HERMES_DASHBOARD_|CETIRUN_|HERMES_(HOME$|PROFILE|CONFIG|ENV|MANAGED|PYTHON$|INSTALL_|RUNTIME_DIR$|IGNORE_USER_CONFIG$|GATEWAY_CONFIG$)|HOME$|PATH$|PYTHONPATH$|PYTHONHOME$|NODE_PATH$|NODE_OPTIONS$)"}}
+                                    }
+                                }
+                            },
+                            "additionalProperties": {"type": "object", "properties": {"enabled": {"const": false}}}
+                        }
+                    },
+                    "default": {}
+                },
+                "env": {
+                    "type": "object",
+                    "description": "Environment variables written into ~/.hermes/.env",
+                    "additionalProperties": false,
+                    "properties": {
+                        "API_SERVER_ENABLED": {
+                            "type": "string",
+                            "const": "true",
+                            "default": "true"
+                        },
+                        "API_SERVER_HOST": {
+                            "type": "string",
+                            "enum": ["0.0.0.0", "127.0.0.1"],
+                            "default": "0.0.0.0"
+                        },
+                        "API_SERVER_PORT": {
+                            "type": [
+                                "string",
+                                "integer"
+                            ],
+                            "pattern": "^[0-9]+$",
+                            "default": "8642"
+                        },
+                        "API_SERVER_KEY": {
+                            "type": "string",
+                            "default": ""
+                        },
+                        "API_SERVER_CORS_ORIGINS": {
+                            "type": "string",
+                            "default": ""
+                        },
+                        "HERMES_WEBAPP_PUBLIC_URL": {
+                            "type": "string",
+                            "description": "Operator-owned external Webapp URL including its instance prefix",
+                            "pattern": "^$|^https://[A-Za-z0-9.-]+(?::[0-9]+)?/ui/[a-z0-9][a-z0-9-]*$",
+                            "default": ""
+                        }
+                    }
+                },
+                "gateway": {
+                    "type": "object",
+                    "description": "Hermes gateway configuration",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "default": true
+                        }
+                    }
+                }
+            }
+        },
+        "user": {
+            "type": "object",
+            "description": "User identity, typically populated by the operator from Agent CR spec.user. Templates USER.md in the ConfigMap.",
+            "properties": {
+                "alias": {
+                    "type": "string",
+                    "description": "User's short alias. Used as part of the namespace name (cetirun-<alias>) and access URL.",
+                    "default": ""
+                },
+                "displayName": {
+                    "type": "string",
+                    "description": "User's human-friendly display name, shown in USER.md.",
+                    "default": ""
+                },
+                "team": {
+                    "type": "string",
+                    "description": "Logical team name, populated by the operator.",
+                    "default": ""
+                },
+                "role": {
+                    "type": "string",
+                    "description": "User's role, injected into USER.md. When empty, the Role line is omitted.",
+                    "default": ""
+                },
+                "description": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "User context lines injected as Notes bullets in USER.md.",
+                    "default": []
+                },
+                "baseDomain": {
+                    "type": "string",
+                    "description": "Base domain for instance access URLs (e.g. example.com).",
+                    "default": ""
+                }
+            }
+        },
+        "secrets": {
+            "type": "object",
+            "description": "Secrets configuration for API keys and tokens",
+            "properties": {
+                "existingSecret": {
+                    "type": "string",
+                    "description": "Use existing secret instead of creating one",
+                    "default": ""
+                },
+                "annotations": {
+                    "type": "object",
+                    "description": "Secret annotations",
+                    "default": {}
+                },
+                "discordBotToken": {
+                    "type": "string",
+                    "description": "Discord bot token",
+                    "default": ""
+                },
+                "telegramBotToken": {
+                    "type": "string",
+                    "description": "Telegram bot token",
+                    "default": ""
+                },
+                "telegramTokenFile": {
+                    "type": "string",
+                    "description": "File path to read Telegram bot token from (alternative to telegramBotToken)",
+                    "default": ""
+                },
+                "slackBotToken": {
+                    "type": "string",
+                    "description": "Slack bot token",
+                    "default": ""
+                },
+                "slackAppToken": {
+                    "type": "string",
+                    "description": "Slack app token",
+                    "default": ""
+                },
+                "feishuAppId": {
+                    "type": "string",
+                    "description": "Feishu (Lark) app ID",
+                    "default": ""
+                },
+                "feishuAppSecret": {
+                    "type": "string",
+                    "description": "Feishu (Lark) app secret",
+                    "default": ""
+                },
+                "braveApiKey": {
+                    "type": "string",
+                    "description": "Brave Search API key (enables web search)",
+                    "default": ""
+                },
+                "perplexityApiKey": {
+                    "type": "string",
+                    "description": "Perplexity API key (enables AI-synthesized web search)",
+                    "default": ""
+                },
+                "tailscaleAuthKey": {
+                    "type": "string",
+                    "description": "Tailscale auth key. Setting this enables Tailscale mesh VPN (no separate toggle).",
+                    "default": ""
+                },
+                "openclawGatewayToken": {
+                    "type": "string",
+                    "description": "Gateway authentication token"
+                },
+                "provider": {
+                    "type": "string",
+                    "description": "AI Gateway protocol; upstream providers are managed by the platform",
+                    "enum": ["openai"],
+                    "default": "openai"
+                },
+                "model": {
+                    "type": "string",
+                    "description": "Model name supplied by the operator from spec.model or its deployment default",
+                    "default": ""
+                },
+                "apiKey": {
+                    "type": "string",
+                    "description": "Removed direct credentials; use the AI Gateway",
+                    "const": "",
+                    "default": ""
+                },
+                "apiBase": {
+                    "type": "string",
+                    "description": "Custom API base URL (uses provider default if empty)",
+                    "default": ""
+                },
+                "authMode": {
+                    "type": "string",
+                    "description": "Authentication mode for the model provider (e.g. device-code, token)",
+                    "default": ""
+                }
+            }
+        },
+        "ttyd": {
+            "type": "object",
+            "description": "ttyd web terminal configuration",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Enable ttyd web terminal",
+                    "default": true
+                },
+                "port": {
+                    "type": "integer",
+                    "description": "ttyd listening port (must be unprivileged, >= 1024)",
+                    "minimum": 1024,
+                    "maximum": 65535,
+                    "default": 7681
+                },
+                "shell": {
+                    "type": "string",
+                    "description": "Absolute path to the shell to launch in ttyd",
+                    "pattern": "^/",
+                    "minLength": 2,
+                    "default": "/bin/zsh"
+                },
+                "basePath": {
+                    "type": "string",
+                    "description": "Base path prefix for ttyd web UI (passed as --base-path flag)",
+                    "pattern": "^/[a-z0-9/-]*$",
+                    "default": "/term"
+                },
+                "image": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "repository": {"type": "string", "minLength": 1},
+                        "tag": {"type": "string"},
+                        "digest": {"type": "string", "pattern": "^$|^sha256:[a-f0-9]{64}$"},
+                        "pullPolicy": {"type": "string", "enum": ["Always", "IfNotPresent", "Never"]}
+                    }
+                },
+                "sessionSeconds": {
+                    "type": "integer",
+                    "minimum": 60,
+                    "maximum": 3600
+                },
+                "gatewayServiceAccount": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 63,
+                    "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+                },
+                "resources": {
+                    "type": "object"
+                }
+            }
+        },
+        "tailscale": {
+            "type": "object",
+            "description": "Tailscale mesh VPN configuration. Enabled when secrets.tailscaleAuthKey is set.",
+            "properties": {
+                "hostname": {
+                    "type": "string",
+                    "description": "Hostname prefix on the Tailscale network. Each pod appends '-<ordinal>' (up to 7 chars), so the prefix is capped at 56 to stay within the 63-char DNS label limit.",
+                    "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+                    "maxLength": 56,
+                    "default": "cetirun"
+                },
+                "serve": {
+                    "type": "boolean",
+                    "description": "Enable tailscale serve to proxy the gateway with Tailscale HTTPS",
+                    "default": false
+                }
+            }
+        },
+        "litellm": {
+            "type": "object",
+            "description": "The removed per-Agent model proxy is unsupported; use the platform AI Gateway.",
+            "not": {},
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Enable LiteLLM sidecar container",
+                    "default": true
+                },
+                "image": {
+                    "type": "object",
+                    "description": "LiteLLM image configuration",
+                    "properties": {
+                        "repository": {
+                            "type": "string",
+                            "description": "LiteLLM image repository",
+                            "default": "ghcr.io/berriai/litellm"
+                        },
+                        "tag": {
+                            "type": "string",
+                            "description": "LiteLLM image tag",
+                            "default": "v1.82.3-stable"
+                        },
+                        "pullPolicy": {
+                            "type": "string",
+                            "description": "Image pull policy",
+                            "enum": [
+                                "Always",
+                                "IfNotPresent",
+                                "Never"
+                            ],
+                            "default": "IfNotPresent"
+                        }
+                    }
+                },
+                "service": {
+                    "type": "object",
+                    "description": "LiteLLM sidecar port configuration",
+                    "properties": {
+                        "port": {
+                            "type": "integer",
+                            "description": "LiteLLM sidecar port",
+                            "minimum": 1,
+                            "maximum": 65535,
+                            "default": 4000
+                        }
+                    }
+                },
+                "resources": {
+                    "type": "object",
+                    "description": "LiteLLM sidecar resource requests and limits"
+                },
+                "model": {
+                    "type": "string",
+                    "description": "Model to proxy through LiteLLM",
+                    "default": "claude-sonnet-4-20250514"
+                },
+                "codexModel": {
+                    "type": "string",
+                    "description": "Model for Codex CLI (routed through LiteLLM sidecar)",
+                    "default": "gpt-5.3-codex"
+                },
+                "secrets": {
+                    "type": "object",
+                    "description": "LiteLLM provider credentials",
+                    "properties": {
+                        "provider": {
+                            "type": "string",
+                            "description": "Model provider: github_copilot, anthropic, or openai",
+                            "default": "anthropic"
+                        },
+                        "apiKey": {
+                            "type": "string",
+                            "description": "API key for the provider (not needed for github_copilot)",
+                            "default": ""
+                        },
+                        "apiBase": {
+                            "type": "string",
+                            "description": "API base URL (optional, for custom endpoints)",
+                            "default": ""
+                        },
+                        "embeddingApiKey": {
+                            "type": "string",
+                            "description": "API key for the embedding provider used by memory search. When set together with litellm.enabled, memory search is enabled.",
+                            "default": ""
+                        },
+                        "embeddingApiBase": {
+                            "type": "string",
+                            "description": "Base URL for the embedding provider (optional; omit for default OpenAI endpoint)",
+                            "default": ""
+                        },
+                        "embeddingProvider": {
+                            "type": "string",
+                            "description": "Embedding provider name (e.g. openai, azure, cohere). Used to build the litellm_params model string.",
+                            "default": "openai"
+                        }
+                    }
+                },
+                "extraEnv": {
+                    "type": "array",
+                    "description": "Extra environment variables for LiteLLM sidecar",
+                    "default": []
+                },
+                "configOverride": {
+                    "type": "string",
+                    "description": "Override the default LiteLLM config entirely",
+                    "default": ""
+                }
+            }
+        },
+        "livenessProbe": {
+            "type": "object",
+            "description": "Liveness probe configuration",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "initialDelaySeconds": {
+                    "type": "integer",
+                    "default": 30
+                },
+                "periodSeconds": {
+                    "type": "integer",
+                    "default": 180
+                },
+                "timeoutSeconds": {
+                    "type": "integer",
+                    "default": 180
+                },
+                "failureThreshold": {
+                    "type": "integer",
+                    "default": 3
+                },
+                "successThreshold": {
+                    "type": "integer",
+                    "default": 1
+                }
+            }
+        },
+        "readinessProbe": {
+            "type": "object",
+            "description": "Readiness probe configuration",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "initialDelaySeconds": {
+                    "type": "integer",
+                    "default": 30
+                },
+                "periodSeconds": {
+                    "type": "integer",
+                    "default": 30
+                },
+                "timeoutSeconds": {
+                    "type": "integer",
+                    "default": 10
+                },
+                "failureThreshold": {
+                    "type": "integer",
+                    "default": 6
+                },
+                "successThreshold": {
+                    "type": "integer",
+                    "default": 1
+                }
+            }
+        },
+        "startupProbe": {
+            "type": "object",
+            "description": "Startup probe configuration",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "initialDelaySeconds": {
+                    "type": "integer",
+                    "default": 10
+                },
+                "periodSeconds": {
+                    "type": "integer",
+                    "default": 10
+                },
+                "timeoutSeconds": {
+                    "type": "integer",
+                    "default": 5
+                },
+                "failureThreshold": {
+                    "type": ["integer", "null"],
+                    "minimum": 1,
+                    "default": null,
+                    "description": "Null selects 60 for common-executor OpenClaw Sandboxes, otherwise 30; explicit positive integers are preserved"
+                },
+                "successThreshold": {
+                    "type": "integer",
+                    "default": 1
+                }
+            }
+        },
+        "logger": {
+            "type": "object",
+            "description": "Session logger sidecar that tails JSONL files to stdout for Container Insights",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Enable the session logger sidecar container",
+                    "default": true
+                },
+                "resources": {
+                    "type": "object",
+                    "description": "Resource requests and limits for the logger sidecar"
+                },
+                "scanInterval": {
+                    "type": "integer",
+                    "description": "Interval (seconds) between scans for new session files",
+                    "default": 30,
+                    "minimum": 5
+                }
+            }
+        },
+        "desktop": {
+            "type": "object",
+            "description": "Desktop sidecar configuration. Runs Chrome + noVNC in a separate container. The gateway connects to Chrome via CDP on localhost:18800.",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Enable desktop sidecar (Chrome + noVNC via Xvfb)",
+                    "default": true
+                },
+                "image": {
+                    "type": "object",
+                    "description": "Desktop sidecar image configuration",
+                    "properties": {
+                        "repository": {
+                            "type": "string",
+                            "description": "Image repository",
+                            "default": "mcr.microsoft.com/aks/ai-runtime/cetirun/cetirun-desktop"
+                        },
+                        "tag": {
+                            "type": "string",
+                            "description": "Image tag (defaults to chart appVersion if not set)",
+                            "default": ""
+                        },
+                        "digest": {
+                            "type": "string",
+                            "description": "Image digest for pinning",
+                            "default": ""
+                        },
+                        "pullPolicy": {
+                            "type": "string",
+                            "description": "Image pull policy",
+                            "enum": ["Always", "IfNotPresent", "Never"],
+                            "default": "Always"
+                        }
+                    }
+                },
+                "resources": {
+                    "type": "object",
+                    "description": "Resource requests and limits for the desktop sidecar"
+                },
+                "screenResolution": {
+                    "type": "string",
+                    "description": "Virtual display resolution (WxHxD)",
+                    "pattern": "^[0-9]+x[0-9]+x[0-9]+$",
+                    "default": "1920x1080x24"
+                },
+                "novncPathPrefix": {
+                    "type": "string",
+                    "description": "noVNC WebSocket path prefix injected by the operator (e.g. 'example-agent/desktop/'). Written into the auto-connect redirect as ?path=<prefix>websockify.",
+                    "default": ""
+                },
+                "logging": {
+                    "type": "boolean",
+                    "description": "Route x11vnc and websockify output to container stderr (visible via kubectl logs). Off by default; enable for troubleshooting.",
+                    "default": false
+                }
+            }
+        },
+        "sidecarScope": {
+            "type": "object",
+            "description": "Istio Sidecar scope configuration. Restricts Envoy service discovery so each user namespace only sees its own services plus shared namespaces, preventing information disclosure via the Envoy admin API.",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Enable Istio Sidecar resource for discovery scoping",
+                    "default": true
+                },
+                "additionalEgressHosts": {
+                    "type": "array",
+                    "description": "Additional namespace/host entries beyond auto-included ones. Format: namespace/hostname or namespace/*",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": []
+                }
+            }
+        },
+        "networkPolicy": {
+            "type": "object",
+            "description": "NetworkPolicy configuration for pod isolation",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Enable NetworkPolicy",
+                    "default": true
+                },
+                "istioNamespace": {
+                    "type": "string",
+                    "description": "Namespace of the Istio control plane (istiod). Acts as the default namespace for the Istio ingress gateway and for mTLS cert-signing egress (port 15012). If istioIngressNamespace is set, it overrides this value for ingress only.",
+                    "default": "istio-system"
+                },
+                "istioIngressNamespace": {
+                    "type": "string",
+                    "description": "Override namespace for the Istio ingress gateway, when it differs from istioNamespace (e.g., AKS managed Istio uses aks-istio-ingress). Falls back to istioNamespace if empty or unset.",
+                    "default": ""
+                },
+                "dnsNamespace": {
+                    "type": "string",
+                    "description": "Namespace of kube-dns (egress DNS)",
+                    "default": "kube-system"
+                },
+                "agentIdentityBrokerNamespace": {
+                    "type": "string",
+                    "description": "Namespace hosting the deployment-level Agent Identity Broker",
+                    "default": "cetirun-credentials"
+                },
+                "gatewayNamespace": {
+                    "type": "string",
+                    "description": "Namespace of the platform AI Gateway, for egress when aiGateway.enabled",
+                    "default": "cetirun-system"
+                },
+                "gatewayPort": {
+                    "type": "integer",
+                    "description": "Service port of the platform AI Gateway",
+                    "minimum": 1,
+                    "maximum": 65535,
+                    "default": 4000
+                },
+                "allowedInternalCIDRs": {
+                    "type": "array",
+                    "description": "Internal IPs/CIDRs to explicitly allow despite blockedCIDRs. Each entry specifies a CIDR and a list of ports.",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "cidr": {
+                                "type": "string",
+                                "description": "CIDR to allow (e.g., 10.230.0.4/32)",
+                                "pattern": "^([0-9./]+|[0-9a-fA-F:]+/[0-9]{1,3})$"
+                            },
+                            "ports": {
+                                "type": "array",
+                                "description": "Ports to allow for this CIDR",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "port": {
+                                            "type": "integer",
+                                            "description": "Port number",
+                                            "minimum": 1,
+                                            "maximum": 65535
+                                        },
+                                        "protocol": {
+                                            "type": "string",
+                                            "description": "Protocol (TCP or UDP)",
+                                            "enum": [
+                                                "TCP",
+                                                "UDP"
+                                            ],
+                                            "default": "TCP"
+                                        }
+                                    },
+                                    "required": [
+                                        "port"
+                                    ]
+                                },
+                                "minItems": 1
+                            }
+                        },
+                        "required": [
+                            "cidr",
+                            "ports"
+                        ]
+                    },
+                    "default": []
+                },
+                "blockedCIDRs": {
+                    "type": "array",
+                    "description": "CIDRs to block from external egress (kube-dns and gateway are allowed via namespace selectors regardless)",
+                    "items": {
+                        "type": "string",
+                        "pattern": "^[0-9./]+$"
+                    },
+                    "default": [
+                        "10.0.0.0/8",
+                        "172.16.0.0/12",
+                        "192.168.0.0/16",
+                        "169.254.169.254/32"
+                    ]
+                }
+            }
+        },
+        "skills": {
+            "type": "object",
+            "description": "Shared skills volume configuration. Auto-creates PV/PVC backed by Azure Blob CSI (NFS by default; Fuse/Fuse2 supported). Protocol, secretName, and mountOptions are install-time-only PV settings.",
+            "properties": {
+                "existingClaim": {
+                    "type": "string",
+                    "description": "Separately owned namespace-local skills PVC; suppresses chart PV/PVC creation",
+                    "default": ""
+                },
+                "subPath": {
+                    "type": "string",
+                    "description": "Operator-set Skill Marketplace Team subtree (teams/<team-uid>) of the shared skills claim; only the HOME initializer mounts it, read-only",
+                    "pattern": "^$|^teams/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+                    "default": ""
+                },
+                "marketplace": {
+                    "type": "object",
+                    "description": "Operator-set Skill Marketplace selection of the Agent's Team; set together with subPath",
+                    "additionalProperties": false,
+                    "properties": {
+                        "selectionDigest": {
+                            "type": "string",
+                            "description": "Team selection digest that the HOME initializer waits for",
+                            "pattern": "^$|^sha256:[a-f0-9]{64}$",
+                            "default": ""
+                        }
+                    }
+                },
+                "shared": {
+                    "type": "boolean",
+                    "description": "Enable shared skills PV/PVC",
+                    "default": true
+                },
+                "storageClassName": {
+                    "type": "string",
+                    "description": "StorageClass for the shared skills PV/PVC",
+                    "minLength": 1,
+                    "default": "azureblob-nfs-premium"
+                },
+                "protocol": {
+                    "type": "string",
+                    "description": "Install-time-only Blob CSI protocol. Use fuse2 for HTTPS-only storage accounts. Create a replacement PV/PVC to change it.",
+                    "enum": ["nfs", "fuse", "fuse2"],
+                    "default": "nfs"
+                },
+                "secretName": {
+                    "type": "string",
+                    "description": "Install-time-only namespace-local secret used by Blob Fuse mounts. Create a replacement PV/PVC to change it.",
+                    "default": ""
+                },
+                "mountOptions": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Install-time-only static PV mount options. Create a replacement PV/PVC to change them.",
+                    "default": []
+                },
+                "resourceGroup": {
+                    "type": "string",
+                    "description": "Azure resource group containing the storage account",
+                    "default": ""
+                },
+                "storageAccount": {
+                    "type": "string",
+                    "description": "Azure storage account name",
+                    "default": ""
+                },
+                "containerName": {
+                    "type": "string",
+                    "description": "Blob container name",
+                    "minLength": 1,
+                    "default": "aks-skills"
+                },
+                "mountPath": {
+                    "type": "string",
+                    "description": "Optional read-only alias of the common skills view for native Agents (must be absolute)",
+                    "pattern": "^/",
+                    "minLength": 1,
+                    "default": "/home/vibe/.aks/skills"
+                },
+                "clawHub": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "ClawHub skill package names (reserved, not yet implemented).",
+                    "default": []
+                },
+                "npm": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "npm skill package specs (e.g. \"@scope/name\" or \"@scope/name@1.2.3\"). Installed by the init-skills container into the home volume under .cetirun/skills/npm/<sanitized-name>.",
+                    "default": []
+                },
+                "npmRegistry": {
+                    "type": "string",
+                    "description": "npm registry for runtime npm skill installation.",
+                    "default": "https://registry.npmjs.org/"
+                },
+                "storageSize": {
+                    "type": "string",
+                    "description": "Storage capacity for the PV/PVC",
+                    "minLength": 1,
+                    "default": "100Gi"
+                }
+            }
+        },
+        "podDisruptionBudget": {
+            "type": "object",
+            "description": "Pod Disruption Budget configuration",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "minAvailable": {
+                    "type": [
+                        "integer",
+                        "string"
+                    ],
+                    "description": "Minimum available pods (number or percentage)"
+                },
+                "maxUnavailable": {
+                    "type": [
+                        "integer",
+                        "string"
+                    ],
+                    "description": "Maximum unavailable pods (number or percentage)"
+                }
+            }
+        },
+        "execRestriction": {
+            "type": "object",
+            "description": "Block kubectl exec into openclaw pods. Requires Kubernetes 1.30+.",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Enable the exec restriction policy",
+                    "default": true
+                }
+            }
+        }
+    },
+    "allOf": [
+        {
+            "if": {"properties": {"agentType": {"const": "hermes"}}},
+            "then": {"properties": {
+                "extraEnv": {"items": {"properties": {"name": {"not": {"pattern": "^(API_SERVER_|HERMES_WEBAPP_|HERMES_DASHBOARD_|CETIRUN_(AI_GATEWAY$|AUTH_KEY$|GATEWAY_.*|INGRESS_.*)|HERMES_(HOME|PROFILE.*|CONFIG.*|ENV.*|MANAGED.*|PYTHON|INSTALL_.*|RUNTIME_DIR|IGNORE_USER_CONFIG|GATEWAY_CONFIG)$|HOME$|PATH$|PYTHONPATH$|PYTHONHOME$)"}}}}},
+                "extraEnvFrom": {"maxItems": 0}
+            }}
+        },
+        {
+            "if": {
+                "required": ["sandboxWorkload"],
+                "properties": {
+                    "sandboxWorkload": {
+                        "type": "object",
+                        "required": ["skillsMode"]
+                    }
+                }
+            },
+            "then": {
+                "properties": {
+                    "agentType": {"enum": ["openclaw", "hermes", "custom"]},
+                    "aiGateway": {
+                        "properties": {"enabled": {"const": true}},
+                        "required": ["enabled"]
+                    },
+                    "sandboxWorkload": {
+                        "anyOf": [
+                            {"required": ["podFinalizers"]},
+                            {"required": ["reconciled"], "properties": {"reconciled": {"const": true}}}
+                        ]
+                    },
+                    "skills": {
+                        "properties": {
+                            "shared": {"const": false},
+                            "existingClaim": {"const": ""},
+                            "mountPath": {"const": "/home/vibe/.aks/skills"},
+                            "npm": {"maxItems": 0},
+                            "clawHub": {"maxItems": 0}
+                        },
+                        "required": ["shared", "existingClaim", "mountPath"]
+                    }
+                }
+            }
+        },
+        {
+            "if": {
+                "properties": {
+                    "secrets": {
+                        "properties": {
+                            "existingSecret": {
+                                "const": ""
+                            }
+                        }
+                    }
+                }
+            },
+            "then": {
+                "properties": {
+                    "secrets": {
+                        "required": [
+                            "openclawGatewayToken"
+                        ]
+                    }
+                }
+            }
+        },
+        {
+            "if": {
+                "properties": {
+                    "skills": {
+                        "properties": {
+                            "shared": {
+                                "const": true
+                            }
+                        }
+                    }
+                }
+            },
+            "then": {
+                "properties": {
+                    "skills": {
+                        "required": [
+                            "containerName",
+                            "mountPath",
+                            "storageSize",
+                            "storageClassName"
+                        ]
+                    }
+                }
+            }
+        },
+        {
+            "if": {
+                "properties": {
+                    "autoscaling": {
+                        "properties": {
+                            "enabled": {
+                                "const": true
+                            }
+                        }
+                    }
+                }
+            },
+            "then": {
+                "properties": {
+                    "autoscaling": {
+                        "properties": {
+                            "minReplicas": {
+                                "enum": [
+                                    1
+                                ]
+                            },
+                            "maxReplicas": {
+                                "enum": [
+                                    1
+                                ]
+                            }
+                        },
+                        "required": [
+                            "minReplicas",
+                            "maxReplicas"
+                        ]
+                    }
+                }
+            }
+        }
+    ]
+}

@@ -1,0 +1,105 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cetirun-connections-mcp.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cetirun-connections-mcp.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "cetirun-connections-mcp.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "cetirun-connections-mcp.selectorLabels" . | nindent 8 }}
+        {{- if .Values.nativeSandbox.enabled }}
+        sandbox.cetirun.microsoft.com/peer-uid: {{ required "nativeSandbox.peerUID is required" .Values.nativeSandbox.peerUID | quote }}
+        {{- end }}
+        istio.io/rev: {{ .Values.istio.revision | quote }}
+      annotations:
+        sidecar.istio.io/inject: {{ .Values.istio.sidecarInjection | quote }}
+    spec:
+      serviceAccountName: {{ include "cetirun-connections-mcp.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        fsGroup: 65532
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: cetirun-connections-mcp
+          image: {{ include "cetirun-connections-mcp.image" (dict "repository" .Values.image.repository "tag" .Values.image.tag "digest" .Values.image.digest "defaultTag" .Chart.AppVersion "global" (.Values.global | default dict)) | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: https
+              containerPort: 8443
+          env:
+            - name: LISTEN_ADDRESS
+              value: ":8443"
+            - name: TLS_CERT_FILE
+              value: /var/run/cetirun/tls/tls.crt
+            - name: TLS_KEY_FILE
+              value: /var/run/cetirun/tls/tls.key
+            - name: AGENT_BROKER_BASE_URL
+              value: {{ .Values.broker.baseURL | quote }}
+            - name: BROKER_TLS_CA_FILE
+              value: /var/run/cetirun/broker-tls/ca.crt
+            - name: BROKER_TLS_CERT_FILE
+              value: /var/run/cetirun/broker-tls/tls.crt
+            - name: BROKER_TLS_KEY_FILE
+              value: /var/run/cetirun/broker-tls/tls.key
+            - name: WORKLOAD_TOKEN_AUDIENCE
+              value: {{ .Values.workloadTokenAudience | quote }}
+            {{- if .Values.nativeSandbox.enabled }}
+            - name: OPERATOR_NAMESPACE
+              value: {{ required "nativeSandbox.operatorNamespace is required" .Values.nativeSandbox.operatorNamespace | quote }}
+            {{- end }}
+            {{- if .Values.portal.baseURL }}
+            - name: PORTAL_BASE_URL
+              value: {{ .Values.portal.baseURL | quote }}
+            {{- end }}
+            - name: KUBERNETES_TOKEN_FILE
+              value: /var/run/cetirun/kubernetes/token
+            - name: KUBERNETES_CA_FILE
+              value: /var/run/cetirun/kubernetes/ca.crt
+          volumeMounts:
+            - name: broker-tls
+              mountPath: /var/run/cetirun/broker-tls
+              readOnly: true
+            - name: tls
+              mountPath: /var/run/cetirun/tls
+              readOnly: true
+            - name: kubernetes-api-credential
+              mountPath: /var/run/cetirun/kubernetes
+              readOnly: true
+          readinessProbe:
+            httpGet: {scheme: HTTPS, path: /readyz, port: https}
+          livenessProbe:
+            httpGet: {scheme: HTTPS, path: /healthz, port: https}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: ["ALL"]}
+            readOnlyRootFilesystem: true
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: broker-tls
+          secret:
+            secretName: {{ required "broker.clientTLSSecretName is required" .Values.broker.clientTLSSecretName | quote }}
+        - name: tls
+          secret:
+            secretName: {{ .Values.tls.secretName }}
+        - name: kubernetes-api-credential
+          projected:
+            defaultMode: 0440
+            sources:
+              - serviceAccountToken:
+                  path: token
+                  expirationSeconds: 3600
+              - configMap:
+                  name: kube-root-ca.crt
+                  items:
+                    - key: ca.crt
+                      path: ca.crt

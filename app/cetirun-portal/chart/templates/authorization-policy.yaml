@@ -1,0 +1,43 @@
+{{- /*
+Restrict portal traffic to only the Istio ingress gateway.
+
+The portal trusts X-Auth-Request-* headers set by OAuth2 Proxy at the
+gateway. Without this policy, any in-cluster pod (or kubectl port-forward)
+could spoof those headers and bypass authentication.
+
+This AuthorizationPolicy allows traffic only from the Istio ingress
+gateway's service account, denying all other sources.
+
+NOTE: This policy requires Istio sidecar injection in the portal namespace
+so that mTLS and source principal enforcement are active. Without the
+sidecar the policy has no effect and header spoofing is possible.
+*/ -}}
+{{- if not .Values.istio.sidecarInjection }}
+{{- fail "istio.sidecarInjection must be set to true to confirm that the target namespace has Istio sidecar injection enabled. The AuthorizationPolicy requires an Istio sidecar to enforce mTLS source principals." }}
+{{- end }}
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ include "cetirun-portal.fullname" . }}-allow-gateway
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cetirun-portal.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "cetirun-portal.selectorLabels" . | nindent 6 }}
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/{{ .Values.istio.gatewayNamespace }}/sa/{{ .Values.istio.gatewayServiceAccount }}
+    {{- if not .Values.istio.internalAuthMTLS }}
+    # Legacy alias-only callers use the namespace-restricted plaintext port.
+    # With internal mTLS enabled, the gateway principal rule above also governs
+    # port 8081; there is no unauthenticated port exception.
+    - to:
+        - operation:
+            ports:
+              - "8081"
+    {{- end }}

@@ -1,0 +1,3 @@
+{{- if eq (include "cetirun.agent.type" .) "custom" -}}
+{{ include "cetirun.custom.runtime" . }}
+{{- end }}

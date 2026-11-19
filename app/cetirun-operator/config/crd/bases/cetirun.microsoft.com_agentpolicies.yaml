@@ -1,0 +1,451 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+    helm.sh/resource-policy: keep
+  name: agentpolicies.cetirun.microsoft.com
+spec:
+  group: cetirun.microsoft.com
+  names:
+    kind: AgentPolicy
+    listKind: AgentPolicyList
+    plural: agentpolicies
+    shortNames:
+    - crp
+    singular: agentpolicy
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=="Accepted")].status
+      name: Accepted
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: AgentPolicySpec defines controls independently of runtime
+              selection.
+            properties:
+              agentIdentity:
+                description: AgentIdentity permits the fixed v1 credential-service
+                  entitlement.
+                properties:
+                  allowed:
+                    type: boolean
+                  credentialServices:
+                    items:
+                      enum:
+                      - azure-resource-manager
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: set
+                  required:
+                    type: boolean
+                type: object
+              entraID:
+                default: {}
+                description: |-
+                  EntraID requests explicitly approved workload identity projection into
+                  the main container. It is independent of AgentIdentity, which controls
+                  the directory identity and Broker credential-service entitlement.
+                properties:
+                  enabled:
+                    default: false
+                    type: boolean
+                type: object
+              harnesses:
+                description: Harnesses limits runtimes that can receive this policy.
+                properties:
+                  allowed:
+                    description: Custom execution additionally requires an approved
+                      Gateway-qualified image.
+                    items:
+                      description: AgentType identifies a built-in integration or
+                        a user-supplied image.
+                      enum:
+                      - openclaw
+                      - hermes
+                      - custom
+                      type: string
+                    minItems: 1
+                    type: array
+                    x-kubernetes-list-type: set
+                required:
+                - allowed
+                type: object
+              kubernetesAccess:
+                description: KubernetesAccess requires separate authorization; its
+                  presence grants nothing.
+                properties:
+                  clusterRoleBindings:
+                    items:
+                      properties:
+                        clusterRoleName:
+                          minLength: 1
+                          pattern: ^[^/%]+$
+                          type: string
+                          x-kubernetes-validations:
+                          - message: a ClusterRole name cannot be '.' or '..'
+                            rule: self != '.' && self != '..'
+                      required:
+                      - clusterRoleName
+                      type: object
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  roleBindings:
+                    items:
+                      properties:
+                        clusterRoleName:
+                          description: ClusterRoleName is an explicit Kubernetes path-segment
+                            name.
+                          minLength: 1
+                          pattern: ^[^/%]+$
+                          type: string
+                          x-kubernetes-validations:
+                          - message: a ClusterRole name cannot be '.' or '..'
+                            rule: self != '.' && self != '..'
+                        namespace:
+                          maxLength: 63
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                          type: string
+                      required:
+                      - clusterRoleName
+                      - namespace
+                      type: object
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  serviceAccountName:
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                required:
+                - serviceAccountName
+                type: object
+                x-kubernetes-validations:
+                - message: at least one explicit RBAC grant is required
+                  rule: (has(self.roleBindings) && size(self.roleBindings) > 0) ||
+                    (has(self.clusterRoleBindings) && size(self.clusterRoleBindings)
+                    > 0)
+              modelAccess:
+                description: |-
+                  ModelAccess defines the Gateway entitlements and one native USD budget
+                  for the Agent virtual key.
+                properties:
+                  copilot:
+                    properties:
+                      allowed:
+                        type: boolean
+                    type: object
+                  gatewayBudget:
+                    properties:
+                      defaultMonthlyUSD:
+                        pattern: ^(0|[1-9][0-9]*)(\.[0-9]{1,6})?$
+                        type: string
+                      maxMonthlyUSD:
+                        pattern: ^(0|[1-9][0-9]*)(\.[0-9]{1,6})?$
+                        type: string
+                    required:
+                    - defaultMonthlyUSD
+                    - maxMonthlyUSD
+                    type: object
+                  rateLimits:
+                    description: |-
+                      RateLimits applies the same Gateway request limits to the virtual key
+                      of every Agent that uses this policy. Each key keeps its own counters,
+                      so Agents do not share a limit. An omitted field is unlimited.
+                    properties:
+                      maxParallelRequests:
+                        description: |-
+                          MaxParallelRequests limits the key's requests in flight at once. The
+                          Gateway stores it as a 32-bit integer, unlike its RPM and TPM.
+                        format: int64
+                        maximum: 2147483647
+                        minimum: 1
+                        type: integer
+                      perModel:
+                        additionalProperties:
+                          properties:
+                            rpm:
+                              description: RPM limits the key's requests per minute
+                                for this model.
+                              format: int64
+                              minimum: 1
+                              type: integer
+                            tpm:
+                              description: TPM limits the key's tokens per minute
+                                for this model.
+                              format: int64
+                              minimum: 4096
+                              type: integer
+                          type: object
+                          x-kubernetes-validations:
+                          - message: a per-model limit must set rpm, tpm, or both
+                            rule: has(self.rpm) || has(self.tpm)
+                        description: |-
+                          PerModel limits requests for individual models. A key is the exact
+                          Gateway model name the Agent requests, not a display label. For a
+                          router of the Agent's Team, the router's name is also accepted: the
+                          operator also sets the limit under the router's internal name, which
+                          the Gateway counts for the router. The limit under the router's name
+                          stays. It applies to another model that keeps the name, for example a
+                          GitHub Copilot model of the Agent.
+                        maxProperties: 64
+                        type: object
+                        x-kubernetes-validations:
+                        - message: perModel keys must be Gateway model names of 1
+                            to 256 characters without whitespace
+                          rule: self.all(model, size(model) >= 1 && size(model) <=
+                            256 && !model.matches('[[:space:]]'))
+                      rpm:
+                        description: RPM limits the key's requests per minute across
+                          all of its models.
+                        format: int64
+                        minimum: 1
+                        type: integer
+                      tpm:
+                        description: |-
+                          TPM limits the key's tokens per minute across all of its models. The
+                          Gateway counts the tokens of finished requests and refuses requests
+                          once the minute's count has reached the limit.
+                        format: int64
+                        minimum: 4096
+                        type: integer
+                    type: object
+                  sharedModels:
+                    properties:
+                      allowed:
+                        description: Model identifiers are exact Gateway catalog names,
+                          not display labels.
+                        items:
+                          maxLength: 256
+                          minLength: 1
+                          pattern: ^[^\t\r\n ]+$
+                          type: string
+                        type: array
+                        x-kubernetes-list-type: set
+                    type: object
+                type: object
+              network:
+                default: {}
+                properties:
+                  allowedInternalCIDRs:
+                    default: []
+                    items:
+                      properties:
+                        cidr:
+                          minLength: 1
+                          type: string
+                        ports:
+                          items:
+                            properties:
+                              port:
+                                format: int32
+                                maximum: 65535
+                                minimum: 1
+                                type: integer
+                              protocol:
+                                default: TCP
+                                description: Protocol defines network protocols supported
+                                  for things like container ports.
+                                enum:
+                                - TCP
+                                - UDP
+                                - SCTP
+                                type: string
+                            required:
+                            - port
+                            type: object
+                          minItems: 1
+                          type: array
+                          x-kubernetes-list-type: atomic
+                      required:
+                      - cidr
+                      - ports
+                      type: object
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  blockedCIDRs:
+                    default: []
+                    items:
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  blockedFQDNs:
+                    default: []
+                    description: BlockedFQDNs contains exact lowercase ASCII hostnames,
+                      not URLs or IPs.
+                    items:
+                      maxLength: 253
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  blockedPorts:
+                    default: []
+                    items:
+                      properties:
+                        port:
+                          format: int32
+                          maximum: 65535
+                          minimum: 1
+                          type: integer
+                        protocol:
+                          default: TCP
+                          description: Protocol defines network protocols supported
+                            for things like container ports.
+                          enum:
+                          - TCP
+                          - UDP
+                          - SCTP
+                          type: string
+                      required:
+                      - port
+                      type: object
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  ingress:
+                    default: {}
+                    properties:
+                      mode:
+                        default: authenticated
+                        enum:
+                        - authenticated
+                        - disabled
+                        type: string
+                      requireMTLS:
+                        default: false
+                        type: boolean
+                    type: object
+                    x-kubernetes-validations:
+                    - message: disabled ingress cannot require mTLS
+                      rule: '!has(self.mode) || self.mode != ''disabled'' || !has(self.requireMTLS)
+                        || !self.requireMTLS'
+                type: object
+              sandboxSelection:
+                default: {}
+                properties:
+                  allowMultiple:
+                    default: false
+                    type: boolean
+                type: object
+              security:
+                default: {}
+                properties:
+                  readOnlyRootFilesystem:
+                    default: true
+                    type: boolean
+                type: object
+              skills:
+                description: Skills is the allowlist for Team defaults and per-Agent
+                  skill requests.
+                properties:
+                  allowed:
+                    items:
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: set
+                type: object
+            required:
+            - harnesses
+            type: object
+          status:
+            description: AgentPolicyStatus reports configuration acceptance, not Agent
+              enforcement.
+            properties:
+              conditions:
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              observedGeneration:
+                format: int64
+                minimum: 0
+                type: integer
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

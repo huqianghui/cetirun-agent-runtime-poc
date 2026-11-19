@@ -1,0 +1,43 @@
+{{- if .Values.publicTLS.enabled }}
+{{- if .Values.publicTLS.acme.stagingCertificateEnabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.publicTLS.acme.stagingCertificateName }}
+  namespace: {{ .Values.publicTLS.ingressNamespace }}
+  annotations:
+    {{- include "cetirun-platform.publicTLS.keep" . | nindent 4 }}
+  labels:
+    {{- include "cetirun-platform.publicTLS.labels" . | nindent 4 }}
+spec:
+  secretName: {{ .Values.publicTLS.acme.stagingSecretName }}
+  dnsNames: [{{ .Values.publicTLS.domain | quote }}]
+  issuerRef:
+    group: cert-manager.io
+    kind: Issuer
+    name: {{ .Values.publicTLS.acme.stagingIssuerName }}
+  privateKey:
+    rotationPolicy: Always
+{{- end }}
+{{- if .Values.publicTLS.acme.productionCertificateEnabled }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.publicTLS.acme.productionCertificateName }}
+  namespace: {{ .Values.publicTLS.ingressNamespace }}
+  annotations:
+    {{- include "cetirun-platform.publicTLS.keep" . | nindent 4 }}
+  labels:
+    {{- include "cetirun-platform.publicTLS.labels" . | nindent 4 }}
+spec:
+  secretName: {{ .Values.publicTLS.acme.productionSecretName }}
+  dnsNames: [{{ .Values.publicTLS.domain | quote }}]
+  issuerRef:
+    group: cert-manager.io
+    kind: Issuer
+    name: {{ .Values.publicTLS.acme.productionIssuerName }}
+  privateKey:
+    rotationPolicy: Always
+{{- end }}
+{{- end }}

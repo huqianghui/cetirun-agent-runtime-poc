@@ -1,0 +1,5 @@
+#!/bin/sh
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+set -eu
+exec /usr/local/lib/hermes-agent/.venv/bin/python -I -B /usr/local/lib/hermes-agent/cetirun_pm/runtime.py "$@"

@@ -1,0 +1,56 @@
+{{- if .Values.execRestriction.enabled }}
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: {{ include "cetirun.fullname" . }}-{{ .Release.Namespace }}-deny-exec
+  {{- with (.Values.runtime | default dict).bindings }}
+  ownerReferences:
+    - apiVersion: cetirun.microsoft.com/v1alpha1
+      kind: Agent
+      name: {{ .agentName | quote }}
+      uid: {{ .agentUID | quote }}
+      controller: true
+      blockOwnerDeletion: true
+  {{- end }}
+  labels:
+    {{- include "cetirun.labels" . | nindent 4 }}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CONNECT"]
+        resources: ["pods/exec"]
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: {{ .Release.Namespace }}
+  validations:
+    {{- if and (eq (include "cetirun.agent.type" .) "custom") .Values.ttyd.enabled }}
+    - expression: {{ required "Custom terminal requires a prepared exec rule" .Values.runtime.terminalExecRule | quote }}
+      reason: Forbidden
+    {{- else }}
+    - expression: "false"
+    {{- end }}
+      message: "kubectl exec is not allowed on openclaw pods"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: {{ include "cetirun.fullname" . }}-{{ .Release.Namespace }}-deny-exec
+  {{- with (.Values.runtime | default dict).bindings }}
+  ownerReferences:
+    - apiVersion: cetirun.microsoft.com/v1alpha1
+      kind: Agent
+      name: {{ .agentName | quote }}
+      uid: {{ .agentUID | quote }}
+      controller: true
+      blockOwnerDeletion: true
+  {{- end }}
+  labels:
+    {{- include "cetirun.labels" . | nindent 4 }}
+spec:
+  policyName: {{ include "cetirun.fullname" . }}-{{ .Release.Namespace }}-deny-exec
+  validationActions:
+    - Deny
+{{- end }}

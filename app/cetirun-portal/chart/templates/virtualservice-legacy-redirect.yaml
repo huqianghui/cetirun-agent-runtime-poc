@@ -1,0 +1,18 @@
+{{- if .Values.istio.legacyHost }}
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: {{ include "cetirun-portal.fullname" . }}-legacy-redirect
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cetirun-portal.labels" . | nindent 4 }}
+spec:
+  hosts:
+    - {{ .Values.istio.legacyHost | quote }}
+  gateways:
+    - {{ .Values.istio.gateway }}
+  http:
+    - redirect:
+        authority: {{ required "istio.host is required" .Values.istio.host | quote }}
+        redirectCode: 301
+{{- end }}

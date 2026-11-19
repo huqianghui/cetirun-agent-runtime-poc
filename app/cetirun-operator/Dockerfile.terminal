@@ -1,0 +1,51 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+ARG VERSION=dev
+ARG GIT_SHA=unknown
+
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/oss/go/microsoft/golang:1.27.3-1@sha256:25d710943a357c3b8669289f4f8af073f9c6c2a44a5b31341cf8997ea592dcba AS builder
+ARG VERSION
+ARG GIT_SHA
+ARG TARGETOS
+ARG TARGETARCH
+WORKDIR /workspace/app/cetirun-operator
+COPY app/cetirun-operator/go.mod app/cetirun-operator/go.sum ./
+COPY app/internal/go.mod app/internal/go.sum ../internal/
+RUN go mod download
+COPY app/cetirun-operator/ .
+COPY app/internal/ ../internal/
+RUN CGO_ENABLED=0 GOOS="${TARGETOS}" GOARCH="${TARGETARCH}" \
+    go build -trimpath -o /terminal ./cmd/terminal
+RUN CGO_ENABLED=0 GOOS="${TARGETOS}" GOARCH="${TARGETARCH}" \
+    go build -trimpath -o /loopback-probe ./cmd/loopback-probe
+
+ARG TTYD_VERSION=1.7.7
+ARG TTYD_SHA256_AMD64=8a217c968aba172e0dbf3f34447218dc015bc4d5e59bf51db2f2cd12b7be4f55
+ARG TTYD_SHA256_ARM64=b38acadd89d1d396a0f5649aa52c539edbad07f4bc7348b27b4f4b7219dd4165
+RUN case "${TARGETARCH}" in \
+      amd64) terminal_arch=x86_64; terminal_sha="${TTYD_SHA256_AMD64}" ;; \
+      arm64) terminal_arch=aarch64; terminal_sha="${TTYD_SHA256_ARM64}" ;; \
+      *) echo "Unsupported terminal architecture" >&2; exit 1 ;; \
+    esac && \
+    curl --fail --location --retry 5 --retry-delay 10 --retry-max-time 180 \
+      --connect-timeout 15 --max-time 120 \
+      "https://github.com/tsl0922/ttyd/releases/download/${TTYD_VERSION}/ttyd.${terminal_arch}" -o /ttyd && \
+    echo "${terminal_sha}  /ttyd" | sha256sum --check && chmod 755 /ttyd
+
+FROM mcr.microsoft.com/azurelinux/distroless/base:3.0@sha256:370fb2c55e7f0474fed019623cce6a8db65a4d70dedfca9219fc69d6c7627f89
+ARG VERSION
+ARG GIT_SHA
+LABEL org.opencontainers.image.source="https://github.com/Azure/CetiRun" \
+      org.opencontainers.image.description="CetiRun isolated Custom Agent terminal" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${GIT_SHA}" \
+      org.opencontainers.image.licenses="MIT"
+COPY --from=builder /terminal /terminal
+COPY --from=builder /loopback-probe /loopback-probe
+COPY --from=builder /ttyd /ttyd
+COPY app/cetirun-operator/third_party/ttyd.LICENSE /licenses/ttyd.LICENSE
+USER 65532:65532
+EXPOSE 7681
+ENTRYPOINT ["/terminal"]
+CMD ["serve"]

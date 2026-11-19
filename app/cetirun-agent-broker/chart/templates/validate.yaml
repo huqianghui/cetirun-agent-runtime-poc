@@ -1,0 +1,27 @@
+{{- $identity := .Values.agentIdentity -}}
+{{- range $name, $value := dict "tenantId" $identity.tenantId "encryptionClientId" $identity.encryptionClientId "keyVaultKeyUrl" $identity.keyVaultKeyUrl "redirectUri" $identity.redirectUri "portalOrigin" $identity.portalOrigin "portalBaseUrl" $identity.portalBaseUrl -}}
+{{- if empty $value }}{{ fail (printf "agentIdentity.%s is required" $name) }}{{ end -}}
+{{- end -}}
+{{- if and (or .Values.identityModes.azureAgent.enabled .Values.identityModes.microsoftDelegated.enabled) (empty $identity.blueprintClientId) }}{{ fail "agentIdentity.blueprintClientId is required for enabled Entra modes" }}{{ end -}}
+{{- if and .Values.identityModes.microsoftDelegated.enabled (empty $identity.authorizationClientId) }}{{ fail "agentIdentity.authorizationClientId is required for Microsoft delegated mode" }}{{ end -}}
+{{- if not (hasPrefix "https://" $identity.redirectUri) }}{{ fail "agentIdentity.redirectUri must use HTTPS" }}{{ end -}}
+{{- if not (hasPrefix "https://" $identity.portalOrigin) }}{{ fail "agentIdentity.portalOrigin must use HTTPS" }}{{ end -}}
+{{- if not (hasPrefix "https://" $identity.portalBaseUrl) }}{{ fail "agentIdentity.portalBaseUrl must use HTTPS" }}{{ end -}}
+{{- if not (hasPrefix "https://" $identity.keyVaultKeyUrl) }}{{ fail "agentIdentity.keyVaultKeyUrl must use HTTPS" }}{{ end -}}
+{{- if not .Values.serviceAccount.create }}{{ fail "Agent Identity Broker requires a dedicated ServiceAccount" }}{{ end -}}
+{{- if not .Values.istio.enabled }}{{ fail "Agent Identity Broker requires Istio mTLS authorization" }}{{ end -}}
+{{- if not .Values.istio.sidecarInjection }}{{ fail "istio.sidecarInjection must be true to confirm that the release namespace has injection enabled" }}{{ end -}}
+{{- if empty .Values.istio.revision }}{{ fail "istio.revision is required for revision-based sidecar injection" }}{{ end -}}
+{{- if or (empty .Values.operator.namespace) (empty .Values.operator.serviceAccount) }}{{ fail "operator namespace and ServiceAccount are required" }}{{ end -}}
+{{- if or (empty .Values.portal.namespace) (empty .Values.portal.serviceAccount) }}{{ fail "portal namespace and ServiceAccount are required" }}{{ end -}}
+{{- if or (empty .Values.toolService.namespace) (empty .Values.toolService.serviceAccount) }}{{ fail "tool service namespace and ServiceAccount are required" }}{{ end -}}
+{{- if and .Values.tls.enabled (or (empty .Values.tls.secretName) (empty .Values.tls.certKey) (empty .Values.tls.keyKey) (empty .Values.tls.clientCAKey)) }}{{ fail "tls.secretName, certKey, keyKey, and clientCAKey are required when TLS is enabled" }}{{ end -}}
+{{- if empty .Values.workloadTokenAudience }}{{ fail "workloadTokenAudience is required" }}{{ end -}}
+{{- $app := .Values.providers.github.app -}}
+{{- if or $app.id $app.slug $app.clientId $app.credentialsSecretName -}}
+{{- range $name, $value := dict "id" $app.id "slug" $app.slug "clientId" $app.clientId "credentialsSecretName" $app.credentialsSecretName "clientSecretKey" $app.clientSecretKey "privateKeyKey" $app.privateKeyKey -}}
+{{- if empty $value }}{{ fail (printf "providers.github.app.%s is required when GitHub App is configured" $name) }}{{ end -}}
+{{- end -}}
+{{- if not (regexMatch "^[1-9][0-9]*$" (toString $app.id)) }}{{ fail "providers.github.app.id must be a positive integer" }}{{ end -}}
+{{- if not (regexMatch "^[a-z0-9][a-z0-9-]*$" $app.slug) }}{{ fail "providers.github.app.slug must be a GitHub App slug" }}{{ end -}}
+{{- end -}}

@@ -1,0 +1,663 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "title": "CetiRun AI Gateway Helm Chart Values Schema",
+    "description": "JSON Schema for validating CetiRun AI Gateway chart values",
+    "properties": {
+        "global": {
+            "type": "object",
+            "description": "Values propagated by the cetirun-platform umbrella chart",
+            "properties": {
+                "registry": {
+                    "type": "string",
+                    "description": "Registry host override for the Gateway image",
+                    "default": ""
+                },
+                "version": {
+                    "type": "string",
+                    "description": "Image tag override",
+                    "default": ""
+                }
+            }
+        },
+        "replicaCount": {
+            "type": "integer",
+            "description": "Number of Gateway replicas. Above 1 requires Redis: the bundled Valkey or redis.host.",
+            "minimum": 1,
+            "default": 2
+        },
+        "podDisruptionBudget": {
+            "type": "object",
+            "description": "A PodDisruptionBudget for the Gateway pods with maxUnavailable 1, created only when replicaCount is above 1.",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Create the PodDisruptionBudget when replicaCount is above 1",
+                    "default": true
+                }
+            }
+        },
+        "operatorIntegration": {
+            "type": "boolean",
+            "description": "Serve CetiRun Agents: derive shared-model deployment/access-group bindings from chart configuration, reserve the copilot/ model-name prefix, in which Team routers name per-Agent GitHub Copilot models, and check router fallback targets against the caller's key (general_settings.enforce_fallback_model_access). The cetirun-platform chart turns it on.",
+            "default": false
+        },
+        "image": {
+            "type": "object",
+            "description": "Gateway container image: open-source LiteLLM on Azure Linux, built from app/cetirun-ai-gateway",
+            "properties": {
+                "repository": {
+                    "type": "string",
+                    "description": "Image repository. global.registry, when set, replaces the registry host.",
+                    "default": "mcr.microsoft.com/aks/ai-runtime/cetirun/cetirun-ai-gateway"
+                },
+                "pullPolicy": {
+                    "type": "string",
+                    "description": "Image pull policy",
+                    "enum": [
+                        "Always",
+                        "IfNotPresent",
+                        "Never"
+                    ],
+                    "default": "IfNotPresent"
+                },
+                "tag": {
+                    "type": "string",
+                    "description": "Image tag. Empty uses global.version, then the chart appVersion.",
+                    "default": ""
+                },
+                "digest": {
+                    "type": "string",
+                    "description": "Image digest. When set, the reference is pinned to exactly this image.",
+                    "default": ""
+                }
+            },
+            "required": [
+                "repository",
+                "pullPolicy"
+            ]
+        },
+        "imagePullSecrets": {
+            "type": "array",
+            "description": "Image pull secrets for private registries",
+            "items": {
+                "type": "object"
+            },
+            "default": []
+        },
+        "nameOverride": {
+            "type": "string",
+            "description": "String to override the default name",
+            "default": ""
+        },
+        "fullnameOverride": {
+            "type": "string",
+            "description": "String to override the default fullname",
+            "default": ""
+        },
+        "models": {
+            "type": "array",
+            "description": "Models exposed by this Gateway, in LiteLLM model_list format. The list can be empty. With operatorIntegration, AgentPolicy shared-model bindings require chart-configured models; model_info.id and cetirun-model- access groups are chart-owned. Names beginning with cetirun- are reserved, and so are names beginning with copilot/ while operatorIntegration is on.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "model_name": {
+                        "type": "string",
+                        "description": "Name a client asks for",
+                        "minLength": 1
+                    },
+                    "litellm_params": {
+                        "type": "object",
+                        "description": "Parameters passed to LiteLLM, including the provider-prefixed model and a credential reference",
+                        "properties": {
+                            "model": {
+                                "type": "string",
+                                "description": "Provider-prefixed model sent upstream",
+                                "minLength": 1
+                            }
+                        },
+                        "required": [
+                            "model"
+                        ]
+                    },
+                    "model_info": {
+                        "type": "object",
+                        "description": "Optional metadata, including per-token pricing"
+                    }
+                },
+                "required": [
+                    "model_name",
+                    "litellm_params"
+                ]
+            }
+        },
+        "blockUnpricedModels": {
+            "type": "boolean",
+            "description": "Refuse requests to models whose price LiteLLM does not know. A model missing from the price table costs zero, and budget checks are skipped for zero-cost models, so a budget would silently not apply. Azure OpenAI deployment names are not in that table.",
+            "default": true
+        },
+        "priceTable": {
+            "type": "string",
+            "description": "Where LiteLLM's price table comes from. remote downloads the current table when a Gateway pod starts, falling back to the copy in the image; bundled uses only the copy in the image (LITELLM_LOCAL_MODEL_COST_MAP), so new models and price changes arrive only with a new image.",
+            "enum": [
+                "remote",
+                "bundled"
+            ],
+            "default": "remote"
+        },
+        "budgetExceededStatusCode": {
+            "type": "integer",
+            "description": "HTTP status of a request refused because its key's or team's budget is exhausted (LiteLLM's budget_exceeded_status_code). 402 makes agents report exhausted credits; 422 a malformed request; 429 a rate limit they retry.",
+            "enum": [
+                402,
+                422,
+                429
+            ],
+            "default": 402
+        },
+        "tpmReservation": {
+            "type": "boolean",
+            "description": "Whether LiteLLM reserves a request's input plus its maximum output tokens against a key's or team's tokens-per-minute limit before calling the model (LITELLM_TPM_TOKEN_RESERVATION_ENABLED). false counts the tokens of finished requests and refuses requests once the minute's count has reached the limit.",
+            "default": false
+        },
+        "router": {
+            "type": "object",
+            "description": "How a request reaches one of the deployments that serve its model_name, and what happens when that deployment fails. Rendered into LiteLLM's router_settings and general_settings.",
+            "properties": {
+                "routingStrategy": {
+                    "type": "string",
+                    "description": "How LiteLLM chooses one of a model's deployments (router_settings.routing_strategy). Only the strategies that run the auto routers and the pre-call checks are accepted.",
+                    "enum": [
+                        "simple-shuffle",
+                        "least-busy",
+                        "latency-based-routing",
+                        "usage-based-routing-v2",
+                        "cost-based-routing"
+                    ],
+                    "default": "simple-shuffle"
+                },
+                "failover": {
+                    "type": "boolean",
+                    "description": "Send a request that failed on one deployment once more, to another deployment of the same model_name (LiteLLM's enable_weighted_failover). Not a retry of the failed deployment.",
+                    "default": true
+                },
+                "continuationAffinity": {
+                    "type": "boolean",
+                    "description": "Send a Responses API request that continues an earlier response (previous_response_id) to the deployment that produced it.",
+                    "default": true
+                },
+                "encryptedContentAffinity": {
+                    "type": "boolean",
+                    "description": "Keep each Responses API conversation on the deployment that encrypted its reasoning, or one with the same endpoint and key (LiteLLM's encrypted_content_affinity). When that deployment fails, the conversation's requests fail with it until it is in cooldown or marked unhealthy by the health checks; only then does the conversation move, without its encrypted reasoning.",
+                    "default": true
+                },
+                "deploymentAffinity": {
+                    "type": "boolean",
+                    "description": "Keep each virtual key on the deployment that served its last request to a model, for an hour (LiteLLM's deployment_affinity). Off for models whose deployments set litellm_params.order.",
+                    "default": true
+                },
+                "fallbacks": {
+                    "type": "array",
+                    "description": "Models to try when a request to a model fails: a list of maps from a model_name to the model_names to try, in order.",
+                    "items": {
+                        "type": "object",
+                        "minProperties": 1,
+                        "additionalProperties": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "minLength": 1
+                            }
+                        }
+                    },
+                    "default": []
+                },
+                "contextWindowFallbacks": {
+                    "type": "array",
+                    "description": "Models to try when a request is too long for the model's context window, in the format of fallbacks.",
+                    "items": {
+                        "type": "object",
+                        "minProperties": 1,
+                        "additionalProperties": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "minLength": 1
+                            }
+                        }
+                    },
+                    "default": []
+                },
+                "healthChecks": {
+                    "type": "object",
+                    "description": "Background probes of every deployment, including those added through the console, and routing only to those that answered. The operator's per-Agent GitHub Copilot routes are probed only when the operator's aiGateway.copilotProxy.healthChecks.enabled is on. With Redis, one replica probes for all.",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Run the probes and route by their results",
+                            "default": true
+                        },
+                        "intervalSeconds": {
+                            "type": "integer",
+                            "description": "Seconds between probes",
+                            "minimum": 30,
+                            "default": 300
+                        },
+                        "concurrency": {
+                            "type": "integer",
+                            "description": "Probes in flight at once (general_settings.health_check_concurrency)",
+                            "minimum": 1,
+                            "default": 8
+                        }
+                    }
+                }
+            }
+        },
+        "providerCredentials": {
+            "type": "object",
+            "description": "Provider API keys, surfaced as environment variables and referenced from models as os.environ/NAME",
+            "properties": {
+                "existingSecret": {
+                    "type": "string",
+                    "description": "Name of an administrator-owned Secret holding provider keys",
+                    "default": ""
+                },
+                "inline": {
+                    "type": "object",
+                    "description": "Inline credentials, for evaluation only",
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "default": {}
+                }
+            }
+        },
+        "auth": {
+            "type": "object",
+            "description": "Gateway platform credentials, distinct from provider keys and agent virtual keys",
+            "properties": {
+                "masterKey": {
+                    "type": "object",
+                    "description": "Admin API key for the LiteLLM management API",
+                    "properties": {
+                        "existingSecret": {
+                            "type": "string",
+                            "default": ""
+                        },
+                        "key": {
+                            "type": "string",
+                            "default": "master-key"
+                        }
+                    }
+                },
+                "saltKey": {
+                    "type": "object",
+                    "description": "Encrypts provider credentials stored in the database. Must never change: there is no rotation path, and losing it makes stored models unreadable.",
+                    "properties": {
+                        "existingSecret": {
+                            "type": "string",
+                            "default": ""
+                        },
+                        "key": {
+                            "type": "string",
+                            "default": "salt-key"
+                        }
+                    }
+                },
+                "adminUI": {
+                    "type": "object",
+                    "description": "LiteLLM built-in admin console",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "default": true
+                        },
+                        "rootPath": {
+                            "type": "string",
+                            "default": "",
+                            "pattern": "^(/[A-Za-z0-9._~-]+)*$"
+                        },
+                        "username": {
+                            "type": "string",
+                            "default": "admin"
+                        },
+                        "passwordSecret": {
+                            "type": "object",
+                            "properties": {
+                                "existingSecret": {
+                                    "type": "string",
+                                    "default": ""
+                                },
+                                "key": {
+                                    "type": "string",
+                                    "default": "ui-password"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "postgresql": {
+            "type": "object",
+            "description": "PostgreSQL holds virtual keys, spend records and models added through the console. Bundled by default, or your own through urlSecret.",
+            "properties": {
+                "bundled": {
+                    "type": "object",
+                    "description": "Single-instance PostgreSQL deployed with the Gateway, on a persistent volume",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "default": true
+                        },
+                        "image": {
+                            "$ref": "#/definitions/dependencyImage"
+                        },
+                        "persistence": {
+                            "type": "object",
+                            "properties": {
+                                "size": {
+                                    "type": "string",
+                                    "default": "100Gi"
+                                },
+                                "storageClass": {
+                                    "type": "string",
+                                    "default": ""
+                                }
+                            }
+                        },
+                        "resources": {
+                            "type": "object",
+                            "default": {}
+                        }
+                    },
+                    "required": [
+                        "enabled"
+                    ]
+                },
+                "urlSecret": {
+                    "type": "object",
+                    "description": "Secret holding the connection URL of your own PostgreSQL, used when bundled.enabled is false",
+                    "properties": {
+                        "existingSecret": {
+                            "type": "string",
+                            "default": ""
+                        },
+                        "key": {
+                            "type": "string",
+                            "default": "database-url"
+                        }
+                    },
+                    "required": [
+                        "key"
+                    ]
+                }
+            },
+            "required": [
+                "bundled",
+                "urlSecret"
+            ]
+        },
+        "redis": {
+            "type": "object",
+            "description": "Coordinates budget and rate-limit state between replicas. Required above one replica. Bundled Valkey by default, or your own through host.",
+            "properties": {
+                "bundled": {
+                    "type": "object",
+                    "description": "Single-instance Valkey deployed with the Gateway, password protected, no persistence",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "default": true
+                        },
+                        "image": {
+                            "$ref": "#/definitions/dependencyImage"
+                        },
+                        "resources": {
+                            "type": "object",
+                            "default": {}
+                        }
+                    },
+                    "required": [
+                        "enabled"
+                    ]
+                },
+                "host": {
+                    "type": "string",
+                    "default": ""
+                },
+                "port": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535,
+                    "default": 6379
+                },
+                "passwordSecret": {
+                    "type": "object",
+                    "description": "Secret holding the Redis password: your own server's, or the bundled Valkey's in place of a generated one. Required for the bundled Valkey when the chart is rendered with helm template.",
+                    "properties": {
+                        "existingSecret": {
+                            "type": "string",
+                            "default": ""
+                        },
+                        "key": {
+                            "type": "string",
+                            "default": "redis-password"
+                        }
+                    }
+                }
+            },
+            "required": [
+                "bundled"
+            ]
+        },
+        "requestLog": {
+            "type": "object",
+            "description": "One JSON line of metadata on stdout for every model call, for the cluster's container log collection. No request or response content. Registered by the image's entrypoint, not in LiteLLM's configuration.",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Write the line for each call",
+                    "default": true
+                }
+            }
+        },
+        "spendLogs": {
+            "type": "object",
+            "description": "LiteLLM's own row per call in LiteLLM_SpendLogs, read by the console's request log pages, kept for retention. Spend, budgets and daily usage totals are kept either way. Turned off only together with the request log.",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Write a row to LiteLLM_SpendLogs for each call. false needs requestLog.enabled and storePrompts=false.",
+                    "default": true
+                },
+                "storePrompts": {
+                    "type": "boolean",
+                    "description": "Store prompts and responses in LiteLLM_SpendLogs by default. true requires spendLogs.enabled. Both true and false render general_settings.store_prompts_in_spend_logs; database settings can override it. The rows use spendLogs.retention. Stdout request logs remain metadata-only.",
+                    "default": true
+                },
+                "retention": {
+                    "type": "string",
+                    "description": "How long LiteLLM keeps the spend log rows and the stored health check results (maximum_spend_logs_retention_period): a number with h, d, w or mo. Empty keeps them forever.",
+                    "pattern": "^([1-9][0-9]*(h|d|w|mo))?$",
+                    "default": "7d"
+                }
+            }
+        },
+        "metrics": {
+            "type": "object",
+            "description": "LiteLLM's Prometheus metrics, served on a separate port without authentication",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Serve the metrics",
+                    "default": false
+                },
+                "port": {
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
+                    "description": "Port of the metrics endpoint, at /metrics. Unset, it is 9090, or 9091 when service.port is 9090. Must differ from service.port.",
+                    "minimum": 1,
+                    "maximum": 65535,
+                    "default": null
+                },
+                "excludeLabels": {
+                    "type": "array",
+                    "description": "Labels left out of every metric",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "default": [
+                        "client_ip",
+                        "user_agent",
+                        "user_email"
+                    ]
+                },
+                "podMonitor": {
+                    "type": "object",
+                    "description": "A PodMonitor for the Gateway pods, created only when the cluster serves its API",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "default": false
+                        },
+                        "apiVersion": {
+                            "type": "string",
+                            "description": "azmonitoring.coreos.com/v1 for Azure Monitor managed Prometheus, monitoring.coreos.com/v1 for the Prometheus Operator",
+                            "enum": [
+                                "azmonitoring.coreos.com/v1",
+                                "monitoring.coreos.com/v1"
+                            ],
+                            "default": "azmonitoring.coreos.com/v1"
+                        },
+                        "interval": {
+                            "type": "string",
+                            "description": "Scrape interval",
+                            "minLength": 1,
+                            "default": "30s"
+                        },
+                        "labels": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            },
+                            "default": {}
+                        }
+                    }
+                }
+            }
+        },
+        "service": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "ClusterIP",
+                        "NodePort",
+                        "LoadBalancer"
+                    ],
+                    "default": "ClusterIP"
+                },
+                "port": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535,
+                    "default": 4000
+                }
+            }
+        },
+        "serviceAccount": {
+            "type": "object",
+            "properties": {
+                "create": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "annotations": {
+                    "type": "object",
+                    "default": {}
+                },
+                "name": {
+                    "type": "string",
+                    "default": ""
+                }
+            }
+        },
+        "migrations": {
+            "type": "object",
+            "description": "Apply database migrations from an init container in each Gateway pod; pods take turns",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "default": true
+                }
+            }
+        },
+        "podAnnotations": {
+            "type": "object",
+            "default": {}
+        },
+        "podSecurityContext": {
+            "type": "object"
+        },
+        "securityContext": {
+            "type": "object"
+        },
+        "resources": {
+            "type": "object",
+            "default": {}
+        },
+        "livenessProbe": {
+            "type": "object"
+        },
+        "readinessProbe": {
+            "type": "object"
+        },
+        "terminationGracePeriodSeconds": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 600,
+            "description": "Total Pod termination budget; the proxy uses 90% to finish accepted requests and reserves 10% for shutdown cleanup"
+        },
+        "nodeSelector": {
+            "type": "object",
+            "default": {}
+        },
+        "tolerations": {
+            "type": "array",
+            "default": []
+        },
+        "affinity": {
+            "type": "object",
+            "default": {}
+        }
+    },
+    "definitions": {
+        "dependencyImage": {
+            "type": "object",
+            "description": "Image of a bundled dependency, pinned by tag and optional digest",
+            "properties": {
+                "repository": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "tag": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "digest": {
+                    "type": "string",
+                    "default": ""
+                }
+            },
+            "required": [
+                "repository",
+                "tag"
+            ]
+        }
+    }
+}

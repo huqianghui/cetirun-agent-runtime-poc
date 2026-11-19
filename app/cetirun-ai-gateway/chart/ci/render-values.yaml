@@ -1,0 +1,34 @@
+# Test values for offline chart rendering. Not a deployment configuration.
+#
+# The chart's defaults bundle PostgreSQL and Valkey. These values exercise the
+# other path, the one a production install takes: an external database and an
+# external Redis, both through administrator-owned Secrets.
+replicaCount: 2
+
+models:
+  - model_name: gpt-4o
+    litellm_params:
+      model: azure/my-gpt-4o-deployment
+      api_base: https://example.openai.azure.com/
+      api_key: os.environ/AZURE_PROD_KEY
+  - model_name: claude-sonnet
+    litellm_params:
+      model: anthropic/claude-sonnet-4
+      api_key: os.environ/ANTHROPIC_KEY
+
+providerCredentials:
+  existingSecret: gateway-provider-keys
+
+postgresql:
+  bundled:
+    enabled: false
+  urlSecret:
+    existingSecret: gateway-database
+
+redis:
+  bundled:
+    enabled: false
+  host: gateway-redis.example.invalid
+  port: 6379
+  passwordSecret:
+    existingSecret: gateway-redis

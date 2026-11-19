@@ -1,0 +1,17 @@
+apiVersion: cetirun.microsoft.com/v1alpha1
+kind: Team
+metadata:
+  name: aks
+spec:
+  memberContext:
+    role: "AKS Engineer"
+    description:
+      - "Works on Azure Kubernetes Service (AKS)"
+      - "Likely deals with oncall, incidents, Kusto queries, TSG docs, and RP/node/networking issues"
+  # Optional: shared Azure Blob NFS storage holding team-wide skills tree.
+  # When set, the operator auto-provisions a PV+PVC per instance namespace
+  # and includes its skills in the read-only $HOME/.agents/skills view.
+  # skillStorage:
+  #   resourceGroup: my-rg
+  #   storageAccount: myskillsaccount
+  #   containerName: skills

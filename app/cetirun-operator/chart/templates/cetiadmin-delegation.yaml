@@ -1,0 +1,445 @@
+{{/*
+Copyright (c) Microsoft Corporation.
+Licensed under the MIT License.
+Generated from internal/cetiadmin/permissions.go. Do not edit by hand.
+Update: CETIRUN_UPDATE_CETIADMIN_RBAC=true go test ./internal/cetiadmin -run '^TestCetiAdminDelegationManifest$'
+*/}}
+{{- if include "cetirun-operator.cetiadminAdmission" . }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cetirun-cetiadmin-delegation
+rules:
+  - apiGroups:
+    - ""
+    resources:
+    - configmaps
+    - endpoints
+    - events
+    - limitranges
+    - namespaces
+    - nodes
+    - persistentvolumeclaims
+    - persistentvolumes
+    - pods
+    - resourcequotas
+    - serviceaccounts
+    - services
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - acn.azure.com
+    resources:
+    - nodeinfos
+    - nodenetworkconfigs
+    - podnetworkconfigs
+    - podnetworkinstanceinfos
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - admissionregistration.k8s.io
+    resources:
+    - mutatingadmissionpolicies
+    - mutatingadmissionpolicybindings
+    - mutatingwebhookconfigurations
+    - validatingadmissionpolicies
+    - validatingadmissionpolicybindings
+    - validatingwebhookconfigurations
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - aks.clusterconfig.azure.com
+    resources:
+    - aksnodeclasses
+    - nodemanagements
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - apiextensions.k8s.io
+    resources:
+    - customresourcedefinitions
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - apiregistration.k8s.io
+    resources:
+    - apiservices
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - apps
+    resources:
+    - controllerrevisions
+    - daemonsets
+    - deployments
+    - replicasets
+    - statefulsets
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - autoscaling
+    resources:
+    - horizontalpodautoscalers
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - azmonitoring.coreos.com
+    resources:
+    - podmonitors
+    - probes
+    - prometheusrules
+    - servicemonitors
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - batch
+    resources:
+    - cronjobs
+    - jobs
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - certificates.k8s.io
+    resources:
+    - certificatesigningrequests
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - cetirun.microsoft.com
+    resources:
+    - agentpolicies
+    - agents
+    - sandboxes
+    - teams
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - cilium.io
+    resources:
+    - ciliumclusterwideenvoyconfigs
+    - ciliumclusterwidenetworkpolicies
+    - ciliumendpoints
+    - ciliumendpointslices
+    - ciliumenvoyconfigs
+    - ciliumidentities
+    - ciliumnetworkpolicies
+    - ciliumnodes
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - clusterconfig.azure.com
+    resources:
+    - azureclusteridentities
+    - extensions
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - config.gatekeeper.sh
+    resources:
+    - configs
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - coordination.k8s.io
+    resources:
+    - leases
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - discovery.k8s.io
+    resources:
+    - endpointslices
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - events.k8s.io
+    resources:
+    - events
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - flowcontrol.apiserver.k8s.io
+    resources:
+    - flowschemas
+    - prioritylevelconfigurations
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - gateway.networking.k8s.io
+    resources:
+    - gatewayclasses
+    - gateways
+    - grpcroutes
+    - httproutes
+    - referencegrants
+    - tcproutes
+    - tlsroutes
+    - udproutes
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - networking.istio.io
+    resources:
+    - destinationrules
+    - envoyfilters
+    - gateways
+    - serviceentries
+    - sidecars
+    - virtualservices
+    - workloadentries
+    - workloadgroups
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - networking.k8s.io
+    resources:
+    - ingressclasses
+    - ingresses
+    - ipaddresses
+    - networkpolicies
+    - servicecidrs
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - node.k8s.io
+    resources:
+    - runtimeclasses
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - policy
+    resources:
+    - poddisruptionbudgets
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - rbac.authorization.k8s.io
+    resources:
+    - clusterrolebindings
+    - clusterroles
+    - rolebindings
+    - roles
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - scheduling.k8s.io
+    resources:
+    - priorityclasses
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - security.istio.io
+    resources:
+    - authorizationpolicies
+    - peerauthentications
+    - requestauthentications
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - snapshot.storage.k8s.io
+    resources:
+    - volumesnapshotclasses
+    - volumesnapshotcontents
+    - volumesnapshots
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - status.gatekeeper.sh
+    resources:
+    - constraintpodstatuses
+    - constrainttemplatepodstatuses
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - storage.k8s.io
+    resources:
+    - csidrivers
+    - csinodes
+    - csistoragecapacities
+    - storageclasses
+    - volumeattachments
+    - volumeattributesclasses
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - telemetry.istio.io
+    resources:
+    - telemetries
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - templates.gatekeeper.sh
+    resources:
+    - constrainttemplates
+    verbs:
+    - get
+    - list
+    - watch
+  - nonResourceURLs:
+    - /healthz
+    - /readyz
+    - /livez
+    - /metrics
+    - /version
+    verbs:
+    - get
+  - apiGroups:
+    - cetirun.microsoft.com
+    resources:
+    - agents
+    verbs:
+    - get
+    - list
+    - watch
+    - create
+    - update
+    - patch
+  - apiGroups:
+    - ""
+    resources:
+    - secrets
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
+    - ""
+    resources:
+    - pods/log
+    verbs:
+    - get
+  - apiGroups:
+    - ""
+    resources:
+    - events
+    verbs:
+    - create
+    - update
+    - patch
+  - apiGroups:
+    - events.k8s.io
+    resources:
+    - events
+    verbs:
+    - create
+    - update
+    - patch
+  - apiGroups:
+    - ""
+    resources:
+    - persistentvolumeclaims
+    verbs:
+    - update
+    - patch
+  - apiGroups:
+    - ""
+    resources:
+    - pods/exec
+    verbs:
+    - create
+  - apiGroups:
+    - ""
+    resources:
+    - pods
+    verbs:
+    - delete
+  - apiGroups:
+    - ""
+    resources:
+    - secrets
+    - configmaps
+    verbs:
+    - create
+    - update
+    - patch
+  - apiGroups:
+    - ""
+    resources:
+    - services
+    verbs:
+    - update
+    - patch
+  - apiGroups:
+    - apps
+    resources:
+    - statefulsets
+    - deployments
+    verbs:
+    - update
+    - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cetirun-cetiadmin-delegation
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cetirun-cetiadmin-delegation
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.serviceAccount.name | quote }}
+    namespace: {{ .Values.namespace | quote }}
+{{- end }}

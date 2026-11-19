@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cetirun.configMapName" . }}
+  labels:
+    {{- include "cetirun.labels" . | nindent 4 }}
+data:
+  {{- if .Values.cetiadmin.enabled }}
+  cetiadmin-runtime.json: {{ .Values.cetiadmin.runtimeConfig | fromJson | toJson | quote }}
+  cetiadmin-kubeconfig.json: {{ .Values.cetiadmin.kubeconfig | fromJson | toJson | quote }}
+  hermes-entrypoint.sh: |
+{{ .Files.Get "agents/hermes/bootstrap/hermes-entrypoint.sh" | indent 4 }}
+  {{- end }}
+  {{- if (.Values.sandboxWorkload | default dict).egressSNI }}
+  proxy-health.cjs: |
+{{ .Files.Get "configs/proxy-health.cjs" | indent 4 }}
+  {{- end }}
+  {{- if (.Values.sandboxWorkload | default dict).ingressMTLS }}
+  ingress-entrypoint.sh: |
+{{- if eq (include "cetirun.agent.type" .) "hermes" }}
+{{ .Files.Get "agents/hermes/bootstrap/hermes-entrypoint.sh" | indent 4 }}
+{{- else }}
+{{ .Files.Get "agents/openclaw/bootstrap/entrypoint.sh" | indent 4 }}
+{{- end }}
+  ingress-health.cjs: |
+{{ .Files.Get "configs/ingress-health.cjs" | indent 4 }}
+  {{- if .Values.desktop.enabled }}
+  desktop-ingress-entrypoint.sh: |
+{{ .Files.Get "configs/desktop-entrypoint.sh" | indent 4 }}
+  desktop-ingress-probe.py: |
+{{ .Files.Get "configs/desktop-ingress-probe.py" | indent 4 }}
+  {{- end }}
+  {{- end }}
+  init-home-common.sh: |
+{{ .Files.Get "configs/init-home-common.sh" | indent 4 }}
+{{ include "cetirun.agent.configmapData" . }}

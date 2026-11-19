@@ -1,0 +1,28 @@
+# Reference only: fill all placeholders, qualify the image and use an existing
+# approved Team/Sandbox. This offline mock is not a qualified model runtime.
+apiVersion: cetirun.microsoft.com/v1alpha1
+kind: Agent
+metadata:
+  name: coding-runtime-example
+spec:
+  team: "<existing-approved-team>"
+  sandboxRef: "<existing-approved-sandbox>"
+  user:
+    alias: "<your-user-alias>"
+    displayName: "<your-display-name>"
+  modelAccess:
+    sharedModels: true
+    githubCopilot: false
+  agent:
+    type: custom
+    image: "registry.example.com/team/coding-runtime@sha256:<qualified-image-digest>"
+    username: vibe
+    port: 8080
+    webUI: false
+  helm:
+    version: "<compatible-chart-version>"
+    values:
+      ttyd:
+        enabled: true
+      desktop:
+        enabled: false

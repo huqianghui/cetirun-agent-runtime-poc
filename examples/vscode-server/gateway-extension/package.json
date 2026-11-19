@@ -1,0 +1,19 @@
+{
+  "name": "cetirun-gateway-config",
+  "displayName": "CetiRun AI Gateway",
+  "description": "Configure the instance AI Gateway in native Copilot Chat.",
+  "publisher": "cetirun",
+  "version": "0.1.5",
+  "license": "MIT",
+  "engines": { "vscode": "^1.139.0" },
+  "main": "./extension.cjs",
+  "extensionKind": ["workspace"],
+  "activationEvents": ["onStartupFinished"],
+  "capabilities": { "untrustedWorkspaces": { "supported": false } },
+  "contributes": {
+    "commands": [{
+      "command": "cetirun.configureGateway",
+      "title": "CetiRun: Configure AI Gateway Models"
+    }]
+  }
+}

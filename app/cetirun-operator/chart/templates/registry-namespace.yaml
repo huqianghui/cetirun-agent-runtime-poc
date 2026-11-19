@@ -1,0 +1,15 @@
+{{- $namespace := default .Values.registryCredentials.namespace .Values.global.registryCredentialNamespace }}
+{{- if or (eq $namespace "cetirun-credentials") (eq $namespace .Values.namespace) (hasPrefix "kube-" $namespace) }}
+{{- fail "registryCredentials.namespace must be separate from platform and Broker namespaces" }}
+{{- end }}
+{{- if .Values.registryCredentials.createNamespace }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ $namespace | quote }}
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    app.kubernetes.io/part-of: cetirun
+    cetirun.microsoft.com/credential-purpose: registry
+{{- end }}

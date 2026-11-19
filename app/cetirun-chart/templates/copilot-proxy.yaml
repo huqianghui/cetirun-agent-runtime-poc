@@ -1,0 +1,222 @@
+{{- /*
+Per-Agent GitHub Copilot proxy, set up by the CetiRun operator for Agents on
+the platform AI Gateway.
+
+A small LiteLLM in its own Pod holds the owner's GitHub sign-in, which the
+Portal writes into the token Secret; the proxy waits for it. Only the Gateway
+reaches the proxy, with the proxy's master key; the Agent reaches Copilot
+models through the Gateway with its own virtual key, so the Gateway's budget
+and usage records cover them. It is deliberately not a sidecar of the Agent:
+in the Agent's Pod the proxy would be reachable on localhost, bypassing the
+Gateway. It does not run on the Agent's Kata runtime and is not selected by
+the Agent's Service, NetworkPolicy or Istio Sidecar.
+*/}}
+{{- if and (ne (include "cetirun.agent.type" .) "custom") (dig "copilotProxy" "enabled" false (.Values.aiGateway | default dict)) }}
+{{- $name := include "cetirun.copilotProxyName" . }}
+{{- $proxy := .Values.aiGateway.copilotProxy }}
+{{- $config := include "cetirun.copilotProxyConfig" . }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "cetirun.copilotProxyLabels" . | nindent 4 }}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "cetirun.copilotProxyLabels" . | nindent 4 }}
+data:
+  config.yaml: |
+{{ $config | indent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "cetirun.copilotProxyLabels" . | nindent 4 }}
+spec:
+  replicas: {{ if ne $proxy.replicaCount nil }}{{ $proxy.replicaCount }}{{ else if eq (int .Values.replicaCount) 0 }}0{{ else }}1{{ end }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "cetirun.copilotProxySelectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "cetirun.copilotProxyLabels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ $config | sha256sum }}
+        {{- /* The proxy reads its master key when it starts: a new key restarts it. */}}
+        {{- with $proxy.masterKeyId }}
+        cetirun.microsoft.com/copilot-proxy-key-id: {{ . | quote }}
+        {{- end }}
+        {{- /* The proxy keeps the Copilot token it exchanged until that token
+        expires, without reading the GitHub token again: a new sign-in, maybe
+        of another account, restarts it with an empty cache. */}}
+        {{- with $proxy.signInGeneration }}
+        cetirun.microsoft.com/copilot-sign-in-generation: {{ . | quote }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ $name }}
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: proxy
+          image: {{ $proxy.image | quote }}
+          imagePullPolicy: IfNotPresent
+          args: ["copilot-proxy", "--config", "/etc/litellm/config.yaml", "--port", "4000"]
+          env:
+            # Container Insights copies a container's environment, the proxy's
+            # key included, unless collection is off for it.
+            - name: AZMON_COLLECT_ENV
+              value: "False"
+            - name: LITELLM_MASTER_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $proxy.masterKeySecretName }}
+                  key: master-key
+            - name: COPILOT_TOKEN_FILE
+              value: /var/run/copilot/access-token
+            - name: GITHUB_COPILOT_TOKEN_DIR
+              value: /var/cache/copilot
+          ports:
+            - name: http
+              containerPort: 4000
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /health/liveliness
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          {{- with $proxy.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/litellm
+              readOnly: true
+            - name: token
+              mountPath: /var/run/copilot
+              readOnly: true
+            - name: cache
+              mountPath: /var/cache/copilot
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: config
+          configMap:
+            name: {{ $name }}
+        # Mounted whole rather than by key, so a token the Portal writes after
+        # the Pod started appears without a restart.
+        - name: token
+          secret:
+            secretName: {{ $proxy.tokenSecretName }}
+            optional: true
+        - name: cache
+          emptyDir:
+            sizeLimit: 16Mi
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "cetirun.copilotProxyLabels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "cetirun.copilotProxySelectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: 4000
+      targetPort: http
+      protocol: TCP
+{{- if .Values.networkPolicy.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "cetirun.copilotProxyLabels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "cetirun.copilotProxySelectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  # Only the platform AI Gateway's pods reach the proxy.
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.networkPolicy.gatewayNamespace }}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: cetirun-ai-gateway
+              app.kubernetes.io/component: gateway
+      ports:
+        - protocol: TCP
+          port: 4000
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.networkPolicy.dnsNamespace }}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.networkPolicy.istioNamespace }}
+      ports:
+        - protocol: TCP
+          port: 15012
+    # GitHub and GitHub Copilot over HTTPS. Hostnames cannot be expressed in
+    # a NetworkPolicy, so this allows HTTPS outside the cluster.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            {{- with .Values.networkPolicy.blockedCIDRs }}
+            except:
+              {{- range . }}
+              - {{ . }}
+              {{- end }}
+            {{- end }}
+      ports:
+        - protocol: TCP
+          port: 443
+{{- end }}
+{{- end }}

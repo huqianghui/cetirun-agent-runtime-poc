@@ -1,0 +1,25 @@
+{{- if .Values.publicTLS.enabled }}
+{{- include "cetirun-platform.publicTLS.validate" . -}}
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ .Values.publicTLS.gateway.name }}
+  namespace: {{ .Values.publicTLS.ingressNamespace }}
+  labels:
+    {{- include "cetirun-platform.publicTLS.labels" . | nindent 4 }}
+spec:
+  # The fixed Istio GatewayClass and same-namespace Service hostname select the
+  # managed ingress listener without asking the controller for another IP.
+  gatewayClassName: istio
+  addresses:
+    - type: Hostname
+      value: {{ .Values.publicTLS.ingressServiceHostname | quote }}
+  listeners:
+    - name: acme-http
+      hostname: {{ .Values.publicTLS.domain | quote }}
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: Same
+{{- end }}

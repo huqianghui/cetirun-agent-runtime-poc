@@ -1,0 +1,57 @@
+{
+  "native": {
+    "hermes-config.yaml": {
+      "agent": {
+        "max_turns": 90
+      },
+      "browser": {
+        "cdp_url": "http://127.0.0.1:18800"
+      },
+      "compression": {
+        "enabled": true,
+        "target_ratio": 0.2,
+        "threshold": 0.5
+      },
+      "memory": {
+        "memory_char_limit": 2200,
+        "user_char_limit": 1375
+      },
+      "model": {
+        "default": "test-model",
+        "provider": "cetirun-gateway"
+      },
+      "providers": {
+        "cetirun-gateway": {
+          "api": "http://cetirun-ai-gateway.cetirun-system.svc.cluster.local:4000/v1",
+          "default_model": "test-model",
+          "discover_models": false,
+          "key_env": "CETIRUN_GATEWAY_API_KEY",
+          "models": {
+            "test-model": {}
+          },
+          "name": "CetiRun AI Gateway",
+          "transport": "chat_completions"
+        }
+      },
+      "security": {
+        "redact_secrets": true
+      },
+      "skills": {
+        "external_dirs": [
+          "/home/vibe/.aks/skills"
+        ]
+      },
+      "terminal": {
+        "backend": "local"
+      }
+    }
+  },
+  "manifestHashes": {
+    "configmap.yaml": "b35f612cf7a79c51de05b2f74f06741f4c1d5e387d46d5f9fc22556579e9b2a2",
+    "deny-exec-policy.yaml": "7dd9900c6cb720cda23eae4abebcdd68e7d868d91be7df00bac133f63acb4267",
+    "networkpolicy.yaml": "af8744e3a2c41de2387500c84832546cd1c71cb6431b9a2d10c626bf75ea96b2",
+    "pre-upgrade-hook.yaml": "c70e9f82a181759993f2ea33f7d02cc5add4f5d90622134d0b881222fc0f63ee",
+    "service.yaml": "52e4408419d03e5bdfe7d821f93607c1693d8a7059927a160bf56ccbe0c0a6b2",
+    "statefulset.yaml": "3258510daf519a4213b9c145436724d1126b7be89a4d9cf83d032fdafbbc9b2c"
+  }
+}

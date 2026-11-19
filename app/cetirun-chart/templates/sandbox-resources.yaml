@@ -1,0 +1,10 @@
+{{/*
+Copyright (c) Microsoft Corporation.
+Licensed under the MIT License.
+*/}}
+{{- with .Values.sandboxWorkload }}
+{{- range .objects }}
+---
+{{ toYaml . }}
+{{- end }}
+{{- end }}

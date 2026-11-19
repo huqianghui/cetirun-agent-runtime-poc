@@ -1,0 +1,8 @@
+{
+  "name": "cetirun-memory-context",
+  "version": "0.1.1-src.20261111",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "openclaw": { "extensions": ["./index.mjs"] }
+}

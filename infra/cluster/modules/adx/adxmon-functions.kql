@@ -1,0 +1,47 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+//
+// The functions that every ADX-Mon ingestor creates or alters in the metrics
+// database at start, with the bodies of the pinned ADX-Mon version
+// (ingestor/adx/syncer.go). Kusto lets only a function's creator or an Admin
+// alter it, so with one ingestor identity per CetiRun cluster the second
+// cluster's ingestor could not start. The ADX module creates them here and
+// makes each cluster's ingestor an admin of these three functions only.
+.create-or-alter function prom_increase (T:(Timestamp:datetime, SeriesId: long, Labels:dynamic, Value:real), interval:timespan=1m) {
+		T
+		| where isnan(Value)==false
+		| extend h=SeriesId
+		| partition hint.strategy=shuffle by h (
+			as Series
+			| order by h, Timestamp asc
+			| extend prevVal=prev(Value)
+			| extend diff=Value-prevVal
+			| extend Value=case(h == prev(h), case(diff < 0, Value, diff), real(0))
+			| project-away prevVal, diff, h
+		)}
+
+.create-or-alter function prom_rate (T:(Timestamp:datetime, SeriesId: long, Labels:dynamic, Value:real), interval:timespan=1m) {
+		T
+		| where isnan(Value) == false
+		| partition hint.strategy=shuffle by SeriesId (
+			order by Timestamp asc
+			| extend prevVal=prev(Value), prevTs=prev(Timestamp)
+			| extend sampleGap=(Timestamp-prevTs)/1s
+			| extend inc=case(isnull(prevVal), real(null), Value-prevVal < 0, Value, Value-prevVal)
+			| extend Value=iff(sampleGap > 0, inc/sampleGap, real(null))
+			| project Timestamp, SeriesId, Labels, Value
+		)
+		| where isfinite(Value)}
+
+.create-or-alter function prom_delta (T:(Timestamp:datetime, SeriesId: long, Labels:dynamic, Value:real), interval:timespan=1m) {
+		T
+		| where isnan(Value)==false
+		| extend h=SeriesId
+		| partition hint.strategy=shuffle by h (
+			as Series
+			| order by h, Timestamp asc
+			| extend prevVal=prev(Value)
+			| extend diff=Value-prevVal
+			| extend Value=case(h == prev(h), case(diff < 0, Value, diff), real(0))
+			| project-away prevVal, diff, h
+		)}

@@ -1,0 +1,236 @@
+{{- /*
+Copyright (c) Microsoft Corporation.
+Licensed under the MIT License.
+
+The Operator supplies typed, validated platform resources. Custom images do
+not supply these objects and cannot override their permissions or targets.
+*/ -}}
+{{- if and (eq (include "cetirun.agent.type" .) "custom") .Values.sandboxWorkload }}
+{{- $s := .Values.sandboxWorkload }}
+{{- $terminal := $s.terminal | default dict }}
+{{- if $terminal.enabled }}
+{{- $labels := dict "app.kubernetes.io/name" "cetirun-terminal" "app.kubernetes.io/instance" .Release.Name "cetirun.microsoft.com/terminal" "true" "sandbox.cetirun.microsoft.com/agent-uid" (index $s.podLabels "sandbox.cetirun.microsoft.com/agent-uid") }}
+{{- $owner := $s.ownerReferences }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $terminal.serviceAccountName }}
+  ownerReferences:
+    {{- toYaml $owner | nindent 4 }}
+  labels:
+    {{- toYaml $labels | nindent 4 }}
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $terminal.serviceAccountName }}
+  ownerReferences:
+    {{- toYaml $owner | nindent 4 }}
+  labels:
+    {{- toYaml $labels | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $terminal.serviceAccountName }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $terminal.serviceAccountName }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $terminal.serviceAccountName }}-exec
+  ownerReferences:
+    {{- toYaml $owner | nindent 4 }}
+  labels:
+    {{- toYaml $labels | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $terminal.serviceAccountName }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cetirun-terminal-exec
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $terminal.serviceAccountName }}
+  ownerReferences:
+    {{- toYaml $owner | nindent 4 }}
+  labels:
+    {{- toYaml $labels | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: terminal
+      port: {{ $terminal.port }}
+      targetPort: terminal
+      protocol: TCP
+  selector:
+    {{- toYaml $labels | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $terminal.serviceAccountName }}
+  ownerReferences:
+    {{- toYaml $owner | nindent 4 }}
+  labels:
+    {{- toYaml $labels | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- toYaml $labels | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+        {{- if $terminal.tlsContainer }}
+        cetirun.microsoft.com/ingress-mtls-config: {{ $terminal.tlsConfigDigest | quote }}
+        {{- end }}
+      labels:
+        {{- toYaml $labels | nindent 8 }}
+    spec:
+      {{- if .Values.runtimeClassName }}
+      runtimeClassName: {{ .Values.runtimeClassName | quote }}
+      {{- end }}
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      dnsPolicy: None
+      dnsConfig:
+        {{- toYaml $s.dnsConfig | nindent 8 }}
+      serviceAccountName: {{ $terminal.serviceAccountName }}
+      securityContext:
+        runAsUser: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        fsGroup: 65532
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      {{- include "cetirun.platform.scheduling" . | nindent 6 }}
+      containers:
+        - name: terminal
+          image: {{ $terminal.image | quote }}
+          imagePullPolicy: IfNotPresent
+          command: ["/terminal"]
+          args: ["serve"]
+          ports:
+            - name: terminal
+              containerPort: {{ $terminal.port }}
+              protocol: TCP
+          env:
+            - name: PORT
+              value: {{ $terminal.port | quote }}
+            - name: CETIRUN_TERMINAL_AGENT_NAME
+              value: {{ (index $owner 0).name | quote }}
+            - name: CETIRUN_TERMINAL_AGENT_UID
+              value: {{ (index $owner 0).uid | quote }}
+            - name: CETIRUN_TERMINAL_NAMESPACE
+              value: {{ .Release.Namespace | quote }}
+            - name: CETIRUN_TERMINAL_STATEFULSET
+              value: {{ include "cetirun.fullname" . | quote }}
+            - name: CETIRUN_TERMINAL_CONTAINER
+              value: {{ .Chart.Name | quote }}
+            - name: CETIRUN_TERMINAL_SESSION_SECONDS
+              value: {{ $terminal.sessionSeconds | quote }}
+            {{- if $terminal.tlsContainer }}
+            - name: CETIRUN_BIND_HOST
+              value: "127.0.0.1"
+            - name: CETIRUN_INGRESS_MTLS
+              value: "true"
+            - name: CETIRUN_INGRESS_SERVER_NAME
+              value: {{ $s.ingressServerName | quote }}
+            {{- end }}
+          securityContext:
+            runAsUser: 65532
+            runAsGroup: 65532
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            {{- toYaml $s.helperResources | nindent 12 }}
+          readinessProbe:
+            {{- if $terminal.tlsContainer }}
+            exec:
+              command: ["/loopback-probe", "--url", {{ printf "http://127.0.0.1:%v/healthz" $terminal.port | quote }}, "--mtls-server-name", {{ $s.ingressServerName | quote }}]
+            {{- else }}
+            httpGet:
+              path: /healthz
+              port: terminal
+            {{- end }}
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            {{- if $terminal.tlsContainer }}
+            exec:
+              command: ["/loopback-probe", "--url", {{ printf "http://127.0.0.1:%v/livez" $terminal.port | quote }}, "--mtls-server-name", {{ $s.ingressServerName | quote }}]
+            {{- else }}
+            httpGet:
+              path: /livez
+              port: terminal
+            {{- end }}
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: api-access
+              mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+              readOnly: true
+            {{- if $terminal.tlsContainer }}
+            - name: ingress-public
+              mountPath: /var/run/cetirun/ingress-public
+              readOnly: true
+            {{- end }}
+        {{- with $terminal.tlsContainer }}
+        {{- toYaml (list .) | nindent 8 }}
+        {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: {{ $s.scratchSizeLimit | quote }}
+        - name: api-access
+          projected:
+            defaultMode: 288
+            sources:
+              - serviceAccountToken:
+                  path: token
+                  expirationSeconds: 3600
+              - configMap:
+                  name: kube-root-ca.crt
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
+              - downwardAPI:
+                  items:
+                    - path: namespace
+                      fieldRef:
+                        apiVersion: v1
+                        fieldPath: metadata.namespace
+        {{- with $terminal.tlsVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+{{- end }}
+{{- else if and (eq (include "cetirun.agent.type" .) "custom") .Values.ttyd.enabled }}
+{{- if not .Values.runtime.terminalResources }}
+{{- fail "Custom terminal requires a platform-prepared terminal plan" }}
+{{- end }}
+{{- range .Values.runtime.terminalResources }}
+---
+{{ toYaml . }}
+{{- end }}
+{{- end }}

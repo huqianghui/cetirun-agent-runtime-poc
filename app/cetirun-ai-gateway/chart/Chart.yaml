@@ -1,0 +1,13 @@
+apiVersion: v2
+name: cetirun-ai-gateway
+description: CetiRun AI Gateway, an open-source LiteLLM proxy giving AI agents one endpoint for model access
+type: application
+version: 0.1.1-src.20261111
+appVersion: "0.1.1-src.20261111"
+keywords:
+  - cetirun
+  - litellm
+  - ai
+  - gateway
+  - llm
+home: https://github.com/Azure/CetiRun

@@ -1,0 +1,12 @@
+# The installer defines this fixed permission set. The Operator may bind it
+# inside an owned Agent namespace, but is not itself granted cluster-wide exec.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cetirun-terminal-exec
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["get", "create"]

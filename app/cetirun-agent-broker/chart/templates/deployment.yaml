@@ -1,0 +1,252 @@
+{{- if empty .Values.toolService.runtimeTypes }}{{ fail "toolService.runtimeTypes must include at least one qualified runtime" }}{{ end }}
+{{- range .Values.toolService.runtimeTypes }}
+{{- if not (has . (list "hermes" "openclaw" "custom")) }}{{ fail "toolService.runtimeTypes supports only hermes, openclaw and governed custom" }}{{ end }}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cetirun-agent-broker.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cetirun-agent-broker.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "cetirun-agent-broker.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "cetirun-agent-broker.selectorLabels" . | nindent 8 }}
+        azure.workload.identity/use: "true"
+        istio.io/rev: {{ .Values.istio.revision | quote }}
+      annotations:
+        sidecar.istio.io/inject: {{ .Values.istio.sidecarInjection | quote }}
+    spec:
+      serviceAccountName: {{ include "cetirun-agent-broker.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        fsGroup: 65532
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: broker
+          image: {{ include "cetirun-agent-broker.image" (dict "repository" .Values.image.repository "tag" .Values.image.tag "digest" .Values.image.digest "defaultTag" .Chart.AppVersion) | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+            {{- if .Values.tls.enabled }}
+            - name: https
+              containerPort: 8443
+            {{- end }}
+          env:
+            - name: AZURE_AGENT_ENABLED
+              value: {{ .Values.identityModes.azureAgent.enabled | quote }}
+            - name: MICROSOFT_DELEGATED_ENABLED
+              value: {{ .Values.identityModes.microsoftDelegated.enabled | quote }}
+            - name: ENTRA_TENANT_ID
+              value: {{ .Values.agentIdentity.tenantId | quote }}
+            - name: AGENT_ID_BLUEPRINT_CLIENT_ID
+              value: {{ .Values.agentIdentity.blueprintClientId | quote }}
+            - name: AGENT_ID_AUTHORIZATION_CLIENT_ID
+              value: {{ .Values.agentIdentity.authorizationClientId | quote }}
+            - name: AGENT_ID_REDIRECT_URI
+              value: {{ .Values.agentIdentity.redirectUri | quote }}
+            - name: PORTAL_ORIGIN
+              value: {{ .Values.agentIdentity.portalOrigin | quote }}
+            - name: PORTAL_BASE_URL
+              value: {{ .Values.agentIdentity.portalBaseUrl | quote }}
+            - name: PORTAL_NAMESPACE
+              value: {{ .Values.portal.namespace | quote }}
+            - name: PORTAL_SERVICE_ACCOUNT
+              value: {{ .Values.portal.serviceAccount | quote }}
+            - name: CONNECTIONS_MCP_RUNTIME_TYPES
+              value: {{ join "," .Values.toolService.runtimeTypes | quote }}
+            - name: TOOL_SERVICE_NAMESPACE
+              value: {{ .Values.toolService.namespace | quote }}
+            - name: TOOL_SERVICE_ACCOUNT
+              value: {{ .Values.toolService.serviceAccount | quote }}
+            - name: WORKLOAD_TOKEN_AUDIENCE
+              value: {{ .Values.workloadTokenAudience | quote }}
+            {{- if .Values.providers.github.credentialsSecretName }}
+            - name: GITHUB_OAUTH_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.providers.github.credentialsSecretName | quote }}
+                  key: {{ .Values.providers.github.clientIDKey | quote }}
+            - name: GITHUB_OAUTH_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.providers.github.credentialsSecretName | quote }}
+                  key: {{ .Values.providers.github.clientSecretKey | quote }}
+            {{- end }}
+            {{- if .Values.providers.google.credentialsSecretName }}
+            - name: GOOGLE_OAUTH_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.providers.google.credentialsSecretName | quote }}
+                  key: {{ .Values.providers.google.clientIDKey | quote }}
+            - name: GOOGLE_OAUTH_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.providers.google.credentialsSecretName | quote }}
+                  key: {{ .Values.providers.google.clientSecretKey | quote }}
+            {{- end }}
+            {{- if .Values.providers.github.app.credentialsSecretName }}
+            - name: GITHUB_APP_ID
+              value: {{ .Values.providers.github.app.id | quote }}
+            - name: GITHUB_APP_SLUG
+              value: {{ .Values.providers.github.app.slug | quote }}
+            - name: GITHUB_APP_CLIENT_ID
+              value: {{ .Values.providers.github.app.clientId | quote }}
+            - name: GITHUB_APP_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.providers.github.app.credentialsSecretName | quote }}
+                  key: {{ .Values.providers.github.app.clientSecretKey | quote }}
+            - name: GITHUB_APP_PRIVATE_KEY_FILE
+              value: /var/run/cetirun/github-app/private-key.pem
+            {{- end }}
+            - name: KEY_VAULT_KEY_URL
+              value: {{ .Values.agentIdentity.keyVaultKeyUrl | quote }}
+            - name: AZURE_CLIENT_ID
+              value: {{ .Values.agentIdentity.encryptionClientId | quote }}
+            - name: AUTHORIZATION_STORE_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: ENTRA_SDK_URL
+              value: http://127.0.0.1:5000
+            - name: KUBERNETES_TOKEN_FILE
+              value: /var/run/cetirun/kubernetes/token
+            - name: KUBERNETES_CA_FILE
+              value: /var/run/cetirun/kubernetes/ca.crt
+            - name: OPERATOR_NAMESPACE
+              value: {{ .Values.operator.namespace | quote }}
+            - name: OPERATOR_SERVICE_ACCOUNT
+              value: {{ .Values.operator.serviceAccount | quote }}
+            {{- if .Values.tls.enabled }}
+            - name: TLS_CERT_FILE
+              value: /var/run/cetirun/tls/{{ .Values.tls.certKey }}
+            - name: TLS_KEY_FILE
+              value: /var/run/cetirun/tls/{{ .Values.tls.keyKey }}
+            - name: TLS_CLIENT_CA_FILE
+              value: /var/run/cetirun/tls/{{ .Values.tls.clientCAKey }}
+            {{- end }}
+          volumeMounts:
+            {{- if .Values.providers.github.app.credentialsSecretName }}
+            - name: github-app-key
+              mountPath: /var/run/cetirun/github-app
+              readOnly: true
+            {{- end }}
+            - name: kubernetes-api-credential
+              mountPath: /var/run/cetirun/kubernetes
+              readOnly: true
+            {{- if .Values.tls.enabled }}
+            - name: broker-tls
+              mountPath: /var/run/cetirun/tls
+              readOnly: true
+            {{- end }}
+          readinessProbe:
+            httpGet: {path: /readyz, port: http}
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: ["ALL"]}
+            readOnlyRootFilesystem: true
+          resources:
+            {{- toYaml .Values.resources.broker | nindent 12 }}
+        {{- if .Values.identityModes.microsoftDelegated.enabled }}
+        - name: auth-sdk
+          image: {{ include "cetirun-agent-broker.image" (dict "repository" .Values.authSDK.repository "tag" .Values.authSDK.tag "digest" .Values.authSDK.digest "defaultTag" "1.1.2-azurelinux3.0-distroless") | quote }}
+          imagePullPolicy: {{ .Values.authSDK.pullPolicy }}
+          env:
+            - name: AzureAd__Instance
+              value: https://login.microsoftonline.com/
+            - name: AzureAd__TenantId
+              value: {{ .Values.agentIdentity.tenantId | quote }}
+            - name: AzureAd__ClientId
+              value: {{ .Values.agentIdentity.blueprintClientId | quote }}
+            - name: AzureAd__Audience
+              value: {{ .Values.agentIdentity.blueprintClientId | quote }}
+            - name: AzureAd__ClientCredentials__0__SourceType
+              value: SignedAssertionFilePath
+            - name: AzureAd__ClientCredentials__0__SignedAssertionFileDiskPath
+              # The workload identity webhook appends its environment variables
+              # after these entries; Kubernetes cannot expand a later variable.
+              value: /var/run/secrets/azure/tokens/azure-identity-token
+            - name: DownstreamApis__AzureResourceManager__BaseUrl
+              value: https://management.azure.com/
+            {{- range $index, $scope := .Values.agentIdentity.armScopes }}
+            - name: DownstreamApis__AzureResourceManager__Scopes__{{ $index }}
+              value: {{ $scope | quote }}
+            {{- end }}
+            - name: DownstreamApis__MicrosoftGraph__BaseUrl
+              value: https://graph.microsoft.com/
+            {{- range $index, $scope := .Values.agentIdentity.graphScopes }}
+            - name: DownstreamApis__MicrosoftGraph__Scopes__{{ $index }}
+              value: {{ $scope | quote }}
+            {{- end }}
+            - name: Sidecar__AllowOverrides__GetAuthorizationHeader
+              value: "true"
+            - name: ASPNETCORE_URLS
+              value: http://127.0.0.1:5000
+            - name: Logging__LogLevel__Default
+              value: Warning
+          volumeMounts:
+            - name: auth-sdk-keys
+              mountPath: /app/keys
+            - name: auth-sdk-tmp
+              mountPath: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: ["ALL"]}
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1654
+            runAsGroup: 1654
+          resources:
+            {{- toYaml .Values.resources.authSDK | nindent 12 }}
+        {{- end }}
+      volumes:
+        {{- if .Values.providers.github.app.credentialsSecretName }}
+        - name: github-app-key
+          secret:
+            secretName: {{ .Values.providers.github.app.credentialsSecretName | quote }}
+            defaultMode: 0440
+            items:
+              - key: {{ .Values.providers.github.app.privateKeyKey | quote }}
+                path: private-key.pem
+        {{- end }}
+        {{- if .Values.identityModes.microsoftDelegated.enabled }}
+        - name: auth-sdk-keys
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Mi
+        - name: auth-sdk-tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Mi
+        {{- end }}
+        - name: kubernetes-api-credential
+          projected:
+            defaultMode: 0440
+            sources:
+              - serviceAccountToken:
+                  path: token
+                  expirationSeconds: 3600
+              - configMap:
+                  name: kube-root-ca.crt
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
+        {{- if .Values.tls.enabled }}
+        - name: broker-tls
+          secret:
+            secretName: {{ .Values.tls.secretName | quote }}
+            defaultMode: 0440
+        {{- end }}

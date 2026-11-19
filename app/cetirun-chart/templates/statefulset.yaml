@@ -1,0 +1,405 @@
+{{- if ne (include "cetirun.agent.type" .) "custom" }}
+{{- $emptySkills := eq ((.Values.sandboxWorkload | default dict).skillsMode | default "") "empty" }}
+{{- $startupFailureThreshold := .Values.startupProbe.failureThreshold }}
+{{- if eq $startupFailureThreshold nil }}
+{{- $startupFailureThreshold = 30 }}
+{{- if and (eq (include "cetirun.agent.type" .) "openclaw") ((.Values.sandboxWorkload | default dict).reconciled | default false) }}
+{{- $startupFailureThreshold = 60 }}
+{{- end }}
+{{- end }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "cetirun.fullname" . }}
+  {{- with .Values.sandboxWorkload }}
+  ownerReferences:
+    {{- toYaml .ownerReferences | nindent 4 }}
+  {{- end }}
+  labels:
+    {{- include "cetirun.labels" . | nindent 4 }}
+  annotations:
+    {{- with .Values.podAnnotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- if ((.Values.runtime | default dict).preserveRunningPod) }}
+    cetirun.microsoft.com/registry-binding-only: "true"
+    {{- else }}
+    cetirun.microsoft.com/registry-binding-only: "false"
+    {{- end }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  {{- if ((.Values.runtime | default dict).preserveRunningPod) }}
+  updateStrategy:
+    type: OnDelete
+    rollingUpdate: null
+  {{- else }}
+  updateStrategy:
+    type: RollingUpdate
+  {{- end }}
+  serviceName: {{ include "cetirun.fullname" . }}
+  selector:
+    matchLabels:
+      {{- include "cetirun.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- include "cetirun.platform.podMetadata" . | nindent 6 }}
+      {{- with .Values.sandboxWorkload }}
+      {{- with .podFinalizers }}
+      finalizers:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- end }}
+    spec:
+      {{- include "cetirun.platform.podSettings" . | nindent 6 }}
+      initContainers:
+        {{- if (.Values.sandboxWorkload | default dict).egressSNI }}
+        {{- toYaml .Values.sandboxWorkload.managedInitContainers | nindent 8 }}
+        {{- end }}
+        {{- include "cetirun.memory.init" . | nindent 8 }}
+        {{- include "cetirun.agent.initContainers" . | nindent 8 }}
+        {{- if .Values.cetiadmin.enabled }}
+        {{- include "cetirun.cetiadmin.init" . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.initContainers }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- $sc := deepCopy .Values.securityContext }}
+            {{- if .Values.cetiadmin.enabled }}
+            {{- $_ := set $sc "runAsGroup" 1024 }}
+            {{- end }}
+            {{- if (include "cetirun.tailscaleEnabled" .) }}
+            {{- $caps := $sc.capabilities | default dict }}
+            {{- $add := $caps.add | default list }}
+            {{- $_ := set $caps "add" (append $add "NET_ADMIN" | uniq) }}
+            {{- $_ := set $sc "capabilities" $caps }}
+            {{- end }}
+            {{- toYaml $sc | nindent 12 }}
+          image: "{{ include "cetirun.image" . }}"
+          imagePullPolicy: {{ include "cetirun.imagePullPolicy" . }}
+          {{- if (.Values.sandboxWorkload | default dict).ingressMTLS }}
+          command: ["/bin/bash", "/etc/cetirun/ingress-entrypoint.sh"]
+          {{- else if .Values.cetiadmin.enabled }}
+          command: ["/bin/bash", "/etc/cetirun/hermes-entrypoint.sh"]
+          {{- end }}
+          {{- with (include "cetirun.agent.args" .) }}
+          {{- . | nindent 10 }}
+          {{- end }}
+          ports:
+            {{- include "cetirun.agent.ports" . | nindent 12 }}
+            {{- if .Values.ttyd.enabled }}
+            - name: ttyd
+              containerPort: {{ .Values.ttyd.port }}
+              protocol: TCP
+            {{- end }}
+          env:
+            {{- if .Values.cetiadmin.enabled }}
+            {{- include "cetirun.cetiadmin.env" . | nindent 12 }}
+            {{- end }}
+            {{- if (.Values.sandboxWorkload | default dict).egressSNI }}
+            - name: CETIRUN_EGRESS_SNI
+              value: "true"
+            {{- end }}
+            {{- if (.Values.sandboxWorkload | default dict).ingressMTLS }}
+            - name: CETIRUN_INGRESS_MTLS
+              value: "true"
+            - name: CETIRUN_INGRESS_SERVER_NAME
+              value: {{ printf "agent-%.32s.%s.%s.svc.cluster.local" (sha256sum (index .Values.podAnnotations "cetirun.microsoft.com/agent-uid")) (include "cetirun.fullname" .) .Release.Namespace | quote }}
+            {{- end }}
+            {{- include "cetirun.memory.env" . | nindent 12 }}
+            - name: NODE_ENV
+              value: "production"
+            # Node 22+ enables Happy Eyeballs (autoSelectFamily) by default.
+            # When IPv6 is configured but unreachable, this causes ENETUNREACH
+            # errors before IPv4 can connect. Force IPv4-first to avoid this.
+            - name: NODE_OPTIONS
+              value: "--dns-result-order=ipv4first"
+            {{- if .Values.connectionsMCP.enabled }}
+            - name: CETIRUN_CONNECTIONS_MCP_URL
+              value: {{ .Values.connectionsMCP.url | quote }}
+            - name: NODE_EXTRA_CA_CERTS
+              value: /var/run/cetirun/connections-ca/ca.crt
+            {{- end }}
+            {{- include "cetirun.agent.envVars" . | nindent 12 }}
+            # ttyd web terminal configuration
+            - name: TTYD_ENABLED
+              value: {{ .Values.ttyd.enabled | quote }}
+            - name: TTYD_PORT
+              value: {{ .Values.ttyd.port | quote }}
+            - name: TTYD_SHELL
+              value: {{ .Values.ttyd.shell | quote }}
+            - name: TTYD_BASE_PATH
+              value: {{ .Values.ttyd.basePath | quote }}
+            {{- if (include "cetirun.tailscaleEnabled" .) }}
+            # Tailscale mesh VPN configuration
+            - name: TAILSCALE_ENABLED
+              value: "true"
+            - name: TAILSCALE_HOSTNAME
+              value: {{ .Values.tailscale.hostname | quote }}
+            - name: TAILSCALE_SERVE_ENABLED
+              value: {{ .Values.tailscale.serve | quote }}
+            - name: TAILSCALE_SERVE_PORT
+              value: {{ include "cetirun.agent.tailscaleServePort" . }}
+            - name: TS_AUTHKEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "cetirun.secretName" . }}
+                  key: TAILSCALE_AUTH_KEY
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+            {{- with .Values.sandboxWorkload }}
+            {{- with .identityEnvironment }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+            {{- end }}
+          {{- with .Values.extraEnvFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            {{- include "cetirun.agent.healthProbe" (dict "root" . "pathPort" "cetirun.agent.probePathPort" "timeoutSeconds" .Values.livenessProbe.timeoutSeconds) | nindent 12 }}
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+            successThreshold: {{ .Values.livenessProbe.successThreshold }}
+          {{- end }}
+          {{- if .Values.readinessProbe.enabled }}
+          readinessProbe:
+            {{- include "cetirun.agent.healthProbe" (dict "root" . "pathPort" "cetirun.agent.readinessProbePathPort" "timeoutSeconds" .Values.readinessProbe.timeoutSeconds) | nindent 12 }}
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+            successThreshold: {{ .Values.readinessProbe.successThreshold }}
+          {{- end }}
+          {{- if .Values.startupProbe.enabled }}
+          startupProbe:
+            {{- include "cetirun.agent.healthProbe" (dict "root" . "pathPort" "cetirun.agent.startupProbePathPort" "timeoutSeconds" .Values.startupProbe.timeoutSeconds) | nindent 12 }}
+            initialDelaySeconds: {{ .Values.startupProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.startupProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.startupProbe.timeoutSeconds }}
+            failureThreshold: {{ $startupFailureThreshold }}
+            successThreshold: {{ .Values.startupProbe.successThreshold }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            {{- if .Values.cetiadmin.enabled }}
+            {{- include "cetirun.cetiadmin.mounts" . | nindent 12 }}
+            {{- end }}
+            {{- include "cetirun.memory.mounts" . | nindent 12 }}
+            {{- if .Values.connectionsMCP.enabled }}
+            - name: connections-identity
+              mountPath: /var/run/cetirun/connections
+              readOnly: true
+            - name: connections-ca
+              mountPath: /var/run/cetirun/connections-ca
+              readOnly: true
+            {{- end }}
+            - name: data
+              mountPath: /home/vibe
+            {{- include "cetirun.context.mount" . | nindent 12 }}
+            - name: tmp
+              mountPath: /tmp
+            - name: config
+              mountPath: /etc/cetirun
+              readOnly: true
+            {{- if eq (include "cetirun.agent.type" .) "hermes" }}
+            - name: hermes-managed
+              mountPath: /etc/cetirun/hermes-managed
+              readOnly: true
+            {{- end }}
+            {{- if $emptySkills }}
+            - name: empty-skills
+              mountPath: /home/vibe/.aks/skills
+              readOnly: true
+            {{- else if and .Values.skills.shared (not (include "cetirun.context.enabled" .)) }}
+            - name: shared-skills
+              mountPath: {{ .Values.skills.mountPath }}
+              readOnly: true
+            {{- end }}
+            {{- if (include "cetirun.tailscaleEnabled" .) }}
+            - name: tailscale-state
+              mountPath: /var/lib/tailscale
+            {{- end }}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+            {{- with .Values.sandboxWorkload }}
+            {{- with .identityMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+            {{- end }}
+          {{- with .Values.sidecars }}
+            {{- toYaml . | nindent 8 }}
+          {{- end }}
+        {{- if .Values.desktop.enabled }}
+        {{- include "cetirun.platform.desktop" . | nindent 8 }}
+        {{- end }}
+        {{- if .Values.logger.enabled }}
+        - name: logger
+          image: "{{ include "cetirun.image" . }}"
+          imagePullPolicy: {{ include "cetirun.imagePullPolicy" . }}
+          securityContext:
+            {{- if .Values.sandboxWorkload }}
+            {{- toYaml .Values.sandboxWorkload.securityContext | nindent 12 }}
+            {{- else }}
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            runAsUser: 1024
+            readOnlyRootFilesystem: true
+            seccompProfile:
+              type: RuntimeDefault
+            {{- end }}
+          command: ["/bin/sh", "/etc/cetirun/session-logger.sh"]
+          env:
+            - name: AGENT_TYPE
+              value: {{ .Values.agentType | default "hermes" | quote }}
+            - name: SCAN_INTERVAL
+              value: {{ .Values.logger.scanInterval | quote }}
+          resources:
+            {{- toYaml .Values.logger.resources | nindent 12 }}
+          volumeMounts:
+            {{- include "cetirun.agent.loggerVolumeMount" . | nindent 12 }}
+            - name: config
+              mountPath: /etc/cetirun
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+        {{- end }}
+      volumes:
+        {{- if .Values.cetiadmin.enabled }}
+        {{- include "cetirun.cetiadmin.volumes" . | nindent 8 }}
+        {{- end }}
+        {{- include "cetirun.memory.volumes" . | nindent 8 }}
+        {{- include "cetirun.context.volume" . | nindent 8 }}
+        {{- if .Values.connectionsMCP.enabled }}
+        - name: connections-identity
+          projected:
+            defaultMode: 0440
+            sources:
+              - serviceAccountToken:
+                  path: token
+                  audience: {{ .Values.connectionsMCP.audience | quote }}
+                  expirationSeconds: 600
+        - name: connections-ca
+          secret:
+            secretName: {{ .Values.connectionsMCP.caSecretName | quote }}
+            items:
+              - key: ca.crt
+                path: ca.crt
+        {{- end }}
+        {{- include "cetirun.platform.temporaryVolumes" . | nindent 8 }}
+        - name: config
+          configMap:
+            name: {{ include "cetirun.configMapName" . }}
+            {{- if .Values.cetiadmin.enabled }}
+            # The kubeconfig is projected only into the main container's API mount.
+            items:
+              {{- range $key := keys (include (print .Template.BasePath "/configmap.yaml") . | fromYaml).data | sortAlpha }}
+              {{- if ne $key "cetiadmin-kubeconfig.json" }}
+              - key: {{ $key }}
+                path: {{ $key }}
+              {{- end }}
+              {{- end }}
+            {{- end }}
+        {{- if eq (include "cetirun.agent.type" .) "hermes" }}
+        - name: hermes-managed
+          configMap:
+            name: {{ include "cetirun.configMapName" . }}
+            defaultMode: 0444
+            items:
+              - key: hermes-managed.yaml
+                path: config.yaml
+        {{- end }}
+        - name: secrets
+          secret:
+            secretName: {{ include "cetirun.secretName" . }}
+            optional: true
+        {{- if .Values.persistence.existingClaim }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.existingClaim }}
+        {{- else if and .Values.persistence.enabled (not .Values.persistence.useStatefulSetVolumeClaim) }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "cetirun.pvcName" . }}
+        {{- else if .Values.persistence.enabled }}
+        # When using StatefulSet volumeClaimTemplates, don't create extra volume
+        {{- else }}
+        - name: data
+          emptyDir: {}
+        {{- end }}
+        {{- if $emptySkills }}
+        - name: empty-skills
+          {{- if and .Values.sandboxWorkload .Values.sandboxWorkload.reconciled }}
+          emptyDir:
+            sizeLimit: {{ .Values.sandboxWorkload.scratchSizeLimit | quote }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        {{- else if .Values.skills.shared }}
+        - name: shared-skills
+          persistentVolumeClaim:
+            claimName: {{ include "cetirun.sharedSkillsPVCName" . }}
+            {{- if .Values.sandboxWorkload }}
+            readOnly: true
+            {{- end }}
+        {{- end }}
+        {{- if (include "cetirun.tailscaleEnabled" .) }}
+        - name: tailscale-state
+          {{- if and .Values.sandboxWorkload .Values.sandboxWorkload.reconciled }}
+          emptyDir:
+            sizeLimit: {{ .Values.sandboxWorkload.scratchSizeLimit | quote }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with .Values.sandboxWorkload }}
+        {{- with .identityVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- end }}
+  {{- if and .Values.persistence.enabled (not .Values.persistence.existingClaim) .Values.persistence.useStatefulSetVolumeClaim }}
+  {{- if semverCompare ">=1.25-0" .Capabilities.KubeVersion.Version }}
+  persistentVolumeClaimRetentionPolicy:
+    {{- if eq .Values.persistence.retainPolicy "Delete" }}
+    whenDeleted: Delete
+    whenScaled: Delete
+    {{- else }}
+    whenDeleted: Retain
+    whenScaled: Retain
+    {{- end }}
+  {{- end }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          {{- include "cetirun.selectorLabels" . | nindent 10 }}
+        {{- with .Values.persistence.annotations }}
+        annotations:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      spec:
+        accessModes:
+          - {{ .Values.persistence.accessMode }}
+        {{- if .Values.persistence.storageClass }}
+        storageClassName: {{ .Values.persistence.storageClass }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size }}
+  {{- end }}
+{{- end }}

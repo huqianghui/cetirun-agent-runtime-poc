@@ -1,0 +1,53 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+apiVersion: cetirun.microsoft.com/v1alpha1
+kind: Sandbox
+metadata:
+  name: native-example
+spec:
+  type: kata
+  resources:
+    agent:
+      requests: {cpu: "1", memory: 1Gi, ephemeral-storage: 1Gi}
+      limits: {cpu: "2", memory: 2Gi, ephemeral-storage: 2Gi}
+    helpers:
+      requests: {cpu: 100m, memory: 128Mi, ephemeral-storage: 128Mi}
+      limits: {cpu: 500m, memory: 2Gi, ephemeral-storage: 512Mi}
+  storage:
+    home:
+      storageClassName: native-home
+      size: 10Gi
+      accessMode: ReadWriteOncePod
+    scratch:
+      sizeLimit: 1Gi
+---
+apiVersion: cetirun.microsoft.com/v1alpha1
+kind: AgentPolicy
+metadata:
+  name: native-example
+spec:
+  harnesses:
+    allowed: [openclaw]
+  skills:
+    allowed: []
+  modelAccess:
+    sharedModels:
+      allowed: [example-model]
+    gatewayBudget:
+      defaultMonthlyUSD: "10"
+      maxMonthlyUSD: "10"
+  security:
+    readOnlyRootFilesystem: true
+  network:
+    ingress:
+      mode: authenticated
+---
+apiVersion: cetirun.microsoft.com/v1alpha1
+kind: Team
+metadata:
+  name: native-example
+spec:
+  agentPolicyRef: native-example
+  sandboxRefs: [native-example]
+  defaultSandboxRef: native-example
+  skills: []

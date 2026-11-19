@@ -1,0 +1,32 @@
+{{- /*
+Enforce STRICT mTLS for the portal workload.
+
+Required for the AuthorizationPolicy principal matching to work — without
+STRICT mTLS, Istio cannot verify the caller's service account identity
+and the gateway-only restriction would be ineffective.
+
+The legacy alias-only internal endpoint permits plaintext on port 8081.
+Identity-bound ownership uses the Gateway's TLS cluster transport and requires
+STRICT mTLS on this port as well as the existing NetworkPolicy.
+*/ -}}
+{{- if not (kindIs "bool" .Values.istio.internalAuthMTLS) -}}
+{{- fail "istio.internalAuthMTLS must be a boolean" -}}
+{{- end -}}
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: {{ include "cetirun-portal.fullname" . }}-strict-mtls
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cetirun-portal.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "cetirun-portal.selectorLabels" . | nindent 6 }}
+  mtls:
+    mode: STRICT
+  {{- if not .Values.istio.internalAuthMTLS }}
+  portLevelMtls:
+    8081:
+      mode: DISABLE
+  {{- end }}

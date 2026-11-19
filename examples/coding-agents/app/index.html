@@ -1,0 +1,90 @@
+<!--
+Copyright (c) Microsoft Corporation.
+Licensed under the MIT License.
+-->
+
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CetiRun Coding Runtime</title>
+<style>
+body{font:16px system-ui;max-width:960px;margin:2rem auto;padding:0 1rem}
+textarea{width:100%;min-height:8rem;box-sizing:border-box}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f4f4f4;padding:1rem}
+button,select{padding:.5rem;margin:.5rem .5rem .5rem 0}
+</style>
+<h1>CetiRun Coding Runtime</h1>
+<p>真实原生 CLI；文件变更保存在本实例的私有 workspace。只应经平台授权访问。</p>
+<label>已授权模型 <select id="model"></select></label>
+<textarea id="task" placeholder="输入编程任务、验收标准和需要运行的测试；不要输入凭据。"></textarea>
+<div><button id="send" disabled>执行</button><button id="stop" disabled>停止接收并取消</button></div>
+<p id="status">加载 Gateway 模型授权…</p>
+<pre id="output"></pre>
+<script>
+const $ = id => document.getElementById(id);
+let controller;
+let history = [];
+async function loadModels() {
+  try {
+    const response = await fetch('/v1/models');
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error?.code || 'model_load_failed');
+    for (const model of body.data) {
+      const option = document.createElement('option');
+      option.value = option.textContent = model.id;
+      $('model').append(option);
+    }
+    $('send').disabled = !body.data.length;
+    $('status').textContent = body.data.length ? '已就绪；健康状态不等于推理已验收。' : '没有已授权模型。';
+  } catch (error) { $('status').textContent = error.message; }
+}
+$('send').onclick = async () => {
+  if (!$('task').value.trim()) return;
+  controller = new AbortController();
+  $('send').disabled = true; $('stop').disabled = false; $('model').disabled = true;
+  $('output').textContent = '';
+  $('status').textContent = '执行中…';
+  const messages = [...history, {role:'user', content:$('task').value}];
+  let finished = false;
+  try {
+    const response = await fetch('/v1/chat/completions', {
+      method:'POST', signal:controller.signal,
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:$('model').value, messages, stream:true})
+    });
+    if (!response.ok) throw new Error((await response.json()).error.code);
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    while (true) {
+      const {value, done} = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, {stream:true});
+      let boundary;
+      while ((boundary = buffer.indexOf('\n\n')) >= 0) {
+        const block = buffer.slice(0,boundary); buffer = buffer.slice(boundary+2);
+        for (const line of block.split('\n')) {
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6);
+          if (data === '[DONE]') { finished = true; continue; }
+          const event = JSON.parse(data);
+          if (event.error) throw new Error(event.error.code);
+          $('output').textContent += event.choices?.[0]?.delta?.content || '';
+        }
+      }
+    }
+    if (!finished) throw new Error('run_incomplete: 不要自动重试，先检查 workspace。');
+    history = [...messages, {role:'assistant',content:$('output').textContent}].slice(-20);
+    $('status').textContent = '任务结束；请检查文件和测试结果。';
+  } catch (error) {
+    $('status').textContent = error.name === 'AbortError'
+      ? '已停止；不能撤销已完成的文件操作或计费，不会自动重试。' : error.message;
+  } finally {
+    $('send').disabled = false; $('stop').disabled = true; $('model').disabled = false;
+  }
+};
+$('stop').onclick = () => controller?.abort();
+loadModels();
+</script>
+</html>

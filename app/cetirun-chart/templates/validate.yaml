@@ -1,0 +1,22 @@
+{{- if .Values.sandboxWorkload -}}
+{{- include "cetirun.sandbox.validate" . -}}
+{{- end -}}
+{{- include "cetirun.validateAIGateway" . -}}
+{{- if eq (include "cetirun.agent.type" .) "custom" -}}
+{{- include "cetirun.validateAgentIdentity" . -}}
+{{- include "cetirun.validateConnectionsMCP" . -}}
+{{- include "cetirun.custom.validate" . -}}
+{{- include "cetirun.validateAutoscaling" . -}}
+{{- else if or .Release.IsInstall .Release.IsUpgrade -}}
+{{- include "cetirun.validateSecrets" . -}}
+{{- include "cetirun.validateAutoscaling" . -}}
+{{- include "cetirun.validatePorts" . -}}
+{{- include "cetirun.validateWorkloadIdentity" . -}}
+{{- include "cetirun.validateAgentIdentity" . -}}
+{{- include "cetirun.validateConnectionsMCP" . -}}
+{{- include "cetirun.validateTtydPort" . -}}
+{{- include "cetirun.validateSkills" . -}}
+{{- include "cetirun.validateDesktopBrowserConfig" . -}}
+{{- end -}}
+{{- include "cetirun.memory.validate" . -}}
+{{- include "cetirun.context.validate" . -}}

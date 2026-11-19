@@ -1,0 +1,19 @@
+{{- /*
+  Voluntary disruptions, such as a node drain, evict one Gateway replica at a
+  time. Only above one replica. maxUnavailable rather than minAvailable, so a
+  Deployment scaled down to one pod can still be drained. The selector is the
+  Gateway pods' own, not the bundled PostgreSQL's or Valkey's.
+*/}}
+{{- if include "cetirun-ai-gateway.podDisruptionBudgetEnabled" . }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "cetirun-ai-gateway.fullname" . }}
+  labels:
+    {{- include "cetirun-ai-gateway.labels" . | nindent 4 }}
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      {{- include "cetirun-ai-gateway.gatewaySelectorLabels" . | nindent 6 }}
+{{- end }}

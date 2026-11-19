@@ -1,0 +1,32 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+# Illustrative only: verify the named CRI handler and eligible nodes before use.
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: example-container
+handler: runc
+scheduling:
+  nodeSelector:
+    example.com/container-runtime: runc
+---
+apiVersion: cetirun.microsoft.com/v1alpha1
+kind: Sandbox
+metadata:
+  name: native-container
+spec:
+  type: container
+  resources:
+    agent:
+      requests: {cpu: "1", memory: 1Gi, ephemeral-storage: 1Gi}
+      limits: {cpu: "2", memory: 2Gi, ephemeral-storage: 2Gi}
+    helpers:
+      requests: {cpu: 100m, memory: 128Mi, ephemeral-storage: 128Mi}
+      limits: {cpu: 500m, memory: 2Gi, ephemeral-storage: 512Mi}
+  storage:
+    home:
+      storageClassName: native-home
+      size: 10Gi
+      accessMode: ReadWriteOncePod
+    scratch:
+      sizeLimit: 1Gi

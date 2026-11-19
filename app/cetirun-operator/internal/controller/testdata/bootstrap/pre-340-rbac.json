@@ -1,0 +1,68 @@
+{
+  "sourceCommit": "74a7aedb57f039878af4dcc7b73cf9124c1070ca",
+  "sourceBlob": "52ffa26d634296c9fc03fe01fed9da7ff82e5570",
+  "sourcePath": "app/cetirun-operator/internal/controller/agent_controller.go",
+  "role": {
+    "apiVersion": "rbac.authorization.k8s.io/v1",
+    "kind": "Role",
+    "metadata": {
+      "name": "cetirun-operator-ns-role",
+      "namespace": "cetirun-example",
+      "labels": {"app.kubernetes.io/managed-by": "cetirun-operator"}
+    },
+    "rules": [
+      {
+        "apiGroups": [""],
+        "resources": ["secrets", "configmaps", "services", "persistentvolumeclaims", "serviceaccounts"],
+        "verbs": ["get", "list", "watch", "create", "update", "patch", "delete"]
+      },
+      {
+        "apiGroups": ["apps"],
+        "resources": ["statefulsets", "deployments"],
+        "verbs": ["get", "list", "watch", "create", "update", "patch", "delete"]
+      },
+      {
+        "apiGroups": ["networking.k8s.io"],
+        "resources": ["networkpolicies"],
+        "verbs": ["get", "list", "watch", "create", "update", "patch", "delete"]
+      },
+      {
+        "apiGroups": ["rbac.authorization.k8s.io"],
+        "resources": ["roles", "rolebindings"],
+        "verbs": ["get", "list", "watch", "create", "update", "patch", "delete"]
+      },
+      {
+        "apiGroups": ["batch"],
+        "resources": ["jobs"],
+        "verbs": ["get", "list", "watch", "create", "update", "patch", "delete"]
+      },
+      {
+        "apiGroups": ["networking.istio.io"],
+        "resources": ["virtualservices", "sidecars"],
+        "verbs": ["get", "list", "watch", "create", "update", "patch", "delete"]
+      },
+      {
+        "apiGroups": ["security.istio.io"],
+        "resources": ["authorizationpolicies", "peerauthentications"],
+        "verbs": ["get", "list", "watch", "create", "update", "patch", "delete"]
+      }
+    ]
+  },
+  "roleBinding": {
+    "apiVersion": "rbac.authorization.k8s.io/v1",
+    "kind": "RoleBinding",
+    "metadata": {
+      "name": "cetirun-operator-ns-rolebinding",
+      "namespace": "cetirun-example",
+      "labels": {"app.kubernetes.io/managed-by": "cetirun-operator"}
+    },
+    "roleRef": {
+      "apiGroup": "rbac.authorization.k8s.io",
+      "kind": "Role",
+      "name": "cetirun-operator-ns-role"
+    },
+    "subjects": [
+      {"kind": "ServiceAccount", "name": "cetirun-operator", "namespace": "cetirun-system"}
+    ]
+  }
+}

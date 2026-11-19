@@ -1,0 +1,138 @@
+{{- $admission := .Values.sandboxAdmission -}}
+{{- if and $admission.podsEnabled $admission.enforce -}}
+{{- $controllerUsername := printf "system:serviceaccount:%s:%s" .Values.namespace .Values.serviceAccount.name -}}
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: cetirun-sandbox-namespace
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - operations: ["CREATE", "UPDATE"]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["namespaces", "namespaces/status", "namespaces/finalize"]
+        scope: Cluster
+  variables:
+    - name: protected
+      expression: >-
+        has(object.metadata.labels) &&
+        "cetirun.microsoft.com/sandbox-protected" in object.metadata.labels
+    - name: wasProtected
+      expression: >-
+        oldObject != null && has(oldObject.metadata.labels) &&
+        "cetirun.microsoft.com/sandbox-protected" in oldObject.metadata.labels
+    - name: annotations
+      expression: 'has(object.metadata.annotations) ? object.metadata.annotations : {}'
+    - name: oldAnnotations
+      expression: 'oldObject != null && has(oldObject.metadata.annotations) ? oldObject.metadata.annotations : {}'
+    - name: owners
+      expression: 'has(object.metadata.ownerReferences) ? object.metadata.ownerReferences : []'
+    - name: oldOwners
+      expression: 'oldObject != null && has(oldObject.metadata.ownerReferences) ? oldObject.metadata.ownerReferences : []'
+  validations:
+    - expression: >-
+        !variables.wasProtected ||
+        (
+          variables.protected &&
+          ("cetirun.microsoft.com/agent-name" in variables.annotations) &&
+          ("cetirun.microsoft.com/agent-uid" in variables.annotations) &&
+          ("cetirun.microsoft.com/agent-name" in variables.oldAnnotations) &&
+          ("cetirun.microsoft.com/agent-uid" in variables.oldAnnotations) &&
+          variables.annotations["cetirun.microsoft.com/agent-name"] ==
+            variables.oldAnnotations["cetirun.microsoft.com/agent-name"] &&
+          variables.annotations["cetirun.microsoft.com/agent-uid"] ==
+            variables.oldAnnotations["cetirun.microsoft.com/agent-uid"] &&
+          variables.owners == variables.oldOwners
+        )
+      message: "Sandbox namespace protection, Agent identity and ownership are immutable."
+      reason: Forbidden
+    - expression: >-
+        !variables.protected ||
+        (
+          object.metadata.labels["cetirun.microsoft.com/sandbox-protected"] == "true" &&
+          object.metadata.name != {{ .Values.namespace | toJson }} &&
+          "cetirun.microsoft.com/agent-name" in variables.annotations &&
+          "cetirun.microsoft.com/agent-uid" in variables.annotations &&
+          size(variables.annotations["cetirun.microsoft.com/agent-name"]) > 0 &&
+          size(variables.annotations["cetirun.microsoft.com/agent-uid"]) > 0 &&
+          size(variables.owners) == 1 &&
+          variables.owners[0].apiVersion == "cetirun.microsoft.com/v1alpha1" &&
+          variables.owners[0].kind == "Agent" &&
+          variables.owners[0].name == variables.annotations["cetirun.microsoft.com/agent-name"] &&
+          variables.owners[0].uid == variables.annotations["cetirun.microsoft.com/agent-uid"] &&
+          has(variables.owners[0].controller) && variables.owners[0].controller &&
+          has(variables.owners[0].blockOwnerDeletion) && variables.owners[0].blockOwnerDeletion
+        )
+      message: "Sandbox namespaces require a complete canonical Agent ownership tuple outside the controller state namespace."
+      reason: Forbidden
+    - expression: >-
+        !variables.protected ||
+        !(
+          (
+            "control-plane" in object.metadata.labels &&
+            object.metadata.labels["control-plane"] == "true"
+          ) ||
+          (
+            "kubernetes.azure.com/managedby" in object.metadata.labels &&
+            object.metadata.labels["kubernetes.azure.com/managedby"] == "aks"
+          )
+        )
+      message: "Sandbox namespaces cannot use managed-cluster labels that bypass Pod admission."
+      reason: Forbidden
+    - expression: >-
+        !variables.protected || variables.wasProtected ||
+        request.userInfo.username == {{ $controllerUsername | toJson }}
+      message: "Only the configured controller may initialize Sandbox namespace protection."
+      reason: Forbidden
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: cetirun-sandbox-namespace
+spec:
+  policyName: cetirun-sandbox-namespace
+  validationActions: ["Deny"]
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: cetirun-sandbox-pods
+webhooks:
+  - name: sandbox-pods.cetirun.microsoft.com
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    failurePolicy: Fail
+    timeoutSeconds: {{ int64 $admission.timeoutSeconds }}
+    matchPolicy: Equivalent
+    matchConditions:
+      {{- include "cetirun-operator.sandboxPodCleanupMatch" . | nindent 6 }}
+    namespaceSelector:
+      matchExpressions:
+        - key: cetirun.microsoft.com/sandbox-protected
+          operator: Exists
+    clientConfig:
+      caBundle: {{ regexReplaceAll "[\\r\\n]" $admission.caBundle "" | quote }}
+      service:
+        name: cetirun-sandbox-admission
+        namespace: {{ .Values.namespace | quote }}
+        path: /validate-sandbox-pods
+        port: 443
+    rules:
+      - operations: ["CREATE", "UPDATE"]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods", "pods/ephemeralcontainers", "pods/resize"]
+        scope: Namespaced
+      - operations: ["CREATE"]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods/binding", "bindings"]
+        scope: Namespaced
+      - operations: ["CONNECT"]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods/exec", "pods/attach", "pods/portforward"]
+        scope: Namespaced
+{{- end }}

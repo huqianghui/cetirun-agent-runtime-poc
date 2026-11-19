@@ -1,0 +1,8 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+# Offline auth and runtime helper test dependencies; this is not the Hermes image lockfile.
+aiohttp==3.14.4
+PyYAML==6.0.3
+python-dotenv==1.2.4
+# Test-only dependencies; no Hermes image or agent installation required.
+pytest==9.0.3

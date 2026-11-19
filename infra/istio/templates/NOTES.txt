@@ -1,0 +1,39 @@
+The CetiRun Istio infrastructure is deployed.
+
+── Ingress Authentication ──
+  - OAuth2 Proxy: Deployment, Service, ServiceAccount, Cookie Secret ({{ .Release.Namespace }})
+  - Istio Gateway: *.{{ .Values.domain }} ({{ .Values.gateway.namespace }})
+  - VirtualService: oauth2.{{ .Values.domain }} → OAuth2 Proxy
+  - AuthorizationPolicy: Wildcard auth for *.{{ .Values.domain }}{{ if .Values.authPolicy.authExemptPrefixes }} (auth-exempt: {{ .Values.authPolicy.authExemptPrefixes | join ", " }}){{ end }}
+  - EnvoyFilter: cetirun-redirect-header (pre-ext_authz redirect)
+  - EnvoyFilter: cetirun-alias-check (alias ↔ hostname enforcement)
+{{- if .Values.tls.enabled }}
+  - TLS Secret: cetirun-tls ({{ .Values.gateway.namespace }})
+{{- end }}
+
+── Egress Audit ──
+  - ServiceEntry: external services ({{ .Values.egress.namespace }})
+{{- if .Values.egress.accessLog.enabled }}
+  - EnvoyFilter: JSON access logging on all sidecars ({{ .Values.egress.namespace }})
+{{- end }}
+  - AgentPolicy enforces Agent egress. Shared mesh filters do not enforce it.
+    For older kept blacklist filters, an explicit cleanup with an ownership
+    check is necessary. Refer to scripts/cetirun-istio-cleanup.py and the
+    Istio operations guide.
+
+IMPORTANT: You must configure the ext_authz extension provider separately.
+If you used deploy.sh, the script did this automatically.
+If you did not use deploy.sh, patch the Istio shared configmap manually.
+For details, refer to deploy.sh.
+
+Verify:
+  kubectl get pods -n {{ .Release.Namespace }} -l app=oauth2-proxy
+  kubectl get gateway -n {{ .Values.gateway.namespace }} cetirun-gateway
+  kubectl get authorizationpolicy -n {{ .Values.gateway.namespace }} cetirun-auth-wildcard
+  kubectl get envoyfilter -n {{ .Values.gateway.namespace }}
+  kubectl get serviceentry -n {{ .Values.egress.namespace }}
+  kubectl get envoyfilter -n {{ .Values.egress.namespace }}
+
+Manage:
+  helm status {{ .Release.Name }} -n {{ .Release.Namespace }}
+  helm upgrade {{ .Release.Name }} . -n {{ .Release.Namespace }} --reset-values -f <reviewed-values.yaml>

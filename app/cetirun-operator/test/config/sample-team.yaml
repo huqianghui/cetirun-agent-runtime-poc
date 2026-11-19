@@ -1,0 +1,75 @@
+# Example: Team + Agent with skill inheritance
+#
+# Apply order:
+#   kubectl apply -f sample-team.yaml
+# The operator creates instance namespaces and native authentication Secrets.
+
+---
+apiVersion: cetirun.microsoft.com/v1alpha1
+kind: Team
+metadata:
+  name: platform
+spec:
+  memberContext:
+    role: "Platform Engineer"
+    description:
+      - "Works on platform infrastructure and developer tooling"
+      - "Deals with reliability, deployments, and service operations"
+  skills:
+    - "@anthropic/mcp-server-fetch"
+    - "pvc:platform-shared-skills"
+
+---
+# Instance A: inherits all team skills, no customization
+apiVersion: cetirun.microsoft.com/v1alpha1
+kind: Agent
+metadata:
+  name: alice
+spec:
+  agent:
+    type: hermes
+  user:
+    alias: alice
+    displayName: "Alice Example"
+    email: alice@example.com
+  team: platform
+  gatewayTokenSecretRef: "gateway-token"
+  helm:
+    values:
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "256Mi"
+        limits:
+          cpu: "1"
+          memory: "2Gi"
+
+---
+# Instance B: adds a personal skill, opts out of the shared PVC
+apiVersion: cetirun.microsoft.com/v1alpha1
+kind: Agent
+metadata:
+  name: bob
+spec:
+  agent:
+    type: hermes
+  user:
+    alias: bob
+    displayName: "Bob Example"
+    email: bob@example.com
+  team: platform
+  gatewayTokenSecretRef: "gateway-token"
+  skillOverrides:
+    add:
+      - "npm:@openclaw/matrix"
+    remove:
+      - "pvc:platform-shared-skills"
+  helm:
+    values:
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "256Mi"
+        limits:
+          cpu: "1"
+          memory: "2Gi"

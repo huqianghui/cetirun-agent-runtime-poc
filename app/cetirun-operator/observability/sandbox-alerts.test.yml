@@ -1,0 +1,579 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+# Real Prometheus 3.5.0 promtool evaluations; all identities are synthetic.
+rule_files:
+  - sandbox-alerts.rules.yml
+evaluation_interval: 1m
+
+tests:
+  - name: Scrape, missing gauge and collection failure are isolated and recover
+    interval: 1m
+    input_series:
+      - series: 'up{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-0.example.com:8080"}'
+        values: '1+0x12'
+      - series: 'up{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-1.example.com:8080"}'
+        values: '1+0x12'
+      - series: 'up{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-0.example.com:8080"}'
+        values: '1+0x12'
+      - series: 'up{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-1.example.com:8080"}'
+        values: '1 0+0x5 1+0x5'
+      - series: 'cetirun_sandbox_metrics_collection_success{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-0.example.com:8080"}'
+        values: '0+0x3 1 0+0x5 1+0x1'
+      - series: 'cetirun_sandbox_metrics_collection_success{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-1.example.com:8080"}'
+        values: '1+0x12'
+      - series: 'cetirun_sandbox_metrics_collection_success{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-0.example.com:8080"}'
+        values: '1 stale _ _ _ _ _ 1+0x5'
+      - series: 'cetirun_sandbox_metrics_collection_success{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-1.example.com:8080"}'
+        values: '1+0x12'
+      # Deliberately lingering counts must not bypass a failed/missing signal.
+      - series: 'cetirun_sandbox_agents{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-0.example.com:8080", runtime="kata", class="normal", status="False", reason="EnforcementLost"}'
+        values: '1+0x10 stale'
+      - series: 'cetirun_sandbox_agents{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-1.example.com:8080", runtime="kata", class="normal", status="True", reason="PolicyApplied"}'
+        values: '100+0x12'
+      - series: 'cetirun_sandbox_agents{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-0.example.com:8080", runtime="gvisor", class="admin", status="False", reason="EnforcementLost"}'
+        values: '1+0x6 stale'
+      - series: 'cetirun_sandbox_agents{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-1.example.com:8080", runtime="gvisor", class="admin", status="False", reason="EnforcementLost"}'
+        values: '1+0x6 stale'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: CetiRunSandboxCollectionUnavailable
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: CetiRunSandboxScrapeFailed
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: CetiRunSandboxCollectionMetricMissing
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: CetiRunSandboxScrapeFailed
+        exp_alerts:
+          - exp_labels:
+              cluster: example-b
+              fleet: example-green
+              job: example-cetirun-operator
+              instance: operator-1.example.com:8080
+              severity: warning
+            exp_annotations: &scrape_failed_annotations
+              summary: "Operator scrape failed; Sandbox reports are unavailable"
+              description: "up is 0 for this target. Inspect its scrape error through the authorized monitoring path; cached reports cannot establish current enforcement."
+      - eval_time: 6m
+        alertname: CetiRunSandboxCollectionMetricMissing
+        exp_alerts:
+          - exp_labels:
+              cluster: example-b
+              fleet: example-green
+              job: example-cetirun-operator
+              instance: operator-0.example.com:8080
+              severity: warning
+            exp_annotations: &collection_missing_annotations
+              summary: "Scrape succeeded but Sandbox collection gauge is missing"
+              description: "up is 1 but collection_success is absent for this identity. Check endpoint/version and label or metric filtering; do not treat counts as zero."
+      - eval_time: 6m
+        alertname: CetiRunSandboxCollectionUnavailable
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: CetiRunSandboxReportedEnforcementLost
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: CetiRunSandboxTargetMissing
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: CetiRunSandboxTargetIdentityMissing
+        exp_alerts: []
+      - eval_time: 7m
+        alertname: CetiRunSandboxScrapeFailed
+        exp_alerts: []
+      - eval_time: 7m
+        alertname: CetiRunSandboxCollectionMetricMissing
+        exp_alerts: []
+      - eval_time: 9m
+        alertname: CetiRunSandboxCollectionUnavailable
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: CetiRunSandboxCollectionUnavailable
+        exp_alerts:
+          - exp_labels:
+              cluster: example-a
+              fleet: example-blue
+              job: example-cetirun-operator
+              instance: operator-0.example.com:8080
+              severity: warning
+            exp_annotations: &collection_unavailable_annotations
+              summary: "Sandbox cached-status collection is unavailable"
+              description: "collection_success is 0 while up is 1. Inspect operator/cache health and authorized API connectivity; omitted counts do not mean zero."
+      - eval_time: 11m
+        alertname: CetiRunSandboxCollectionUnavailable
+        exp_alerts: []
+    promql_expr_test:
+      - expr: ALERTS{alertstate="firing"}
+        eval_time: 12m
+        exp_samples: []
+
+  - name: Healthy collection can be empty, held, suspended, deleting or unknown
+    interval: 1m
+    input_series:
+      - series: 'up{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-0.example.com:8080"}'
+        values: '1+0x6'
+      - series: 'up{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-1.example.com:8080"}'
+        values: '1+0x6'
+      - series: 'up{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-0.example.com:8080"}'
+        values: '1+0x6'
+      - series: 'up{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-1.example.com:8080"}'
+        values: '1+0x6'
+      - series: 'cetirun_sandbox_metrics_collection_success{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-0.example.com:8080"}'
+        values: '1+0x6'
+      - series: 'cetirun_sandbox_metrics_collection_success{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-1.example.com:8080"}'
+        values: '1+0x6'
+      - series: 'cetirun_sandbox_metrics_collection_success{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-0.example.com:8080"}'
+        values: '1+0x6'
+      - series: 'cetirun_sandbox_metrics_collection_success{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-1.example.com:8080"}'
+        values: '1+0x6'
+      # The first replica has a successful empty/legacy-only snapshot.
+      - series: 'cetirun_sandbox_agents{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-1.example.com:8080", runtime="kata", class="normal", status="False", reason="SandboxPrepared"}'
+        values: '1+0x6'
+      - series: 'cetirun_sandbox_agents{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-1.example.com:8080", runtime="gvisor", class="admin", status="False", reason="SandboxPreparationPending"}'
+        values: '1+0x6'
+      - series: 'cetirun_sandbox_agents{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-1.example.com:8080", runtime="unknown", class="unknown", status="False", reason="EnforcementPending"}'
+        values: '1+0x6'
+      - series: 'cetirun_sandbox_agents{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-1.example.com:8080", runtime="kata", class="normal", status="False", reason="Suspended"}'
+        values: '1+0x6'
+      - series: 'cetirun_sandbox_agents{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-1.example.com:8080", runtime="gvisor", class="admin", status="False", reason="Deleting"}'
+        values: '1+0x6'
+      - series: 'cetirun_sandbox_agents{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-1.example.com:8080", runtime="unknown", class="unknown", status="False", reason="InstanceDeleting"}'
+        values: '1+0x6'
+      - series: 'cetirun_sandbox_agents{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-0.example.com:8080", runtime="unknown", class="unknown", status="Unknown", reason="ConditionMissing"}'
+        values: '1+0x6'
+      - series: 'cetirun_sandbox_agents{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-0.example.com:8080", runtime="kata", class="normal", status="Unknown", reason="ConditionStale"}'
+        values: '1+0x6'
+      - series: 'cetirun_sandbox_agents{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-0.example.com:8080", runtime="gvisor", class="admin", status="Unknown", reason="ConditionMalformed"}'
+        values: '1+0x6'
+      - series: 'cetirun_sandbox_agents{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-0.example.com:8080", runtime="unknown", class="normal", status="Unknown", reason="ObservationUnavailable"}'
+        values: '1+0x6'
+      - series: 'cetirun_sandbox_agents{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-0.example.com:8080", runtime="unknown", class="admin", status="False", reason="Other"}'
+        values: '1+0x6'
+      - series: 'cetirun_sandbox_agents{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-1.example.com:8080", runtime="kata", class="normal", status="True", reason="PolicyApplied"}'
+        values: '100+0x6'
+      - series: 'cetirun_sandbox_agents{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-1.example.com:8080", runtime="gvisor", class="admin", status="True", reason="EnforcementLost"}'
+        values: '1+0x6'
+      # Zero is a threshold fixture; the collector normally omits empty groups.
+      - series: 'cetirun_sandbox_agents{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-1.example.com:8080", runtime="gvisor", class="normal", status="False", reason="EnforcementLost"}'
+        values: '0+0x6'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: CetiRunSandboxReportedEnforcementLost
+        exp_alerts: []
+    promql_expr_test:
+      - expr: ALERTS
+        eval_time: 6m
+        exp_samples: []
+      - expr: |
+          (cetirun_sandbox_metrics_collection_success{job="example-cetirun-operator"} == 1)
+          and on (cluster, fleet, job, instance)
+          (up{job="example-cetirun-operator"} == 1)
+          unless on (cluster, fleet, job, instance)
+          cetirun_sandbox_agents{job="example-cetirun-operator"}
+        eval_time: 6m
+        exp_samples:
+          - labels: 'cetirun_sandbox_metrics_collection_success{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-0.example.com:8080"}'
+            value: 1
+
+  - name: Reported loss uses greater-than-zero per replica and continuous five-minute duration
+    interval: 1m
+    input_series:
+      - series: 'up{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-0.example.com:8080"}'
+        values: '1+0x15'
+      - series: 'up{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-1.example.com:8080"}'
+        values: '1+0x15'
+      - series: 'up{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-0.example.com:8080"}'
+        values: '1+0x15'
+      - series: 'up{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-1.example.com:8080"}'
+        values: '1+0x15'
+      - series: 'cetirun_sandbox_metrics_collection_success{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-0.example.com:8080"}'
+        values: '1+0x15'
+      - series: 'cetirun_sandbox_metrics_collection_success{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-1.example.com:8080"}'
+        values: '1+0x15'
+      - series: 'cetirun_sandbox_metrics_collection_success{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-0.example.com:8080"}'
+        values: '1+0x15'
+      - series: 'cetirun_sandbox_metrics_collection_success{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-1.example.com:8080"}'
+        values: '1+0x15'
+      # Successful recovery scrapes omit the loss groups rather than emit zero.
+      - series: 'cetirun_sandbox_agents{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-0.example.com:8080", runtime="kata", class="normal", status="False", reason="EnforcementLost"}'
+        values: '0 1+0x6 stale 1+0x5 stale'
+      - series: 'cetirun_sandbox_agents{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-1.example.com:8080", runtime="kata", class="normal", status="False", reason="EnforcementLost"}'
+        values: '0 1+0x6 stale 1+0x5 stale'
+      - series: 'cetirun_sandbox_agents{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-0.example.com:8080", runtime="gvisor", class="admin", status="True", reason="PolicyApplied"}'
+        values: '500+0x15'
+      - series: 'cetirun_sandbox_agents{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-1.example.com:8080", runtime="unknown", class="unknown", status="Unknown", reason="EnforcementLost"}'
+        values: '0+0x8 1+0x5 stale'
+    alert_rule_test:
+      - eval_time: 0m
+        alertname: CetiRunSandboxReportedEnforcementLost
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: CetiRunSandboxReportedEnforcementLost
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: CetiRunSandboxReportedEnforcementLost
+        exp_alerts: &two_loss_snapshots
+          - exp_labels: &loss_replica_zero
+              cluster: example-a
+              fleet: example-blue
+              job: example-cetirun-operator
+              instance: operator-0.example.com:8080
+              runtime: kata
+              class: normal
+              status: "False"
+              reason: EnforcementLost
+              severity: warning
+            exp_annotations: &loss_annotations
+              summary: "Operator reports Sandbox enforcement loss"
+              description: "1 Agent(s) have a non-True report with reason EnforcementLost. Cached reports do not establish current enforcement or containment."
+          - exp_labels: &loss_replica_one
+              cluster: example-a
+              fleet: example-blue
+              job: example-cetirun-operator
+              instance: operator-1.example.com:8080
+              runtime: kata
+              class: normal
+              status: "False"
+              reason: EnforcementLost
+              severity: warning
+            exp_annotations: *loss_annotations
+      - eval_time: 7m
+        alertname: CetiRunSandboxReportedEnforcementLost
+        exp_alerts: *two_loss_snapshots
+      - eval_time: 8m
+        alertname: CetiRunSandboxReportedEnforcementLost
+        exp_alerts: []
+      - eval_time: 13m
+        alertname: CetiRunSandboxReportedEnforcementLost
+        exp_alerts: []
+      - eval_time: 14m
+        alertname: CetiRunSandboxReportedEnforcementLost
+        exp_alerts:
+          - exp_labels: *loss_replica_zero
+            exp_annotations: *loss_annotations
+          - exp_labels: *loss_replica_one
+            exp_annotations: *loss_annotations
+          - exp_labels:
+              cluster: example-b
+              fleet: example-green
+              job: example-cetirun-operator
+              instance: operator-1.example.com:8080
+              runtime: unknown
+              class: unknown
+              status: Unknown
+              reason: EnforcementLost
+              severity: warning
+            exp_annotations: *loss_annotations
+      - eval_time: 15m
+        alertname: CetiRunSandboxReportedEnforcementLost
+        exp_alerts: []
+    promql_expr_test:
+      - expr: ALERTS
+        eval_time: 0m
+        exp_samples: []
+      - expr: ALERTS{alertname="CetiRunSandboxReportedEnforcementLost", alertstate="pending"}
+        eval_time: 1m
+        exp_samples:
+          - labels: 'ALERTS{alertname="CetiRunSandboxReportedEnforcementLost", alertstate="pending", cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-0.example.com:8080", runtime="kata", class="normal", status="False", reason="EnforcementLost", severity="warning"}'
+            value: 1
+          - labels: 'ALERTS{alertname="CetiRunSandboxReportedEnforcementLost", alertstate="pending", cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-1.example.com:8080", runtime="kata", class="normal", status="False", reason="EnforcementLost", severity="warning"}'
+            value: 1
+      - expr: ALERTS
+        eval_time: 15m
+        exp_samples: []
+
+  - name: A disappearing expected target is not a scrape or collection failure
+    interval: 1m
+    input_series:
+      - series: 'up{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-0.example.com:8080"}'
+        values: '1 stale _ _ _ _ _ 1+0x5'
+      - series: 'up{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-1.example.com:8080"}'
+        values: '1+0x12'
+      - series: 'up{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-0.example.com:8080"}'
+        values: '1+0x12'
+      - series: 'up{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-1.example.com:8080"}'
+        values: '1+0x12'
+      - series: 'cetirun_sandbox_metrics_collection_success{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-0.example.com:8080"}'
+        values: '1+0x12'
+      - series: 'cetirun_sandbox_metrics_collection_success{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-1.example.com:8080"}'
+        values: '1+0x12'
+      - series: 'cetirun_sandbox_metrics_collection_success{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-0.example.com:8080"}'
+        values: '1+0x12'
+      - series: 'cetirun_sandbox_metrics_collection_success{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-1.example.com:8080"}'
+        values: '1+0x12'
+      - series: 'cetirun_sandbox_agents{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-0.example.com:8080", runtime="kata", class="normal", status="False", reason="EnforcementLost"}'
+        values: '1+0x6 stale'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: CetiRunSandboxTargetMissing
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: CetiRunSandboxTargetMissing
+        exp_alerts:
+          - exp_labels:
+              cluster: example-a
+              fleet: example-blue
+              job: example-cetirun-operator
+              instance: operator-0.example.com:8080
+              severity: warning
+            exp_annotations: &target_missing_annotations
+              summary: "Expected operator target has no up series"
+              description: "The explicit expected-target selector has no up series. Check target discovery, relabeling and monitoring availability; this is not an empty population."
+      - eval_time: 6m
+        alertname: CetiRunSandboxScrapeFailed
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: CetiRunSandboxCollectionMetricMissing
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: CetiRunSandboxCollectionUnavailable
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: CetiRunSandboxReportedEnforcementLost
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: CetiRunSandboxTargetIdentityMissing
+        exp_alerts: []
+      - eval_time: 7m
+        alertname: CetiRunSandboxTargetMissing
+        exp_alerts: []
+    promql_expr_test:
+      - expr: ALERTS
+        eval_time: 7m
+        exp_samples: []
+
+  - name: An unrelated healthy fleet cannot hide all missing expected targets
+    interval: 1m
+    input_series:
+      - series: 'up{cluster="example-c", fleet="example-orange", job="example-cetirun-operator", instance="operator-0.example.com:8080"}'
+        values: '1+0x6 stale'
+      - series: 'cetirun_sandbox_metrics_collection_success{cluster="example-c", fleet="example-orange", job="example-cetirun-operator", instance="operator-0.example.com:8080"}'
+        values: '1+0x6 stale'
+      - series: 'cetirun_sandbox_agents{cluster="example-c", fleet="example-orange", job="example-cetirun-operator", instance="operator-0.example.com:8080", runtime="gvisor", class="admin", status="True", reason="PolicyApplied"}'
+        values: '100+0x6 stale'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: CetiRunSandboxTargetMissing
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: CetiRunSandboxTargetMissing
+        exp_alerts: &all_expected_targets_missing
+          - exp_labels:
+              cluster: example-a
+              fleet: example-blue
+              job: example-cetirun-operator
+              instance: operator-0.example.com:8080
+              severity: warning
+            exp_annotations: *target_missing_annotations
+          - exp_labels:
+              cluster: example-a
+              fleet: example-blue
+              job: example-cetirun-operator
+              instance: operator-1.example.com:8080
+              severity: warning
+            exp_annotations: *target_missing_annotations
+          - exp_labels:
+              cluster: example-b
+              fleet: example-green
+              job: example-cetirun-operator
+              instance: operator-0.example.com:8080
+              severity: warning
+            exp_annotations: *target_missing_annotations
+          - exp_labels:
+              cluster: example-b
+              fleet: example-green
+              job: example-cetirun-operator
+              instance: operator-1.example.com:8080
+              severity: warning
+            exp_annotations: *target_missing_annotations
+      - eval_time: 5m
+        alertname: CetiRunSandboxScrapeFailed
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: CetiRunSandboxCollectionMetricMissing
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: CetiRunSandboxCollectionUnavailable
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: CetiRunSandboxReportedEnforcementLost
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: CetiRunSandboxTargetIdentityMissing
+        exp_alerts: []
+      # All input series are now stale, including the unrelated target.
+      - eval_time: 10m
+        alertname: CetiRunSandboxTargetMissing
+        exp_alerts: *all_expected_targets_missing
+
+  - name: Cluster and fleet keys with heterogeneous extra labels stay independent
+    interval: 1m
+    input_series:
+      - series: 'up{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-0.example.com:8080", region="example-west"}'
+        values: '1+0x6'
+      - series: 'up{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-1.example.com:8080"}'
+        values: '1+0x6'
+      - series: 'up{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-0.example.com:8080"}'
+        values: '0+0x6'
+      - series: 'up{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-1.example.com:8080", environment="example-test"}'
+        values: '1+0x6'
+      # These healthy targets collide if either cluster OR fleet is omitted.
+      - series: 'up{cluster="example-a", fleet="example-green", job="example-cetirun-operator", instance="operator-0.example.com:8080"}'
+        values: '1+0x6'
+      - series: 'up{cluster="example-b", fleet="example-blue", job="example-cetirun-operator", instance="operator-0.example.com:8080"}'
+        values: '1+0x6'
+      - series: 'cetirun_sandbox_metrics_collection_success{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-1.example.com:8080"}'
+        values: '1+0x6'
+      - series: 'cetirun_sandbox_metrics_collection_success{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-0.example.com:8080", collector="example-cache"}'
+        values: '1+0x6'
+      - series: 'cetirun_sandbox_metrics_collection_success{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-1.example.com:8080", region="example-east"}'
+        values: '1+0x6'
+      - series: 'cetirun_sandbox_metrics_collection_success{cluster="example-a", fleet="example-green", job="example-cetirun-operator", instance="operator-0.example.com:8080"}'
+        values: '1+0x6'
+      - series: 'cetirun_sandbox_metrics_collection_success{cluster="example-b", fleet="example-blue", job="example-cetirun-operator", instance="operator-0.example.com:8080"}'
+        values: '1+0x6'
+      - series: 'cetirun_sandbox_agents{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-0.example.com:8080", runtime="kata", class="normal", status="False", reason="EnforcementLost"}'
+        values: '1+0x6'
+      - series: 'cetirun_sandbox_agents{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-1.example.com:8080", runtime="kata", class="normal", status="True", reason="PolicyApplied"}'
+        values: '500+0x6'
+      - series: 'cetirun_sandbox_agents{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-0.example.com:8080", runtime="gvisor", class="admin", status="False", reason="EnforcementLost"}'
+        values: '1+0x6'
+      - series: 'cetirun_sandbox_agents{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-1.example.com:8080", runtime="unknown", class="unknown", status="Unknown", reason="EnforcementLost", signal="example-cached"}'
+        values: '1+0x6'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: CetiRunSandboxCollectionMetricMissing
+        exp_alerts:
+          - exp_labels:
+              cluster: example-a
+              fleet: example-blue
+              job: example-cetirun-operator
+              instance: operator-0.example.com:8080
+              region: example-west
+              severity: warning
+            exp_annotations: *collection_missing_annotations
+      - eval_time: 5m
+        alertname: CetiRunSandboxScrapeFailed
+        exp_alerts:
+          - exp_labels:
+              cluster: example-b
+              fleet: example-green
+              job: example-cetirun-operator
+              instance: operator-0.example.com:8080
+              severity: warning
+            exp_annotations: *scrape_failed_annotations
+      - eval_time: 5m
+        alertname: CetiRunSandboxReportedEnforcementLost
+        exp_alerts:
+          - exp_labels:
+              cluster: example-b
+              fleet: example-green
+              job: example-cetirun-operator
+              instance: operator-1.example.com:8080
+              runtime: unknown
+              class: unknown
+              status: Unknown
+              reason: EnforcementLost
+              signal: example-cached
+              severity: warning
+            exp_annotations: *loss_annotations
+      - eval_time: 5m
+        alertname: CetiRunSandboxCollectionUnavailable
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: CetiRunSandboxTargetMissing
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: CetiRunSandboxTargetIdentityMissing
+        exp_alerts: []
+
+  - name: Incomplete identity labels are surfaced without joining another target
+    interval: 1m
+    input_series:
+      - series: 'up{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-0.example.com:8080"}'
+        values: '1+0x6'
+      - series: 'up{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-1.example.com:8080"}'
+        values: '1+0x6'
+      - series: 'up{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-0.example.com:8080"}'
+        values: '1+0x6'
+      - series: 'up{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-1.example.com:8080"}'
+        values: '1+0x6'
+      - series: 'cetirun_sandbox_metrics_collection_success{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-0.example.com:8080"}'
+        values: '1+0x6'
+      - series: 'cetirun_sandbox_metrics_collection_success{cluster="example-a", fleet="example-blue", job="example-cetirun-operator", instance="operator-1.example.com:8080"}'
+        values: '1+0x6'
+      - series: 'cetirun_sandbox_metrics_collection_success{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-0.example.com:8080"}'
+        values: '1+0x6'
+      - series: 'cetirun_sandbox_metrics_collection_success{cluster="example-b", fleet="example-green", job="example-cetirun-operator", instance="operator-1.example.com:8080"}'
+        values: '1+0x6'
+      - series: 'up{fleet="example-blue", job="example-cetirun-operator", instance="operator-0.example.com:8080"}'
+        values: '1+0x5 stale'
+      - series: 'cetirun_sandbox_metrics_collection_success{fleet="example-blue", job="example-cetirun-operator", instance="operator-0.example.com:8080"}'
+        values: '1+0x5 stale'
+      - series: 'cetirun_sandbox_agents{fleet="example-blue", job="example-cetirun-operator", instance="operator-0.example.com:8080", runtime="kata", class="normal", status="False", reason="EnforcementLost"}'
+        values: '1+0x5 stale'
+      - series: 'up{cluster="example-a", job="example-cetirun-operator", instance="operator-1.example.com:8080"}'
+        values: '1+0x5 stale'
+      - series: 'cetirun_sandbox_metrics_collection_success{cluster="example-a", job="example-cetirun-operator", instance="operator-1.example.com:8080"}'
+        values: '0+0x5 stale'
+      - series: 'cetirun_sandbox_metrics_collection_success{cluster="example-b", fleet="example-green", job="example-cetirun-operator"}'
+        values: '0+0x5 stale'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: CetiRunSandboxTargetIdentityMissing
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: CetiRunSandboxTargetIdentityMissing
+        exp_alerts:
+          - exp_labels:
+              fleet: example-blue
+              job: example-cetirun-operator
+              instance: operator-0.example.com:8080
+              severity: warning
+            exp_annotations: &identity_missing_annotations
+              summary: "Sandbox metric target identity labels are missing"
+              description: "The examples require nonempty cluster, fleet and instance labels on up and both Sandbox metrics. Repair labeling before interpreting reports."
+          - exp_labels:
+              fleet: example-blue
+              job: example-cetirun-operator
+              instance: operator-0.example.com:8080
+              runtime: kata
+              class: normal
+              status: "False"
+              reason: EnforcementLost
+              severity: warning
+            exp_annotations: *identity_missing_annotations
+          - exp_labels:
+              cluster: example-a
+              job: example-cetirun-operator
+              instance: operator-1.example.com:8080
+              severity: warning
+            exp_annotations: *identity_missing_annotations
+          - exp_labels:
+              cluster: example-b
+              fleet: example-green
+              job: example-cetirun-operator
+              severity: warning
+            exp_annotations: *identity_missing_annotations
+      - eval_time: 5m
+        alertname: CetiRunSandboxReportedEnforcementLost
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: CetiRunSandboxCollectionMetricMissing
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: CetiRunSandboxCollectionUnavailable
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: CetiRunSandboxScrapeFailed
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: CetiRunSandboxTargetMissing
+        exp_alerts: []
+    promql_expr_test:
+      - expr: ALERTS
+        eval_time: 6m
+        exp_samples: []

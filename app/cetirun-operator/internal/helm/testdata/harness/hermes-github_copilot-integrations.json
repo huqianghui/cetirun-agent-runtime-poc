@@ -1,0 +1,61 @@
+{
+  "native": {
+    "hermes-config.yaml": {
+      "agent": {
+        "max_turns": 90
+      },
+      "browser": {
+        "cdp_url": "http://127.0.0.1:18800"
+      },
+      "compression": {
+        "enabled": true,
+        "target_ratio": 0.2,
+        "threshold": 0.5
+      },
+      "memory": {
+        "memory_char_limit": 2200,
+        "user_char_limit": 1375
+      },
+      "model": {
+        "default": "test-model",
+        "provider": "cetirun-gateway"
+      },
+      "providers": {
+        "cetirun-gateway": {
+          "api": "http://cetirun-ai-gateway.cetirun-system.svc.cluster.local:4000/v1",
+          "default_model": "test-model",
+          "discover_models": false,
+          "key_env": "CETIRUN_GATEWAY_API_KEY",
+          "models": {
+            "test-model": {}
+          },
+          "name": "CetiRun AI Gateway",
+          "transport": "chat_completions"
+        }
+      },
+      "security": {
+        "redact_secrets": true
+      },
+      "skills": {
+        "external_dirs": [
+          "/home/vibe/.aks/skills",
+          "/home/vibe/.cetirun/skills/npm/@example__skill",
+          "/home/vibe/.cetirun/skills/npm/example-skill"
+        ]
+      },
+      "terminal": {
+        "backend": "local"
+      }
+    }
+  },
+  "manifestHashes": {
+    "configmap.yaml": "0b1656be50cd0c325454042e400ec3cd9da770fffb560f995647b1d3da7f7859",
+    "deny-exec-policy.yaml": "7dd9900c6cb720cda23eae4abebcdd68e7d868d91be7df00bac133f63acb4267",
+    "networkpolicy.yaml": "af8744e3a2c41de2387500c84832546cd1c71cb6431b9a2d10c626bf75ea96b2",
+    "pre-upgrade-hook.yaml": "c70e9f82a181759993f2ea33f7d02cc5add4f5d90622134d0b881222fc0f63ee",
+    "service.yaml": "52e4408419d03e5bdfe7d821f93607c1693d8a7059927a160bf56ccbe0c0a6b2",
+    "shared-skills-pv.yaml": "38c08b871f0dfe5237fff4c92fd6622e54c9b81edec9bcb10c79f68075035e77",
+    "shared-skills-pvc.yaml": "d5af7044cd33fb9d6ddacb1d23aa2fbcc17d0ddcbfa42f9e10f2a7103ab75d7d",
+    "statefulset.yaml": "0f80824f2b2042a5cb782adf25fd72ade82bf8f2cbe0b0a017b45b21f22e14c0"
+  }
+}

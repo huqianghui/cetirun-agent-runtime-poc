@@ -1,0 +1,3 @@
+{{- if hasKey (.Values.egress | default dict) "blacklist" }}
+{{- fail "egress.blacklist has been removed; configure AgentPolicy network controls and explicitly clean up the old kept filter using scripts/cetirun-istio-cleanup.py" }}
+{{- end }}

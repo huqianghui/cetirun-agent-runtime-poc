@@ -1,0 +1,24 @@
+# Synthetic publicTLS fragment. Merge it into a complete environment file.
+# `target.kubeconfig` must be an absolute private file when this mode is enabled.
+publicTLS:
+  enabled: true
+  dns:
+    mode: azure-public-ip
+    label: example-cetirun
+  azure:
+    subscriptionId: 22222222-2222-2222-2222-222222222222
+    tenantId: 33333333-3333-3333-3333-333333333333
+    resourceGroup: example-rg
+    clusterName: example-aks
+  ingressService: aks-istio-ingressgateway-external
+  gatewayName: cetirun-acme-http
+  certManager:
+    mode: install
+    namespace: cert-manager
+    release: cert-manager
+    # Download and checksum-verify this immutable archive separately.
+    chartArchive: /absolute/private/cert-manager-v1.21.3.tgz
+  acme:
+    email: ""
+  stateDirectory: /absolute/private/cetirun-public-tls
+  timeoutSeconds: 600

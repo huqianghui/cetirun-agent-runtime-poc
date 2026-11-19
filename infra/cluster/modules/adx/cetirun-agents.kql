@@ -1,0 +1,13 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+//
+// Query functions of the CetiRun Agent logs database. __LOGS_DATABASE__ is
+// the name of the logs database; the ADX module of the cluster template
+// replaces it and runs this script. Readers need the logs database too.
+.create-or-alter function with (folder = "CetiRun", docstring = "Agent workload logs with the Agent, owner and Team of their namespace, from the inventory in the logs database.", skipvalidation = "true") AgentLogsWithOwner() {
+    AgentLogs
+    | lookup kind=leftouter (
+        database("__LOGS_DATABASE__").AgentInventory()
+        | project Cluster, Namespace = AgentNamespace, Agent = AgentName, AgentUid, Owner, Team
+        ) on Cluster, Namespace
+}

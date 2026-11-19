@@ -1,0 +1,39 @@
+{{- if .Values.sidecarScope.enabled }}
+{{- $hasSidecarV1 := .Capabilities.APIVersions.Has "networking.istio.io/v1/Sidecar" }}
+{{- $hasSidecarV1beta1 := .Capabilities.APIVersions.Has "networking.istio.io/v1beta1/Sidecar" }}
+{{- if or $hasSidecarV1 $hasSidecarV1beta1 }}
+apiVersion: {{ ternary "networking.istio.io/v1" "networking.istio.io/v1beta1" $hasSidecarV1 }}
+kind: Sidecar
+metadata:
+  name: {{ include "cetirun.fullname" . }}
+  labels:
+    {{- include "cetirun.labels" . | nindent 4 }}
+spec:
+  workloadSelector:
+    labels:
+      {{- include "cetirun.selectorLabels" . | nindent 6 }}
+  egress:
+    - hosts:
+        # Own namespace — pod's own services
+        - "./*"
+        # Istio control plane — mTLS cert signing
+        - "{{ .Values.networkPolicy.istioNamespace }}/*"
+        {{- with .Values.networkPolicy.istioIngressNamespace }}
+        # Istio ingress gateway (when separate from istiod)
+        - "{{ . }}/*"
+        {{- end }}
+        {{- if .Values.connectionsMCP.enabled }}
+        - "{{ .Values.connectionsMCP.namespace }}/*"
+        {{- end }}
+        {{- if and (ne (include "cetirun.agent.type" .) "custom") (.Values.aiGateway | default dict).enabled }}
+        # Platform AI Gateway.
+        - "{{ .Values.networkPolicy.gatewayNamespace }}/*"
+        {{- end }}
+        {{- range .Values.sidecarScope.additionalEgressHosts }}
+        - {{ . | quote }}
+        {{- end }}
+        {{- with (.Values.runtime | default dict).bindings }}
+        - {{ printf "%s/*" .network.gateway.namespace | quote }}
+        {{- end }}
+{{- end }}
+{{- end }}

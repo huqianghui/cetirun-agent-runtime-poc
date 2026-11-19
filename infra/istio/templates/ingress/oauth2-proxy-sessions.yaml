@@ -1,0 +1,170 @@
+{{- $session := include "cetirun-istio.sessionSettings" . | fromJson -}}
+{{- if $session.bundled -}}
+{{- $redis := .Values.oauth2Proxy.sessionStore.redis -}}
+{{- $bundled := $redis.bundled -}}
+{{- $secret := lookup "v1" "Secret" .Release.Namespace $session.secretName -}}
+{{- $data := default dict $secret.data -}}
+{{- if not $redis.existingSecret }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: oauth2-proxy-sessions
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    {{- include "cetirun-istio.labels" . | nindent 4 }}
+type: Opaque
+data:
+  {{ $session.passwordKey }}: {{ if $secret }}{{ required "existing OAuth session Secret is missing its password; restore it before upgrading" (get $data $session.passwordKey) | quote }}{{ else }}{{ randAlphaNum 32 | b64enc | quote }}{{ end }}
+---
+{{- end }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: oauth2-proxy-sessions
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cetirun-istio.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app: oauth2-proxy-sessions
+  ports:
+    - name: tcp-redis
+      port: 6379
+      targetPort: redis
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oauth2-proxy-sessions
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cetirun-istio.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: oauth2-proxy-sessions
+  template:
+    metadata:
+      annotations:
+        checksum/redis-session-credentials: {{ toJson $data | sha256sum | quote }}
+      labels:
+        app: oauth2-proxy-sessions
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+      containers:
+        - name: valkey
+          image: {{ $bundled.image.repository }}:{{ $bundled.image.tag }}{{- if $bundled.image.digest }}@{{ $bundled.image.digest }}{{- end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          env:
+            - name: AZMON_COLLECT_ENV
+              value: "False"
+            - name: VALKEY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $session.secretName }}
+                  key: {{ $session.passwordKey }}
+          args:
+            - valkey-server
+            - --requirepass
+            - $(VALKEY_PASSWORD)
+            - --dir
+            - /data
+            - --save
+            - ""
+            - --appendonly
+            - {{ ternary "yes" "no" $bundled.persistence.enabled | quote }}
+            - --appendfsync
+            - everysec
+          ports:
+            - name: redis
+              containerPort: 6379
+              protocol: TCP
+          readinessProbe:
+            exec:
+              command: [sh, -c, 'REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli ping | grep -q PONG']
+            periodSeconds: 5
+            timeoutSeconds: 5
+          livenessProbe:
+            exec:
+              command: [sh, -c, 'REDISCLI_AUTH="$VALKEY_PASSWORD" valkey-cli ping | grep -q PONG']
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+          resources:
+            {{- toYaml $bundled.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          {{- if $bundled.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: oauth2-proxy-sessions
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+      {{- with .Values.oauth2Proxy.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.oauth2Proxy.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: oauth2-proxy-sessions
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cetirun-istio.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app: oauth2-proxy-sessions
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: oauth2-proxy
+      ports:
+        - protocol: TCP
+          port: 6379
+{{- if $bundled.persistence.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: oauth2-proxy-sessions
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    {{- include "cetirun-istio.labels" . | nindent 4 }}
+spec:
+  accessModes: [ReadWriteOnce]
+  {{- if $bundled.persistence.storageClass }}
+  storageClassName: {{ $bundled.persistence.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ required "OAuth session persistence.size is required" $bundled.persistence.size }}
+{{- end }}
+{{- end }}

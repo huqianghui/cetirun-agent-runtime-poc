@@ -1,0 +1,31 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+// Identify egress traffic going through PassthroughCluster (not matched by ServiceEntry)
+// These are candidates to add to values.yaml externalServices
+
+ContainerLogV2
+| where PodNamespace startswith "cetirun-"
+| where ContainerName == "istio-proxy"
+| where LogMessage startswith "{"
+| extend Log = parse_json(LogMessage)
+| where tostring(Log.upstream_cluster) has "PassthroughCluster"
+| extend
+    UpstreamHost = tostring(Log.upstream_host),
+    BytesSent = toint(Log.bytes_sent),
+    BytesReceived = toint(Log.bytes_received),
+    DurationMs = toint(Log.duration_ms)
+| summarize
+    RequestCount = count(),
+    TotalBytesSent = sum(BytesSent),
+    TotalBytesReceived = sum(BytesReceived),
+    AvgDurationMs = avg(DurationMs),
+    FirstSeen = min(TimeGenerated),
+    LastSeen = max(TimeGenerated)
+    by UpstreamHost
+| order by RequestCount desc
+| take 50
+
+// PassthroughCluster means the destination is NOT in ServiceEntry
+// Reverse-lookup the IPs to find which services to add:
+//   nslookup <ip> or check Azure portal for the resource

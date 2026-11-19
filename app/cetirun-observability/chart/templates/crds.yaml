@@ -1,0 +1,12 @@
+{{- /*
+The ADX-Mon custom resource definitions, unchanged from the upstream commit
+that the image is built from (kustomize/bases, MIT License). The ingestor
+reads Function, ManagementCommand and SummaryRule resources of every
+namespace and runs their Kusto commands with its own identity. The chart
+creates none; only cluster administrators may create them.
+*/}}
+{{- if .Values.crds.install }}
+{{- range $path, $_ := .Files.Glob "files/crds/*.yaml" }}
+{{ $.Files.Get $path }}
+{{- end }}
+{{- end }}

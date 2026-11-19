@@ -1,0 +1,171 @@
+# CetiRun platform umbrella defaults. This chart deliberately does not own
+# managed Istio, external credentials, certificates, agent instances, or their
+# data. The Operator subchart owns the Registry source namespace (retained on
+# uninstall); per-Agent credential Secrets are owned by their Agent UID.
+
+# -- Shared release coordinates propagated automatically to the Operator,
+# Portal and AI Gateway subcharts.
+global:
+  # -- Optional full Memory image override. Empty follows registry/version.
+  memoryContext:
+    image: ""
+  # -- Enable both Portal Chat and its private runtime caller. No database.
+  portalChat:
+    enabled: false
+    identityRealm: ""
+  # -- Optional registry hostname override propagated to all CetiRun subcharts.
+  # Empty preserves each subchart's existing repository defaults.
+  registry: ""
+  # -- Optional image and chart version override propagated to all subcharts.
+  # Empty preserves each synchronized subchart's existing version defaults.
+  version: ""
+  # -- Shared by Portal and Operator; separate from the Agent Identity Broker.
+  registryCredentialNamespace: cetirun-registry-credentials
+
+# -- Optional public HTTP-01 certificate preparation on an existing managed
+# Istio ingress listener. cert-manager itself is installed separately.
+publicTLS:
+  enabled: false
+  # -- Render only the public TLS resources. This is intended for a
+  # certificate-first bootstrap before the rest of the platform is deployed.
+  bootstrapOnly: false
+  # -- Reserved for the deployment helper: expected next Helm revision.
+  # Bootstrap upgrades refuse a stale revision after a concurrent deployment.
+  bootstrapRevision: 1
+  # One exact public hostname. Wildcard certificates and DNS-01 are outside
+  # this HTTP-01 mode.
+  domain: ""
+  ingressNamespace: aks-istio-ingress
+  ingressServiceHostname: aks-istio-ingressgateway-external.aks-istio-ingress.svc.cluster.local
+  gateway:
+    name: cetirun-acme-http
+  acme:
+    # Optional ACME account contact. Certificates remain opt-in so operators
+    # can request and verify staging before production.
+    email: ""
+    stagingIssuerName: cetirun-letsencrypt-staging
+    productionIssuerName: cetirun-letsencrypt-production
+    stagingCertificateEnabled: false
+    stagingCertificateName: cetirun-tls-staging
+    stagingSecretName: cetirun-tls-staging
+    productionCertificateEnabled: false
+    productionCertificateName: cetirun-tls
+    productionSecretName: cetirun-tls
+
+cetirun-connections-mcp:
+  enabled: false
+
+cetirun-agent-broker:
+  enabled: false
+
+istio:
+  # A separately managed cetirun-istio release must be ready before installing
+  # this chart. The deployment helper checks these references against the API.
+  enabled: false
+  oauth2Proxy:
+    name: oauth2-proxy
+    namespace: cetirun-istio
+
+cetirun-operator:
+  enabled: true
+  namespace: cetirun-system
+  # Gateway used by instance VirtualServices. It must match the Portal gateway.
+  istioGateway: "aks-istio-ingress/cetirun-gateway"
+  cetirun:
+    helmValues:
+      # Namespace that contains the ingress Gateway workload allowed by instance
+      # NetworkPolicies. It must match the namespace in istioGateway.
+      networkPolicy:
+        istioIngressNamespace: aks-istio-ingress
+  # Required for instance URLs and VirtualServices. make deploy sets this from
+  # domain in its environment file.
+  domainSuffix: ""
+  # OpenClaw and Hermes Agents take their models from the AI Gateway; the
+  # platform requires it.
+  # Without a url, the operator uses cetirun-ai-gateway in its namespace.
+  # The Gateway probes no Agent's GitHub Copilot routes, each probe being a
+  # real call on the owner's Copilot allowance, unless
+  # aiGateway.copilotProxy.healthChecks.enabled is set.
+  aiGateway:
+    enabled: true
+  sandboxAdmission:
+    # The Portal writes Agents, Teams, Sandboxes and AgentPolicies with its
+    # ServiceAccount, which the Sandbox admission webhook accepts for
+    # policy-bound Agents only as an administrator. When admission is enabled,
+    # the operator chart adds it to the administrators. Keep this equal to
+    # cetirun-portal.serviceAccount.name, and clear it when the Portal is
+    # disabled.
+    portalServiceAccount: cetirun-portal
+
+cetirun-portal:
+  enabled: true
+  istio:
+    host: ""
+    # Gateway and source identity used by the portal's VirtualService and
+    # AuthorizationPolicy. They must reference the separately managed gateway.
+    gateway: "aks-istio-ingress/cetirun-gateway"
+    gatewayNamespace: aks-istio-ingress
+    gatewayServiceAccount: aks-istio-ingressgateway-external
+  # The Portal offers the AI Gateway's model sources and the GitHub Copilot
+  # sign-in; the platform requires it.
+  features:
+    aiGatewayEnabled: true
+  aiGateway:
+    # The operator publishes the shared models in its own namespace, where
+    # the Portal reads them: keep this equal to cetirun-operator.namespace.
+    # make deploy sets both from platform.namespace.
+    catalogNamespace: cetirun-system
+  # Keep these values identical to cetirun-operator.sandboxAdmission's
+  # coordination authority when strict configuration coordination is enabled.
+  configurationCoordination:
+    namespace: ""
+    name: ""
+    uid: ""
+  # The Portal reads approved HOME StorageClasses from this exact Operator
+  # platform source. make deploy fills both source fields when it is enabled.
+  sandboxStorage:
+    platformNamespace: ""
+    platformConfigMapName: ""
+    defaultStorageClassName: ""
+
+cetirun-ai-gateway:
+  # -- Install the AI Gateway with the operator and Portal. Turn it off only
+  # when a Gateway is installed separately in the operator namespace.
+  enabled: true
+  # The operator reaches the Gateway as cetirun-ai-gateway and reads its master
+  # key from the cetirun-ai-gateway-auth Secret, so keep this name.
+  fullnameOverride: cetirun-ai-gateway
+  # This Gateway serves CetiRun Agents: it reserves the copilot/ model names,
+  # in which Team routers name GitHub Copilot models, and checks router fallback
+  # targets against the caller's key. The chart refuses to install it turned off.
+  operatorIntegration: true
+  # -- Shared model candidates granted through the selected AgentPolicy.
+  # The Gateway chart generates their deployment IDs and per-model access
+  # groups; the old cetirun-shared group is not a policy grant. Each model
+  # still needs pricing while the Gateway blocks unpriced models.
+  # An empty list is valid, but console-only models are not trusted shared
+  # bindings. Agents need an authorized model entitlement before model use.
+  models: []
+  # -- LiteLLM's Prometheus metrics, on a port of their own in each Gateway
+  # pod, and a PodMonitor for Azure Monitor managed Prometheus, which the
+  # CetiRun cluster template turns on. The PodMonitor is created only where
+  # the cluster serves its API.
+  metrics:
+    enabled: true
+    podMonitor:
+      enabled: true
+  # -- LiteLLM's own row per call in its database, which the console's request
+  # log pages read, kept for seven days (the Gateway chart's
+  # spendLogs.retention). The Gateway's request log on stdout records each call
+  # as well, and the cluster's log collection keeps it outside the database.
+  # The database rows also hold each call's prompt and response unless
+  # spendLogs.storePrompts is false. The stdout request log never does.
+  spendLogs:
+    enabled: true
+
+# -- ADX-Mon collection of the platform's and the Agents' logs, Kubernetes
+# events and metrics into Azure Data Explorer. make deploy turns it on with the
+# observability block of its environment file, which names the Kusto cluster,
+# the databases and the ingestor's Azure identity.
+cetirun-observability:
+  enabled: false

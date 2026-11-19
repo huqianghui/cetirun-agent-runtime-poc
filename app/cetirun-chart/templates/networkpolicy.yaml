@@ -1,0 +1,134 @@
+{{- if and .Values.networkPolicy.enabled (not .Values.sandboxWorkload) }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "cetirun.fullname" . }}
+  labels:
+    {{- include "cetirun.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "cetirun.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+
+  # -- Ingress: allow only Istio ingress gateway
+  ingress:
+    {{- $webUI := ((.Values.runtime | default dict).agent | default dict).webUI }}
+    {{- if or (ne (include "cetirun.agent.type" .) "custom") .Values.desktop.enabled $webUI }}
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.networkPolicy.istioIngressNamespace | default .Values.networkPolicy.istioNamespace }}
+      ports:
+        {{- include "cetirun.agent.networkPolicyIngressPorts" . | nindent 8 }}
+        {{- if .Values.desktop.enabled }}
+        - protocol: TCP
+          port: 6080
+        {{- end }}
+        {{- if $webUI }}
+        - protocol: TCP
+          port: {{ .Values.runtime.agent.port }}
+        {{- end }}
+        {{- if and .Values.ttyd.enabled (ne (include "cetirun.agent.type" .) "custom") }}
+        - protocol: TCP
+          port: {{ .Values.ttyd.port }}
+        {{- end }}
+    {{- end }}
+    {{- with (.Values.runtime | default dict).bindings }}
+    {{- if and $.Values.runtime.http (not $webUI) .network.callers }}
+    - from:
+        {{- range .network.callers }}
+        - {{ include "cetirun.custom.peer" . | nindent 10 | trim }}
+        {{- end }}
+      ports:
+        - protocol: TCP
+          port: {{ $.Values.runtime.agent.port }}
+    {{- else if and (not $.Values.desktop.enabled) (not $webUI) }}
+    []
+    {{- end }}
+    {{- end }}
+
+  # -- Egress: default deny-all with explicit allows
+  egress:
+    {{- with (.Values.runtime | default dict).bindings }}
+    - to:
+        - {{ include "cetirun.custom.peer" .network.gateway | nindent 10 | trim }}
+      ports:
+        - protocol: TCP
+          port: {{ .network.gatewayPort }}
+    {{- end }}
+    # 1. DNS — allow kube-dns for name resolution
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.networkPolicy.dnsNamespace }}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+    # 2. Istiod — allow istio-proxy sidecar to reach istiod for mTLS cert signing
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.networkPolicy.istioNamespace }}
+      ports:
+        - protocol: TCP
+          port: 15012
+
+    {{- if .Values.connectionsMCP.enabled }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.connectionsMCP.namespace }}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: cetirun-connections-mcp
+      ports:
+        - protocol: TCP
+          port: 8443
+    {{- end }}
+
+    {{- if and (.Values.aiGateway | default dict).enabled (ne (include "cetirun.agent.type" .) "custom") }}
+    # Platform AI Gateway: model traffic authorised by this Agent's virtual key.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.networkPolicy.gatewayNamespace }}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: cetirun-ai-gateway
+              app.kubernetes.io/component: gateway
+      ports:
+        - protocol: TCP
+          port: {{ .Values.networkPolicy.gatewayPort | default 4000 }}
+    {{- end }}
+
+    {{- range .Values.networkPolicy.allowedInternalCIDRs }}
+    # Explicitly allowed internal IP: {{ .cidr }}
+    - to:
+        - ipBlock:
+            cidr: {{ .cidr }}
+      ports:
+      {{- range .ports }}
+        - protocol: {{ .protocol | default "TCP" }}
+          port: {{ .port }}
+      {{- end }}
+    {{- end }}
+
+    # 4. All external (out-of-cluster) egress, blocking internal ranges and IMDS.
+    # IMDS (169.254.169.254/32) is always blocked to prevent credential theft;
+    # workload identity uses federated token exchange and does not need IMDS.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            {{- with .Values.networkPolicy.blockedCIDRs }}
+            except:
+              {{- range . }}
+              - {{ . }}
+              {{- end }}
+            {{- end }}
+{{- end }}

@@ -1,0 +1,132 @@
+{{- if .Values.telemetry.enabled }}
+{{- include "cetirun-observability.validate" . -}}
+{{- $name := include "cetirun-observability.telemetryName" . -}}
+{{- $labels := dict "name" $name "context" . -}}
+{{- $telemetry := .Values.telemetry -}}
+{{- /*
+The telemetry program of the operator image: it writes the Agent inventory
+and Kubernetes events as JSON lines on standard output, which the collector
+stores in the Telemetry table. Its access is read-only.
+*/}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cetirun-observability.labels" $labels | nindent 4 }}
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "cetirun-observability.labels" $labels | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["cetirun.microsoft.com"]
+    resources: ["agents", "teams", "agentpolicies", "sandboxes"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "cetirun-observability.labels" $labels | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ $name }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $name }}
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cetirun-observability.labels" $labels | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "cetirun-observability.selectorLabels" $labels | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "cetirun-observability.selectorLabels" $labels | nindent 8 }}
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: {{ $name }}
+      automountServiceAccountToken: true
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: telemetry
+          image: {{ include "cetirun-observability.image" (dict "image" $telemetry.image "name" "cetirun-operator" "context" .) | quote }}
+          imagePullPolicy: {{ $telemetry.image.pullPolicy }}
+          command: ["/telemetry"]
+          args:
+            - --events={{ $telemetry.events }}
+            - --snapshot-interval={{ $telemetry.snapshotInterval }}
+          ports:
+            - name: health
+              containerPort: 8081
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: health
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml $telemetry.resources | nindent 12 }}
+      {{- with $telemetry.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $telemetry.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+# Nothing connects to the telemetry program; its probes come from the kubelet.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "cetirun-observability.labels" $labels | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "cetirun-observability.selectorLabels" $labels | nindent 6 }}
+  policyTypes: [Ingress]
+{{- end }}

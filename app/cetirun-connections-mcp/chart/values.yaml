@@ -1,0 +1,53 @@
+replicaCount: 2
+
+image:
+  repository: mcr.microsoft.com/aks/ai-runtime/cetirun/cetirun-connections-mcp
+  tag: ""
+  digest: ""
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  name: cetirun-connections-mcp
+  annotations: {}
+
+service:
+  port: 443
+
+tls:
+  # Existing Secret holding tls.crt and tls.key. The chart never creates TLS material.
+  secretName: ""
+
+broker:
+  # HTTPS origin only. Mesh mTLS is enforced by Istio independently of TLS verification.
+  baseURL: ""
+  clientTLSSecretName: ""
+
+portal:
+  # Optional HTTPS origin for connections_start_link.
+  baseURL: ""
+
+workloadTokenAudience: cetirun-connections-mcp
+
+nativeSandbox:
+  enabled: false
+  operatorNamespace: cetirun-system
+  # Exact protected managed-peer UID registered in the Sandbox topology.
+  peerUID: ""
+
+istio:
+  enabled: true
+  sidecarInjection: false
+  revision: ""
+  brokerNamespace: cetirun-credentials
+  controlPlaneNamespace: aks-istio-system
+  agentNamespaces:
+    - cetirun-*
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi

@@ -1,0 +1,351 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+ARG VERSION=dev
+ARG GIT_SHA=unknown
+ARG AZURELINUX_BASE=mcr.microsoft.com/azurelinux/base/core:3.0@sha256:bfd3e44899fe7c17f6fda42a6ef2a322f2178c2dafb88e69fd87675cdcac39ec
+ARG GO_BUILD_IMAGE=go-toolchain
+
+# Keep the default image visible to Dependabot while retaining the build override.
+FROM mcr.microsoft.com/oss/go/microsoft/golang:1.27.3-1@sha256:25d710943a357c3b8669289f4f8af073f9c6c2a44a5b31341cf8997ea592dcba AS go-toolchain
+ENV GOTOOLCHAIN=local
+
+# ── Install Node.js 24 from official tarball ───────────────────
+# Keep the LTS line accepted by OpenClaw's dependencies.
+# Qualify openclaw doctor when changing this pin; earlier Node 24 builds hung.
+FROM ${AZURELINUX_BASE} AS node-install
+ARG NODE_VERSION=24.21.0
+ARG NODE_SHA256_X64=fd8e59d5a511510f6a298afb548f18c7d2b1be404d8b4a27d94fbe49f56cb2d6
+ARG NODE_SHA256_ARM64=6ad1325edbdb5649c379b75a237147a666c95d4f9ae8d340fef2d1575d289ad2
+# Package and release downloads can fail for a minute or more (HTTP 504,
+# refused connections); tdnf's own retries all come within one second. Each
+# download in this file retries with a growing delay.
+RUN for attempt in 1 2 3 4 5; do \
+      tdnf install -y ca-certificates curl tar xz libgcc-atomic && break; \
+      [ "$attempt" -lt 5 ] || exit 1; tdnf clean all; rm -rf /var/cache/tdnf; sleep $((attempt * 15)); \
+    done && \
+    tdnf clean all
+RUN UNAME_M=$(uname -m) && \
+    if [ "$UNAME_M" = "x86_64" ]; then NODE_ARCH="x64"; NODE_SHA256="${NODE_SHA256_X64}"; \
+    elif [ "$UNAME_M" = "aarch64" ]; then NODE_ARCH="arm64"; NODE_SHA256="${NODE_SHA256_ARM64}"; \
+    else echo "Unsupported architecture: $UNAME_M" >&2; exit 1; fi && \
+    curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz" -o /tmp/node.tar.xz && \
+    echo "${NODE_SHA256}  /tmp/node.tar.xz" | sha256sum --check && \
+    tar xf /tmp/node.tar.xz -C /usr/local --strip-components=1 && \
+    rm /tmp/node.tar.xz
+
+# ── Build Go tools from source with the pinned fixed Go toolchain ────────────────
+# Upstream release binaries can lag Go stdlib CVE fixes, so build the tools here.
+FROM ${GO_BUILD_IMAGE} AS tailscale-build
+ARG TAILSCALE_VERSION=1.104.1
+ARG TAILSCALE_SRC_SHA256=bf868b2b1a46b9485d55bcda12c2d7573279ce4474bc6d607f42f1495db36ed8
+RUN curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors "https://github.com/tailscale/tailscale/archive/v${TAILSCALE_VERSION}.tar.gz" -o /tmp/tailscale.tar.gz && \
+    echo "${TAILSCALE_SRC_SHA256}  /tmp/tailscale.tar.gz" | sha256sum --check && \
+    tar xzf /tmp/tailscale.tar.gz -C /tmp && \
+    mv /tmp/tailscale-${TAILSCALE_VERSION} /src && \
+    rm /tmp/tailscale.tar.gz
+WORKDIR /src
+# Download the modules before building, so that a failed download is retried.
+RUN for attempt in 1 2 3 4 5; do \
+      CGO_ENABLED=0 go list -deps ./cmd/tailscale ./cmd/tailscaled > /dev/null && break; \
+      [ "$attempt" -lt 5 ] || exit 1; sleep $((attempt * 15)); \
+    done
+# Archive builds have no Git metadata; use the upstream distribution stamps.
+RUN GOFLAGS="-trimpath" CGO_ENABLED=0 \
+    go build -ldflags "-X tailscale.com/version.longStamp=${TAILSCALE_VERSION} -X tailscale.com/version.shortStamp=${TAILSCALE_VERSION}" \
+      -o /out/tailscale ./cmd/tailscale && \
+    GOFLAGS="-trimpath" CGO_ENABLED=0 \
+    go build -ldflags "-X tailscale.com/version.longStamp=${TAILSCALE_VERSION} -X tailscale.com/version.shortStamp=${TAILSCALE_VERSION}" \
+      -o /out/tailscaled ./cmd/tailscaled
+
+# -- Build GitHub CLI from source with the pinned Go toolchain --
+FROM ${GO_BUILD_IMAGE} AS gh-build
+ARG GH_VERSION=2.102.0
+ARG GH_RELEASE_DATE=2026-09-30
+ARG GH_SRC_SHA256=08bf0ef8b4409893889175e0f5279d30d6edd96465816042c0d7c72eac598158
+RUN curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors "https://github.com/cli/cli/archive/refs/tags/v${GH_VERSION}.tar.gz" -o /tmp/gh.tar.gz && \
+    echo "${GH_SRC_SHA256}  /tmp/gh.tar.gz" | sha256sum --check && \
+    tar xzf /tmp/gh.tar.gz -C /tmp && \
+    mv /tmp/cli-${GH_VERSION} /src && \
+    rm /tmp/gh.tar.gz
+WORKDIR /src
+RUN for attempt in 1 2 3 4 5; do \
+      CGO_ENABLED=0 go list -deps ./cmd/gh > /dev/null && break; \
+      [ "$attempt" -lt 5 ] || exit 1; sleep $((attempt * 15)); \
+    done
+RUN GOFLAGS="-trimpath" CGO_ENABLED=0 \
+    go build \
+      -ldflags "-s -w -X github.com/cli/cli/v2/internal/build.Version=${GH_VERSION} -X github.com/cli/cli/v2/internal/build.Date=${GH_RELEASE_DATE}" \
+      -o /out/gh ./cmd/gh
+
+# -- Build kubectl from source with the pinned Go toolchain --
+FROM ${GO_BUILD_IMAGE} AS kubectl-build
+ARG KUBECTL_VERSION=1.37.1
+ARG KUBERNETES_SRC_SHA256=89295ac375eb0fdfe68a0696d81be615771d6b27c7ad9bb675dc6ffd0d2ce5f3
+ARG KUBERNETES_GIT_COMMIT=f78e722310e50bcaca9276be22276d9e91d91308
+RUN curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors "https://github.com/kubernetes/kubernetes/archive/refs/tags/v${KUBECTL_VERSION}.tar.gz" -o /tmp/kubernetes.tar.gz && \
+    echo "${KUBERNETES_SRC_SHA256}  /tmp/kubernetes.tar.gz" | sha256sum --check && \
+    tar xzf /tmp/kubernetes.tar.gz -C /tmp && \
+    mv /tmp/kubernetes-${KUBECTL_VERSION} /src && \
+    rm /tmp/kubernetes.tar.gz
+WORKDIR /src
+RUN KUBERNETES_GIT_MAJOR=${KUBECTL_VERSION%%.*} && \
+    KUBERNETES_GIT_MINOR=${KUBECTL_VERSION#*.} && \
+    KUBERNETES_GIT_MINOR=${KUBERNETES_GIT_MINOR%%.*} && \
+    GOFLAGS="-trimpath" CGO_ENABLED=0 \
+    go build \
+      -ldflags "-s -w -X k8s.io/component-base/version.gitMajor=${KUBERNETES_GIT_MAJOR} -X k8s.io/component-base/version.gitMinor=${KUBERNETES_GIT_MINOR} -X k8s.io/component-base/version.gitVersion=v${KUBECTL_VERSION} -X k8s.io/component-base/version.gitCommit=${KUBERNETES_GIT_COMMIT} -X k8s.io/component-base/version.gitTreeState=clean" \
+      -o /out/kubectl ./cmd/kubectl
+
+# ── Main image ──────────────────────────────────────────────────
+FROM ${AZURELINUX_BASE}
+ARG VERSION
+ARG GIT_SHA
+
+LABEL org.opencontainers.image.source="https://github.com/Azure/CetiRun"
+LABEL org.opencontainers.image.description="CetiRun shared agent base image"
+LABEL org.opencontainers.image.version="${VERSION}"
+LABEL org.opencontainers.image.revision="${GIT_SHA}"
+LABEL org.opencontainers.image.licenses="MIT"
+
+ARG TZ=UTC
+ARG NPM_REGISTRY=https://registry.npmjs.org/
+ENV TZ="$TZ"
+
+# Install Node.js from the build stage; libgcc-atomic provides libatomic.so.1.
+# Copy entire /usr/local prefix to preserve npm/npx symlinks
+COPY --from=node-install /usr/local/ /usr/local/
+
+# Install system packages (ordered alphabetically for readability)
+RUN for attempt in 1 2 3 4 5; do tdnf install -y \
+  bind-utils \
+  ca-certificates \
+  curl \
+  diffutils \
+  git \
+  gnupg2 \
+  iptables \
+  iproute \
+  jq \
+  less \
+  libgcc-atomic \
+  man-db \
+  nano \
+  procps-ng \
+  python3 \
+  python3-pip \
+  shadow-utils \
+  sudo \
+  tar \
+  tmux \
+  unzip \
+  vim \
+  wget \
+  zsh \
+  && tdnf update -y && break; \
+  [ "$attempt" -lt 5 ] || exit 1; tdnf clean all; rm -rf /var/cache/tdnf; sleep $((attempt * 15)); \
+  done \
+  && tdnf clean all
+
+RUN for tool in sh cp mkdir mv rm chmod mktemp find cmp; do \
+      command -v "$tool" >/dev/null 2>&1 || exit 1; \
+    done
+
+# npm 12 includes fixed undici; do not overwrite its bundled dependency tree.
+ARG NPM_VERSION=12.2.0
+RUN npm install --global --prefix /usr/local --ignore-scripts \
+      --registry "${NPM_REGISTRY}" "npm@${NPM_VERSION}" && \
+    npm cache clean --force
+
+# Install GitHub CLI and kubectl from fixed-toolchain build stages.
+COPY --from=gh-build /out/gh /usr/local/bin/gh
+COPY --from=kubectl-build /out/kubectl /usr/local/bin/kubectl
+
+ARG MSGPACK_VERSION=1.2.3
+# pip 24.2 still imports pkg_resources, which setuptools 82+ removed.
+ARG SETUPTOOLS_VERSION=81.0.0
+ARG PYPI_INDEX_URL=https://pypi.org/simple/
+
+COPY configs/sync-pip-vendor.py /usr/local/share/cetirun/sync-pip-vendor.py
+
+# Install Azure CLI (available natively in Azure Linux 3.0 repos)
+# Both system pip and Azure CLI's bundled pip need their own vendor updates.
+RUN for attempt in 1 2 3 4 5; do \
+      tdnf install -y azure-cli && break; \
+      [ "$attempt" -lt 5 ] || exit 1; tdnf clean all; rm -rf /var/cache/tdnf; sleep $((attempt * 15)); \
+    done && \
+    AZ_SITE=$(sed -n 's/.*PYTHONPATH="\([^"]*\)".*/\1/p' /usr/bin/az | head -n 1) && \
+    AZ_SITE=$(printf '%s\n' "$AZ_SITE" | sed 's#\$bin_dir#/usr/bin#g') && \
+    AZ_SITE=$(realpath "$AZ_SITE") && \
+    SYSTEM_PIP_VENDOR=$(python3 -c 'from pathlib import Path; import pip._vendor; print(Path(pip._vendor.__file__).parent.resolve())') && \
+    for PIP_VENDOR in "${SYSTEM_PIP_VENDOR}" "${AZ_SITE}/pip/_vendor"; do \
+      test -f "${PIP_VENDOR}/vendor.txt" && \
+      echo "Updating pip vendor packages in ${PIP_VENDOR}" && \
+      python3 -m pip install --no-cache-dir --break-system-packages --root-user-action=ignore \
+        --index-url "${PYPI_INDEX_URL}" \
+        --upgrade --no-deps --only-binary=:all: --target "${PIP_VENDOR}" \
+        "msgpack==${MSGPACK_VERSION}" "setuptools==${SETUPTOOLS_VERSION}" && \
+      PYTHONPATH="${PIP_VENDOR%/pip/_vendor}" python3 -c \
+        'import sys; from pathlib import Path; from pip._vendor import msgpack, pkg_resources; root = Path(sys.argv[1]).resolve(); assert Path(msgpack.__file__).resolve().parent == root / "msgpack"; assert Path(pkg_resources.__file__).resolve().parent == root / "pkg_resources"; assert msgpack.__version__ == sys.argv[2]; assert msgpack.unpackb(msgpack.packb({"ok": True})) == {"ok": True}; pkg_resources.Requirement.parse("setuptools>=78.1.1")' \
+        "${PIP_VENDOR}" "${MSGPACK_VERSION}" && \
+      python3 /usr/local/share/cetirun/sync-pip-vendor.py "${PIP_VENDOR}" \
+        --msgpack-version "${MSGPACK_VERSION}" --setuptools-version "${SETUPTOOLS_VERSION}" && \
+      python3 /usr/local/share/cetirun/sync-pip-vendor.py "${PIP_VENDOR}" \
+        --msgpack-version "${MSGPACK_VERSION}" --setuptools-version "${SETUPTOOLS_VERSION}" --check \
+      || exit 1; \
+    done && \
+    tdnf clean all
+
+# Install ripgrep (not in Azure Linux repos — GitHub release binary)
+ARG RIPGREP_VERSION=15.2.0
+ARG RIPGREP_SHA256=33e15bcf1624b25cdd2a55813a47a2f95dbe126268203e76aa6a585d1e7b149c
+RUN curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors "https://github.com/BurntSushi/ripgrep/releases/download/${RIPGREP_VERSION}/ripgrep-${RIPGREP_VERSION}-x86_64-unknown-linux-musl.tar.gz" -o /tmp/rg.tar.gz && \
+    echo "${RIPGREP_SHA256}  /tmp/rg.tar.gz" | sha256sum --check && \
+    tar xzf /tmp/rg.tar.gz -C /tmp && \
+    install -m 755 /tmp/ripgrep-${RIPGREP_VERSION}-x86_64-unknown-linux-musl/rg /usr/local/bin/rg && \
+    rm -rf /tmp/rg* /tmp/ripgrep-*
+
+
+# Install supervisor (not in Azure Linux repos — pure Python)
+ARG SUPERVISOR_VERSION=4.3.0
+RUN python3 -m pip install --no-cache-dir --break-system-packages \
+      --index-url "${PYPI_INDEX_URL}" "supervisor==${SUPERVISOR_VERSION}"
+
+# Install ttyd (web terminal) - pinned version with checksum verification
+ARG TTYD_VERSION=1.7.7
+ARG TTYD_SHA256=8a217c968aba172e0dbf3f34447218dc015bc4d5e59bf51db2f2cd12b7be4f55
+RUN curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors "https://github.com/tsl0922/ttyd/releases/download/${TTYD_VERSION}/ttyd.x86_64" -o /usr/local/bin/ttyd && \
+    echo "${TTYD_SHA256}  /usr/local/bin/ttyd" | sha256sum --check && \
+    chmod +x /usr/local/bin/ttyd
+
+# Install Tailscale (mesh VPN — only activated when TAILSCALE_ENABLED=true)
+# Built from source in the tailscale-build stage with the pinned Go toolchain.
+COPY --from=tailscale-build /out/tailscale /usr/local/bin/tailscale
+COPY --from=tailscale-build /out/tailscaled /usr/local/bin/tailscaled
+
+# Create vibe user
+RUN groupadd --gid 1024 vibe && \
+  useradd -s /bin/zsh --uid 1024 --gid 1024 -m vibe && \
+  echo vibe ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/vibe && \
+  chmod 0440 /etc/sudoers.d/vibe
+
+# Ensure default vibe user has access to shared agent install paths.
+RUN mkdir -p /usr/local/share/npm-global /usr/local/share/cetirun /usr/local/lib/hermes-agent && \
+  chown -R vibe:vibe /usr/local/share /usr/local/lib/hermes-agent
+
+WORKDIR /home/vibe
+
+# Set up non-root user
+USER vibe
+
+# Setup NPM Paths
+ENV NPM_CONFIG_PREFIX=/usr/local/share/npm-global
+ENV PATH=$PATH:/usr/local/share/npm-global/bin:/home/vibe/.local/bin
+
+# Configure zsh with oh-my-zsh (archive download pinned to commit — avoids curl|bash)
+ARG OHMYZSH_COMMIT=60c9a7a839b790cd905d0fd4419435124fd1bdc0
+ARG OHMYZSH_SHA256=b76ccbc18fd732d9d897dd2edbf16519cb48d20f31e509f925d1bf41a8df859f
+RUN curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors "https://github.com/ohmyzsh/ohmyzsh/archive/${OHMYZSH_COMMIT}.tar.gz" -o /tmp/ohmyzsh.tar.gz && \
+    echo "${OHMYZSH_SHA256}  /tmp/ohmyzsh.tar.gz" | sha256sum --check && \
+    mkdir -p /home/vibe/.oh-my-zsh && \
+    tar xzf /tmp/ohmyzsh.tar.gz --strip-components=1 -C /home/vibe/.oh-my-zsh && \
+    rm /tmp/ohmyzsh.tar.gz && \
+    cp /home/vibe/.oh-my-zsh/templates/zshrc.zsh-template /home/vibe/.zshrc
+ENV SHELL=/bin/zsh
+
+# Allow Codex CLI running without sandboxing
+ENV CODEX_UNSAFE_ALLOW_NO_SANDBOX=1
+
+COPY --chown=vibe:vibe .npmrc /home/vibe/.npmrc
+
+# Preserve the selected registry in the non-root user's config. `npm ci` also
+# rewrites package-lock URLs that point at npmjs, while retaining mirror-owned
+# tarball URLs such as those returned by Azure DevOps-backed feeds.
+RUN npm config set registry "${NPM_REGISTRY}" && \
+    npm config set replace-registry-host npmjs
+
+# npm dependency policy for the shared tool installation root.
+# Add narrowly scoped CVE overrides here only when pinned upstreams still need them.
+COPY --chown=vibe:vibe configs/cve-overrides.json /usr/local/share/npm-global/lib/package.json
+
+# Install common npm global tools from the shared dependency-policy package root.
+# Uses local install (not -g) so npm respects any future overrides.
+# Pin Codex to avoid prerelease platform-package resolution changes breaking image builds.
+ARG CODEX_VERSION=0.160.1
+ARG OPENCODE_VERSION=1.18.35
+RUN mkdir -p /usr/local/share/npm-global/bin && \
+    cd /usr/local/share/npm-global/lib && \
+    npm install --save-exact @openai/codex@${CODEX_VERSION} opencode-ai@${OPENCODE_VERSION} && \
+    for b in node_modules/.bin/*; do \
+      [ -L "$b" ] && ln -sf "$(readlink -f "$b")" /usr/local/share/npm-global/bin/$(basename "$b"); \
+    done && \
+    npm cache clean --force
+
+# npm blocks undeclared lifecycle scripts. OpenCode's reviewed
+# postinstall selects and verifies the already-installed target-platform binary.
+RUN cd /usr/local/share/npm-global/lib && \
+    npm install-scripts approve opencode-ai && \
+    npm rebuild opencode-ai && \
+    test "$(opencode --version)" = "${OPENCODE_VERSION}"
+
+# Keep uv outside persistent HOME so existing instances use the image's version.
+USER root
+ARG UV_VERSION=0.12.23
+ARG UV_SHA256=9167d72b3319674b6303c4cbe071854bba13ebdf3d76b1a7cbdc175471fb66d6
+RUN curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors "https://releases.astral.sh/github/uv/releases/download/${UV_VERSION}/uv-x86_64-unknown-linux-gnu.tar.gz" -o /tmp/uv.tar.gz && \
+    echo "${UV_SHA256}  /tmp/uv.tar.gz" | sha256sum --check && \
+    tar xzf /tmp/uv.tar.gz -C /tmp && \
+    install -m 755 /tmp/uv-x86_64-unknown-linux-gnu/uv /usr/local/bin/uv && \
+    install -m 755 /tmp/uv-x86_64-unknown-linux-gnu/uvx /usr/local/bin/uvx && \
+    rm -rf /tmp/uv*
+USER vibe
+RUN mkdir -p /home/vibe/.local/bin
+
+# Install Claude Code into the same local prefix so it shares dependency policy.
+ARG CLAUDE_CODE_VERSION=2.1.292
+RUN mkdir -p /usr/local/share/npm-global/bin && \
+    cd /usr/local/share/npm-global/lib && \
+    npm install --save-exact @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION} && \
+    for b in node_modules/.bin/*; do \
+      [ -L "$b" ] && ln -sf "$(readlink -f "$b")" /usr/local/share/npm-global/bin/$(basename "$b"); \
+    done && \
+    npm cache clean --force && \
+    if [ -f ~/.claude.json ]; then \
+      jq '. + {"hasCompletedOnboarding": true}' ~/.claude.json > /tmp/claude.json && mv /tmp/claude.json ~/.claude.json; \
+    else \
+      echo '{"hasCompletedOnboarding": true}' > ~/.claude.json; \
+    fi
+
+RUN cd /usr/local/share/npm-global/lib && \
+    npm install-scripts approve @anthropic-ai/claude-code && \
+    npm rebuild @anthropic-ai/claude-code && \
+    claude --version | grep -F "${CLAUDE_CODE_VERSION}"
+
+# Create config directories and symlink shared skills for opencode and codex
+RUN mkdir -p /home/vibe/.codex /home/vibe/.kube /home/vibe/.config/opencode && \
+    ln -s /home/vibe/.agents/skills /home/vibe/.config/opencode/skills && \
+    ln -s /home/vibe/.agents/skills /home/vibe/.codex/skills
+
+# Prepare shared-skills plugin for Claude Code.
+# Runtime init publishes Memory and optional shared skills at /home/vibe/.agents/skills.
+# Claude Code discovers skills via plugins, so we create a local marketplace with a
+# symlinked skills/ dir. The link is unused outside a configured Agent runtime.
+RUN mkdir -p /home/vibe/.aks-skills/.claude-plugin \
+             /home/vibe/.aks-skills/plugins/aks-shared-skills/.claude-plugin && \
+    echo '{"$schema":"https://anthropic.com/claude-code/marketplace.schema.json","name":"aks-local","metadata":{"version":"0.1.0","description":"AKS shared skills from Azure Blob Storage","pluginRoot":"./plugins"},"owner":{"name":"CetiRun"},"plugins":[{"name":"aks-shared-skills","description":"AKS shared skills synced from Azure Blob Storage","version":"0.1.0","source":"./plugins/aks-shared-skills","strict":false}]}' \
+      > /home/vibe/.aks-skills/.claude-plugin/marketplace.json && \
+    echo '{"name":"aks-shared-skills","description":"AKS shared skills from Azure Blob Storage","version":"0.1.0"}' \
+      > /home/vibe/.aks-skills/plugins/aks-shared-skills/.claude-plugin/plugin.json && \
+    ln -s /home/vibe/.agents/skills /home/vibe/.aks-skills/plugins/aks-shared-skills/skills
+
+
+# Environments for vibe-kanban
+ENV FRONTEND_PORT=8080
+ENV HOST=0.0.0.0
+EXPOSE 8080
+
+
+# ttyd web terminal port
+EXPOSE 7681
+
+CMD ["/bin/zsh"]

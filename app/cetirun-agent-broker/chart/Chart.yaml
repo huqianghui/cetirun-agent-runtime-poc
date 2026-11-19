@@ -1,0 +1,6 @@
+apiVersion: v2
+name: cetirun-agent-broker
+description: Microsoft Entra Agent Identity authorization and credential broker for CetiRun
+type: application
+version: 0.1.1-src.20261111
+appVersion: "0.1.1-src.20261111"

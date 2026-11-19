@@ -1,0 +1,31 @@
+{{- $storage := .Values.sandboxStorage | default dict -}}
+{{- if $storage.platformConfigMapName }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "cetirun-portal.fullname" . }}-sandbox-storage
+  namespace: {{ $storage.platformNamespace | quote }}
+  labels:
+    {{- include "cetirun-portal.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: [{{ $storage.platformConfigMapName | quote }}]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "cetirun-portal.fullname" . }}-sandbox-storage
+  namespace: {{ $storage.platformNamespace | quote }}
+  labels:
+    {{- include "cetirun-portal.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "cetirun-portal.fullname" . }}-sandbox-storage
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.serviceAccount.name | quote }}
+    namespace: {{ .Release.Namespace | quote }}
+{{- end }}

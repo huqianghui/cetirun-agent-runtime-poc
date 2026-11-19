@@ -1,0 +1,32 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+// Discover ALL egress destinations from cetirun sidecar JSON access logs
+// Covers both ServiceEntry-matched traffic (with FQDN) and PassthroughCluster (IP only)
+
+ContainerLogV2
+| where PodNamespace startswith "cetirun-"
+| where ContainerName == "istio-proxy"
+| where LogMessage startswith "{"
+| extend Log = parse_json(LogMessage)
+| where tostring(Log.upstream_cluster) !startswith "inbound"
+| extend
+    Destination = coalesce(tostring(Log.requested_server_name), tostring(Log.authority), tostring(Log.upstream_host)),
+    UpstreamCluster = tostring(Log.upstream_cluster),
+    Method = tostring(Log.method),
+    ResponseCode = toint(Log.response_code),
+    BytesSent = toint(Log.bytes_sent),
+    BytesReceived = toint(Log.bytes_received),
+    DurationMs = toint(Log.duration_ms),
+    UpstreamHost = tostring(Log.upstream_host)
+| where isnotempty(Destination)
+| extend IsPassthrough = UpstreamCluster has "PassthroughCluster"
+| summarize
+    RequestCount = count(),
+    TotalBytesSent = sum(BytesSent),
+    TotalBytesReceived = sum(BytesReceived),
+    AvgDurationMs = avg(DurationMs),
+    FirstSeen = min(TimeGenerated),
+    LastSeen = max(TimeGenerated)
+    by Destination, IsPassthrough, UpstreamHost
+| order by RequestCount desc

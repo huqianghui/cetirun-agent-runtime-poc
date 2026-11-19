@@ -1,0 +1,13 @@
+{{- /*
+Copyright (c) Microsoft Corporation.
+Licensed under the MIT License.
+
+The Operator supplies and independently validates every proxy resource.
+The Agent receives its virtual key, never the proxy's credentials.
+*/ -}}
+{{- if eq (include "cetirun.agent.type" .) "custom" }}
+{{- range .Values.runtime.copilotResources }}
+---
+{{ toYaml . }}
+{{- end }}
+{{- end }}

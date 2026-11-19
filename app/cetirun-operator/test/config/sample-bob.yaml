@@ -1,0 +1,14 @@
+apiVersion: cetirun.microsoft.com/v1alpha1
+kind: Agent
+metadata:
+  name: bob
+spec:
+  agent:
+    type: hermes
+  gatewayTokenSecretRef: "gateway-token"
+  user:
+    alias: bob
+    displayName: "Bob Johnson"
+    email: bob@example.com
+  team: platform
+  sandboxRef: standard

@@ -1,0 +1,466 @@
+{{- $sandboxSources := include "cetirun-operator.sandboxSourcesConfig" . -}}
+{{- $admission := .Values.sandboxAdmission -}}
+{{- $cetiAdmin := include "cetirun-operator.cetiadminAdmission" . -}}
+{{- $placementName := $admission.placementConfigMapName -}}
+{{- $coordinationName := get $admission "coordinationConfigMapName" -}}
+{{- $coordinationUID := get $admission "coordinationConfigMapUID" -}}
+{{- if or (not (kindIs "string" $coordinationName)) (not (kindIs "string" $coordinationUID)) -}}
+{{- fail "sandboxAdmission coordination ConfigMap name and UID must be strings" -}}
+{{- end -}}
+{{- if or $coordinationName $coordinationUID -}}
+{{- if not (and $admission.enabled $admission.enforce $admission.podsEnabled (eq $admission.validationMode "strict")) -}}
+{{- fail "sandboxAdmission coordination requires strict, enabled and enforced configuration and Pod admission" -}}
+{{- end -}}
+{{- if or (eq $coordinationName "") (gt (len $coordinationName) 253) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$" $coordinationName)) (eq $coordinationName $placementName) (eq $coordinationName .Values.sandboxSources.platformConfigMapName) (eq $coordinationName .Values.sandboxSources.skillsCatalogConfigMapName) -}}
+{{- fail "sandboxAdmission.coordinationConfigMapName must be a separate valid ConfigMap name" -}}
+{{- end -}}
+{{- if or (eq $coordinationUID "") (gt (len $coordinationUID) 128) (not (regexMatch "^[!-~]+$" $coordinationUID)) -}}
+{{- fail "sandboxAdmission.coordinationConfigMapUID must pin a bounded exact UID without whitespace" -}}
+{{- end -}}
+{{- end -}}
+{{- if not (kindIs "string" $placementName) -}}
+{{- fail "sandboxAdmission.placementConfigMapName must be a string" -}}
+{{- end -}}
+{{- if $placementName -}}
+{{- if or (gt (len $placementName) 253) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$" $placementName)) -}}
+{{- fail "sandboxAdmission.placementConfigMapName must be a valid resource name" -}}
+{{- end -}}
+{{- if not (and $admission.enabled $admission.podsEnabled) -}}
+{{- fail "sandboxAdmission.placementConfigMapName requires enabled Sandbox configuration and Pod admission" -}}
+{{- end -}}
+{{- end -}}
+{{- if not (kindIs "bool" $admission.podsEnabled) -}}
+{{- fail "sandboxAdmission.podsEnabled must be a boolean" -}}
+{{- end -}}
+{{- if and $admission.podsEnabled (not $admission.enabled) -}}
+{{- fail "sandboxAdmission.podsEnabled requires sandboxAdmission.enabled=true" -}}
+{{- end -}}
+{{- if and $admission.enforce (not $admission.enabled) -}}
+{{- fail "sandboxAdmission.enforce requires sandboxAdmission.enabled=true" -}}
+{{- end -}}
+{{- if or $admission.enabled $cetiAdmin -}}
+{{- if not (has $admission.validationMode (list "compatible" "strict")) -}}
+{{- fail "sandboxAdmission.validationMode must be compatible or strict" -}}
+{{- end -}}
+{{- if not (semverCompare ">=1.37.0-0" .Capabilities.KubeVersion.Version) -}}
+{{- fail "Sandbox or CetiAdmin admission requires Kubernetes >= 1.37 (validated admission minimum)" -}}
+{{- end -}}
+{{- if or (not (regexMatch "^[0-9]+$" (toString $admission.replicaCount))) (lt (int64 $admission.replicaCount) 2) -}}
+{{- fail "sandboxAdmission.replicaCount must be an integer >= 2" -}}
+{{- end -}}
+{{- $tlsSecretName := required "sandboxAdmission.tlsSecretName is required for Sandbox or CetiAdmin admission" ($admission.tlsSecretName | trim) -}}
+{{- range $field, $identities := dict "adminUsers" $admission.adminUsers "adminGroups" $admission.adminGroups -}}
+{{- if not (kindIs "slice" $identities) -}}
+{{- fail (printf "sandboxAdmission.%s must be a list of nonempty strings" $field) -}}
+{{- end -}}
+{{- range $identity := $identities -}}
+{{- if not (kindIs "string" $identity) -}}
+{{- fail (printf "sandboxAdmission.%s must contain nonempty strings" $field) -}}
+{{- end -}}
+{{- if or (eq (trim $identity) "") (ne (trim $identity) $identity) -}}
+{{- fail (printf "sandboxAdmission.%s must contain nonempty strings without surrounding whitespace" $field) -}}
+{{- end -}}
+{{- if and (eq $field "adminGroups") (or (eq $identity "system:authenticated") (eq $identity "system:unauthenticated") (hasPrefix "system:serviceaccounts" $identity)) -}}
+{{- fail "sandboxAdmission.adminGroups cannot use system:authenticated, system:unauthenticated or the system:serviceaccounts groups: the admission server refuses to start with them; list exact users or groups instead" -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- if and (empty $admission.adminUsers) (empty $admission.adminGroups) -}}
+{{- fail "sandboxAdmission requires at least one adminUsers or adminGroups entry when enabled" -}}
+{{- end -}}
+{{- if eq .Values.serviceAccount.name "cetirun-sandbox-admission" -}}
+{{- fail "sandboxAdmission must not use the operator controller service account" -}}
+{{- end -}}
+{{- $controllerNamespace := required "namespace is required for sandboxAdmission controller identity" .Values.namespace -}}
+{{- $controllerServiceAccount := required "serviceAccount.name is required for sandboxAdmission controller identity" .Values.serviceAccount.name -}}
+{{- if or (ne $controllerNamespace (trim $controllerNamespace)) (ne $controllerServiceAccount (trim $controllerServiceAccount)) -}}
+{{- fail "namespace and serviceAccount.name must not contain surrounding whitespace" -}}
+{{- end -}}
+{{- $controllerUsername := printf "system:serviceaccount:%s:%s" $controllerNamespace $controllerServiceAccount -}}
+{{- /* The Portal writes Agents, Teams, Sandboxes and AgentPolicies with its own
+       service account, named here by the platform chart. It is added to the
+       administrators once and does not count as the administrator required above. */ -}}
+{{- $adminUsers := $admission.adminUsers -}}
+{{- $portalServiceAccount := get $admission "portalServiceAccount" -}}
+{{- if not (kindIs "string" $portalServiceAccount) -}}
+{{- fail "sandboxAdmission.portalServiceAccount must be a string" -}}
+{{- end -}}
+{{- if $portalServiceAccount -}}
+{{- if or (gt (len $portalServiceAccount) 253) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$" $portalServiceAccount)) -}}
+{{- fail "sandboxAdmission.portalServiceAccount must be a valid ServiceAccount name" -}}
+{{- end -}}
+{{- $portalUsername := printf "system:serviceaccount:%s:%s" .Release.Namespace $portalServiceAccount -}}
+{{- if not (has $portalUsername $adminUsers) -}}
+{{- $adminUsers = append $adminUsers $portalUsername -}}
+{{- end -}}
+{{- end -}}
+{{- $config := dict "adminUsers" $adminUsers "adminGroups" $admission.adminGroups "controllerUsername" $controllerUsername "validationMode" $admission.validationMode -}}
+{{- if $cetiAdmin -}}
+{{- if or (has (include "cetirun-operator.cetiadminUsername" .) $adminUsers) (has (printf "system:serviceaccount:%s:cetirun-cetiadmin-stop" $controllerNamespace) $adminUsers) -}}
+{{- fail "CetiAdmin and its stop hook must not be included in sandboxAdmission.adminUsers" -}}
+{{- end -}}
+{{- $_ := set $config "cetiadmin" (dict "namespace" $controllerNamespace "configMapName" (include "cetirun-operator.cetiadminConfigName" .) "runtimeUsername" (include "cetirun-operator.cetiadminUsername" .) "stopUsername" (printf "system:serviceaccount:%s:cetirun-cetiadmin-stop" $controllerNamespace) "adminUsers" $admission.adminUsers "adminGroups" $admission.adminGroups) -}}
+{{- end -}}
+{{- if $placementName -}}
+{{- $_ := set $config "placementConfigMapName" $placementName -}}
+{{- end -}}
+{{- if $coordinationName -}}
+{{- $_ := set $config "coordinationConfigMapName" $coordinationName -}}
+{{- $_ := set $config "coordinationConfigMapUID" $coordinationUID -}}
+{{- end -}}
+{{- if $sandboxSources -}}
+{{- $_ := set $config "platformNamespace" $controllerNamespace -}}
+{{- $_ := set $config "platformConfigMapName" .Values.sandboxSources.platformConfigMapName -}}
+{{- if .Values.sandboxSources.nativeExecution -}}
+{{- $_ := set $config "nativeExecution" true -}}
+{{- end -}}
+{{- end -}}
+{{- if not (kindIs "slice" $admission.teamAssignments) -}}
+{{- fail "sandboxAdmission.teamAssignments must be a list" -}}
+{{- end -}}
+{{- range $assignment := $admission.teamAssignments -}}
+{{- if not (kindIs "map" $assignment) -}}
+{{- fail "sandboxAdmission.teamAssignments entries must be objects" -}}
+{{- end -}}
+{{- range $key, $_ := $assignment -}}
+{{- if not (has $key (list "team" "users" "groups")) -}}
+{{- fail "sandboxAdmission.teamAssignments entries support only team, users and groups" -}}
+{{- end -}}
+{{- end -}}
+{{- if not (kindIs "string" $assignment.team) -}}
+{{- fail "sandboxAdmission.teamAssignments entries require a Team name" -}}
+{{- end -}}
+{{- if or (gt (len $assignment.team) 253) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$" $assignment.team)) -}}
+{{- fail "sandboxAdmission.teamAssignments entries require a valid Team name" -}}
+{{- end -}}
+{{- $users := list -}}
+{{- $groups := list -}}
+{{- if hasKey $assignment "users" -}}{{- $users = get $assignment "users" -}}{{- end -}}
+{{- if hasKey $assignment "groups" -}}{{- $groups = get $assignment "groups" -}}{{- end -}}
+{{- range $field, $identities := dict "users" $users "groups" $groups -}}
+{{- if not (kindIs "slice" $identities) -}}
+{{- fail "sandboxAdmission.teamAssignments identities must be lists" -}}
+{{- end -}}
+{{- range $identity := $identities -}}
+{{- if not (kindIs "string" $identity) -}}
+{{- fail "sandboxAdmission.teamAssignments identities must be exact strings" -}}
+{{- end -}}
+{{- if or (eq (trim $identity) "") (ne (trim $identity) $identity) (contains "*" $identity) (eq $identity "system:anonymous") -}}
+{{- fail "sandboxAdmission.teamAssignments identities must be exact authenticated identities" -}}
+{{- end -}}
+{{- if and (eq $field "groups") (or (eq $identity "system:authenticated") (eq $identity "system:unauthenticated") (hasPrefix "system:serviceaccounts" $identity)) -}}
+{{- fail "sandboxAdmission.teamAssignments cannot use blanket authentication groups" -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- if and (empty $users) (empty $groups) -}}
+{{- fail "sandboxAdmission.teamAssignments entries require users or groups" -}}
+{{- end -}}
+{{- end -}}
+{{- if $admission.teamAssignments -}}
+{{- $_ := set $config "teamAssignments" $admission.teamAssignments -}}
+{{- end -}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cetirun-sandbox-admission
+  namespace: {{ .Values.namespace | quote }}
+  labels:
+    app.kubernetes.io/name: cetirun-sandbox-admission
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cetirun-sandbox-admission
+  labels:
+    app.kubernetes.io/name: cetirun-sandbox-admission
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+rules:
+  - apiGroups: ["cetirun.microsoft.com"]
+    resources: ["agents", "teams", "sandboxes", "agentpolicies"]
+    verbs: ["get", "list"]
+  {{- if $cetiAdmin }}
+  - apiGroups: [""]
+    resources: ["namespaces", "pods", "serviceaccounts", "persistentvolumeclaims", "services", "nodes"]
+    verbs: ["get"]
+  - apiGroups: ["apps"]
+    resources: ["statefulsets", "deployments", "replicasets", "daemonsets", "controllerrevisions"]
+    verbs: ["get"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get"]
+  {{- end }}
+  {{- if $admission.podsEnabled }}
+  - apiGroups: [""]
+    resources: ["namespaces", "pods", "persistentvolumeclaims", "serviceaccounts"]
+    verbs: ["get"]
+  {{- if .Values.connectionsMCP.nativeEnabled }}
+  - apiGroups: [""]
+    resources: ["services"]
+    resourceNames: [{{ regexFind "^[a-z0-9-]+" (trimPrefix "https://" .Values.connectionsMCP.url) | quote }}]
+    verbs: ["get"]
+  {{- end }}
+  {{- if .Values.sandboxSources.skillsCatalogConfigMapName }}
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["get"]
+  {{- end }}
+  - apiGroups: ["apps"]
+    resources: ["statefulsets", "controllerrevisions"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get"]
+  {{- if $placementName }}
+  - apiGroups: ["apps"]
+    resources: ["daemonsets"]
+    verbs: ["get"]
+  - apiGroups: ["scheduling.k8s.io"]
+    resources: ["priorityclasses"]
+    verbs: ["get"]
+  {{- end }}
+  - apiGroups: ["node.k8s.io"]
+    resources: ["runtimeclasses"]
+    verbs: ["get"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings", "clusterroles", "clusterrolebindings"]
+    verbs: ["get"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["rolebindings", "clusterrolebindings"]
+    verbs: ["list"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get"]
+  - apiGroups: ["cilium.io"]
+    resources: ["ciliumnetworkpolicies"]
+    verbs: ["get"]
+  - apiGroups: ["networking.istio.io"]
+    resources: ["gateways", "destinationrules"]
+    verbs: ["get"]
+  {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cetirun-sandbox-admission
+  labels:
+    app.kubernetes.io/name: cetirun-sandbox-admission
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cetirun-sandbox-admission
+subjects:
+  - kind: ServiceAccount
+    name: cetirun-sandbox-admission
+    namespace: {{ .Values.namespace | quote }}
+{{- if $admission.podsEnabled }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cetirun-sandbox-admission-pod-state
+  namespace: {{ .Values.namespace | quote }}
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cetirun-sandbox-admission-pod-state
+  namespace: {{ .Values.namespace | quote }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cetirun-sandbox-admission-pod-state
+subjects:
+  - kind: ServiceAccount
+    name: cetirun-sandbox-admission
+    namespace: {{ .Values.namespace | quote }}
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cetirun-sandbox-admission
+  namespace: {{ .Values.namespace | quote }}
+  labels:
+    app.kubernetes.io/name: cetirun-sandbox-admission
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: cetirun-sandbox-admission
+  ports:
+    - name: admission
+      port: 443
+      targetPort: admission
+      protocol: TCP
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: cetirun-sandbox-admission
+  namespace: {{ .Values.namespace | quote }}
+  labels:
+    app.kubernetes.io/name: cetirun-sandbox-admission
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  minAvailable: {{ sub (int64 $admission.replicaCount) 1 }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cetirun-sandbox-admission
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cetirun-sandbox-admission
+  namespace: {{ .Values.namespace | quote }}
+  labels:
+    app.kubernetes.io/name: cetirun-sandbox-admission
+    app.kubernetes.io/version: {{ include "cetirun-operator.version" . | default .Chart.AppVersion | quote }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  replicas: {{ $admission.replicaCount }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cetirun-sandbox-admission
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cetirun-sandbox-admission
+        app.kubernetes.io/version: {{ include "cetirun-operator.version" . | default .Chart.AppVersion | quote }}
+      annotations:
+        sidecar.istio.io/inject: "false"
+        adx-mon/scrape: "true"
+        adx-mon/port: "8080"
+        adx-mon/path: /metrics
+    spec:
+      serviceAccountName: cetirun-sandbox-admission
+      automountServiceAccountToken: true
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 50
+      {{- with $admission.priorityClassName }}
+      priorityClassName: {{ . | quote }}
+      {{- end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      topologySpreadConstraints:
+        # Old ReplicaSets must not mask a skewed replacement revision.
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          matchLabelKeys:
+            - pod-template-hash
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: cetirun-sandbox-admission
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          matchLabelKeys:
+            - pod-template-hash
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: cetirun-sandbox-admission
+      containers:
+        - name: admission
+          image: "{{ include "cetirun-operator.image" . }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - --mode=sandbox-admission
+            - --admission-cert-dir=/var/run/cetirun-admission
+            - --admission-port=9443
+            - --health-probe-bind-address=:8081
+            - --metrics-bind-address=:8080
+            - --leader-elect=false
+            {{- if $admission.podsEnabled }}
+            - {{ printf "--admission-pod-state-namespace=%s" .Values.namespace | quote }}
+            {{- if $admission.enforce }}
+            - {{ printf "--admission-pod-timeout=%dms" (mul 800 (int64 $admission.timeoutSeconds)) | quote }}
+            {{- end }}
+            {{- end }}
+          env:
+            - name: CETIRUN_SANDBOX_ADMISSION
+              value: {{ $config | toJson | quote }}
+          ports:
+            - name: admission
+              containerPort: 9443
+              protocol: TCP
+            - name: health
+              containerPort: 8081
+              protocol: TCP
+            - name: metrics
+              containerPort: 8080
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: health
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: 10
+          resources:
+            {{- toYaml $admission.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: admission-tls
+              mountPath: /var/run/cetirun-admission
+              readOnly: true
+      volumes:
+        - name: admission-tls
+          secret:
+            secretName: {{ $tlsSecretName | quote }}
+            defaultMode: 0440
+            items:
+              - key: tls.crt
+                path: tls.crt
+              - key: tls.key
+                path: tls.key
+      {{- with $admission.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $admission.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $admission.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

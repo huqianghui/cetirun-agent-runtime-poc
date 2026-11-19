@@ -1,0 +1,602 @@
+# Default values for the CetiRun AI Gateway.
+# This is a YAML-formatted file.
+#
+# The Gateway is a LiteLLM proxy that gives agents a single endpoint for model
+# access. It installs on its own: nothing here depends on the CetiRun operator,
+# portal or agent chart. With the defaults it also brings its own PostgreSQL
+# and Valkey, so a working Gateway needs nothing but a model list.
+
+# -- Values the cetirun-platform umbrella chart propagates to its subcharts.
+global:
+  # -- Registry host override. When set, the image becomes
+  # <registry>/cetirun-ai-gateway, the same convention as the other CetiRun
+  # charts.
+  registry: ""
+  # -- Image tag override. Empty uses image.tag, then the chart appVersion.
+  version: ""
+
+# -- Number of Gateway replicas. More than one requires Redis; see the redis
+# section for why this is not optional. The bundled Valkey provides it.
+replicaCount: 2
+
+# -- A PodDisruptionBudget for the Gateway pods, with maxUnavailable 1, so a
+# node drain evicts one replica at a time. Created only when replicaCount is
+# above 1, and with maxUnavailable rather than minAvailable it does not block
+# a drain even when the Deployment is scaled down to one pod. It does not
+# spread the replicas across nodes; use affinity for that.
+podDisruptionBudget:
+  enabled: true
+
+# -- Serve CetiRun Agents. The CetiRun operator gives each Agent a virtual key
+# restricted to access groups, and registers each Agent's GitHub Copilot
+# models in the Agent's own group, under a shared model's name or the model's
+# own ID. Turned on, the chart reserves the copilot/ prefix, in which a Team's
+# router names an Agent's GitHub Copilot model in a tier, and LiteLLM checks
+# each router fallback target against the caller's key
+# (general_settings.enforce_fallback_model_access), so a fallback cannot reach
+# a model the key may not use, such as another Agent's GitHub Copilot route.
+# Configured shared models also receive a chart-derived deployment ID and
+# access group, allowing AgentPolicy to grant one exact configured backend.
+# Managed Gateway authentication uses current database authorization for each
+# new virtual-key request (general_settings.user_api_key_cache_ttl=0), rather
+# than a cached key grant. This adds database reads and requires database
+# availability; Redis budget/rate-limit coordination remains enabled.
+# The cetirun-platform chart turns this on; turn it on for a Gateway installed
+# separately for CetiRun as well. Off, the Gateway keeps its standalone
+# behaviour.
+operatorIntegration: false
+
+# -- Gateway container image: open-source LiteLLM on Azure Linux, built from
+# app/cetirun-ai-gateway. The same image serves the per-agent Copilot proxy.
+image:
+  # -- Image repository. global.registry, when set, replaces the registry host.
+  repository: mcr.microsoft.com/aks/ai-runtime/cetirun/cetirun-ai-gateway
+  # -- Image pull policy
+  pullPolicy: IfNotPresent
+  # -- Image tag. Empty uses global.version, then the chart appVersion, which
+  # the unified CetiRun release keeps equal to the image version.
+  tag: ""
+  # -- Image digest. When set, the reference is pinned to exactly this image.
+  digest: ""
+
+# -- Image pull secrets for private registries
+imagePullSecrets: []
+
+# -- String to override the default name
+nameOverride: ""
+
+# -- String to override the default fullname
+fullnameOverride: ""
+
+# -- Models exposed by this Gateway, in LiteLLM's own `model_list` format so
+# administrators can follow upstream provider documentation directly.
+#
+# The list can be empty. Standalone Gateways may add models through the console
+# later. AgentPolicy shared-model grants require chart-configured models with
+# operatorIntegration enabled; console models are not trusted shared bindings.
+#
+# `model_name` is what a client asks for. `litellm_params.model` is what the
+# Gateway sends to the provider, carrying a prefix that selects the handler.
+# Keep credentials out of this list: reference them as `os.environ/NAME` and
+# supply the value through providerCredentials below.
+#
+# A reasoning model under a name LiteLLM does not know may need one more
+# setting, or LiteLLM refuses a request that sets a reasoning effort with a
+# 400: model_info.base_model naming the model for an azure/ deployment,
+# model_info.supports_reasoning: true for one under openai/. See the README's
+# "Reasoning models".
+#
+# Names beginning with `cetirun-` are reserved for models the CetiRun operator
+# registers automatically, and are rejected here; so are names beginning with
+# `copilot/` while operatorIntegration is on.
+#
+# With operatorIntegration, model_info.id and the cetirun-model- access group
+# prefix are reserved. The chart derives each model's cetirun-model- group from
+# its model_name, and its cetirun-shared- deployment ID from the name and the
+# complete configured entry. Editing a model's configuration changes its ID
+# but not its group, so Agents keep the model.
+#
+# An entry whose litellm_params.model is auto_router/complexity_router is a
+# router: LiteLLM sends each request to the model configured for the tier it
+# picks. Its tiers, default model and classifier model
+# (classifier_llm_config.model, or jev_classifier_config.deployment_name for a
+# jev classifier) have to be models in this list, and its own name needs
+# input_cost_per_token and output_cost_per_token above zero in litellm_params;
+# calls are charged at the
+# price of the model picked. With operatorIntegration, the CetiRun operator
+# gives an Agent the router only when the Agent may use every model the router
+# sends requests to. Unless it sets reminder_markers, the chart adds the
+# markers around OpenClaw's own context and the label of OpenClaw's tool-result
+# images, so the router classifies what was asked; unless it sets them,
+# context_compaction and max_tokens_from_tier_model are off and
+# enable_context_window_escalation is on. See the README's Smart routing
+# section.
+#
+# Example:
+#   models:
+#     - model_name: gpt-4o
+#       litellm_params:
+#         model: azure/my-gpt-4o-deployment
+#         api_base: https://example.openai.azure.com/
+#         api_key: os.environ/AZURE_PROD_KEY
+#         # Must support the Responses API: agents' tool calls are sent there.
+#         api_version: "2025-04-01-preview"
+#       model_info:
+#         # A price is required; see blockUnpricedModels below.
+#         base_model: azure/gpt-4o
+#     - model_name: claude-sonnet
+#       litellm_params:
+#         model: anthropic/claude-sonnet-4
+#         api_key: os.environ/ANTHROPIC_KEY
+models: []
+
+# -- Reject requests to models whose price LiteLLM does not know.
+#
+# On by default, and worth understanding before turning it off.
+#
+# LiteLLM computes spend from a built-in price table. A model missing from it
+# costs zero, and budget checks are skipped entirely for zero-cost models. So a
+# budget set on a virtual key silently does nothing.
+#
+# This is not an edge case: an Azure OpenAI deployment name such as
+# `my-gpt4-prod` is not in the price table, which is the ordinary way to
+# configure Azure. Measured against a real deployment, a $0.0001 budget allowed
+# every request.
+#
+# With this on, such a request is refused with a message naming the model and
+# telling the administrator to declare pricing. Failing at the first request is
+# better than never enforcing a budget that somebody thinks is in place.
+#
+# To use such a model, price it rather than turning this off. Either name the
+# model the deployment runs, so LiteLLM prices it from its own table:
+#
+#   model_info:
+#     base_model: azure/gpt-4o
+#
+# or declare the prices yourself:
+#
+#   model_info:
+#     input_cost_per_token: 0.000005
+#     output_cost_per_token: 0.000015
+#
+# The console can change this setting later. LiteLLM keeps that change in its
+# database, where it takes precedence over this value. With CetiRun, the
+# operator reads the setting in effect and gives Agents only the shared models
+# the Gateway would serve.
+blockUnpricedModels: true
+
+# -- Where LiteLLM's price table comes from: remote or bundled. remote,
+# LiteLLM's default, downloads the current table from GitHub each time a
+# Gateway pod starts and falls back to the copy in the image when that fails,
+# so a restart can change prices. bundled uses only the copy in the image
+# (LiteLLM's LITELLM_LOCAL_MODEL_COST_MAP), for a cluster without internet
+# access or prices that change only with the image. New models and price
+# changes then arrive only with a new image, and a model missing from the
+# image's table is unpriced: refused while blockUnpricedModels is on, unless
+# its entry declares a price. See the README's "Known gaps".
+priceTable: remote
+
+# -- The HTTP status of a request refused because its key's or team's budget
+# is exhausted (LiteLLM's budget_exceeded_status_code): 402, 422 or 429.
+# Measured with OpenClaw 2026.9.6 and Hermes v2026.9.24: with 402 both stop
+# after one request and report exhausted credits or billing; with 422 both
+# stop but report a malformed request; with 429 both retry it as a rate limit
+# and tell the user to wait. See the README's "When a budget runs out".
+budgetExceededStatusCode: 402
+
+# -- How LiteLLM counts a key's or team's tokens-per-minute limit, such as an
+# AgentPolicy's rateLimits.tpm (LITELLM_TPM_TOKEN_RESERVATION_ENABLED). false
+# counts the tokens of each finished request, cached input tokens excluded, and
+# refuses requests once the minute's count has reached the limit, until the
+# next minute; a single request may take the count past the limit. true
+# reserves a request's input plus its maximum output tokens before calling the
+# model and refuses the request when that does not fit. OpenClaw asks for the
+# model's maximum output, 128,000 tokens for current GPT models, with every
+# request: measured with true and a limit of 200,000, a conversation past about
+# 55,000 tokens of input was refused in every minute, the reservation alone being
+# larger than the limit, and OpenClaw gave up after nine retries. Request and
+# parallel request limits count the same either way.
+tpmReservation: false
+
+# -- How a request reaches one of the deployments that serve its model_name,
+# and what happens when that deployment fails. The chart ships these
+# defaults; which deployments serve a model, and which model falls back to
+# which, are the administrator's. See the README's Routing section for what
+# each setting was measured to do.
+#
+# Several entries in models with the same model_name are deployments of one
+# model. LiteLLM chooses among them by routingStrategy below; with the default,
+# at random, or by the weight, rpm or tpm set in each entry's litellm_params.
+# An entry with a higher litellm_params.order is kept in reserve until those
+# with a lower one are unavailable. The chart refuses a model that sets
+# weight, order, rpm or tpm on some of its entries but not all.
+router:
+  # -- How LiteLLM chooses one of a model's deployments: simple-shuffle (at
+  # random, or by weight, rpm or tpm), least-busy (fewest requests in flight on
+  # this replica), latency-based-routing (fastest recent responses on this
+  # replica), usage-based-routing-v2 (lowest tokens per minute, counted in
+  # Redis, within each deployment's rpm and tpm), or cost-based-routing
+  # (cheapest by litellm_params prices or LiteLLM's price table for
+  # litellm_params.model). Other LiteLLM strategies are refused: they skip
+  # the auto routers and the pre-call checks.
+  routingStrategy: simple-shuffle
+  # -- Send a request that failed on one deployment once more, to another
+  # deployment of the same model_name (LiteLLM's enable_weighted_failover).
+  # This is not a retry: the failed deployment is not tried again, and a model
+  # with a single deployment gets no second attempt. Measured with one of two
+  # deployments failing: 13 of 30 requests failed without it, none with it.
+  failover: true
+  # -- Send a Responses API request that continues an earlier response
+  # (previous_response_id) to the deployment that produced it, the only one
+  # that has it. Measured across two deployments: 6 of 20 continuations failed
+  # without it, none with it.
+  continuationAffinity: true
+  # -- Keep each Responses API conversation on the deployment that encrypted
+  # its reasoning, or on one with the same endpoint and key (LiteLLM's
+  # encrypted_content_affinity). Agents such as OpenClaw send the encrypted
+  # reasoning back with every turn, and only the Azure OpenAI resource or
+  # OpenAI organization that produced it can read it. When that deployment
+  # fails, the conversation's requests fail with it until it is in cooldown
+  # or marked unhealthy by healthChecks; only then does the conversation move
+  # to another deployment, without its encrypted reasoning, and it returns
+  # once the deployment is available again. A cooldown lasts five seconds, so
+  # keep healthChecks on. It applies to every model; it cannot be turned off
+  # for one.
+  encryptedContentAffinity: true
+  # -- Keep each virtual key on the deployment that served its last request to
+  # a model, for an hour (LiteLLM's deployment_affinity), so the provider's
+  # prompt cache keeps working. While that deployment is unavailable, the
+  # key's requests go to the others. Off for a model whose deployments set
+  # litellm_params.order: a key kept on a standby would stay there after the
+  # primary is back.
+  deploymentAffinity: true
+  # -- Models to try when a request to a model fails, in LiteLLM's format: a
+  # list of maps from a model_name to the model_names to try, in order. With
+  # operatorIntegration, a target is tried only if the caller's key may use it.
+  #   fallbacks:
+  #     - gpt-4o: [gpt-4o-mini]
+  fallbacks: []
+  # -- The same, for requests too long for the model's context window.
+  contextWindowFallbacks: []
+  # -- Probe every deployment in the background, and send requests only to
+  # those that answered their last probe: the models configured above and
+  # those added through the console. Each probe is a real call, with
+  # max_tokens 16, and writes a request log line marked as a probe
+  # (call_origin health_check). The GitHub Copilot routes the CetiRun
+  # operator registers for each Agent are not probed unless the operator's
+  # aiGateway.copilotProxy.healthChecks.enabled is on: a probe of one
+  # spends that Agent owner's own Copilot allowance. With Redis, one replica
+  # probes for all of them. Set model_info.mode on a model that is not a chat
+  # model, such as an embedding or image model, so it is probed the right way,
+  # and model_info.disable_background_health_check: true on a model that
+  # should not be probed. When every deployment of a model failed its probe,
+  # requests are still sent. A probe answered with 429 or 408 does not change
+  # routing: the deployment keeps its previous state, though /health lists it
+  # as unhealthy. LiteLLM retries a failed probe unless the model sets
+  # model_info.health_check_params: {max_retries: 0}, as the CetiRun operator
+  # does for each Agent's GitHub Copilot routes. The results are kept in
+  # PostgreSQL and shown by /health/latest and the console.
+  healthChecks:
+    # -- Run the probes and route by their results
+    enabled: true
+    # -- Seconds between probes
+    intervalSeconds: 300
+    # -- Probes in flight at once (LiteLLM's health_check_concurrency). Without
+    # a limit every deployment is probed at the same moment, and a provider
+    # account that serves many of them, such as one GitHub account's Copilot
+    # routes, answers the burst with 429.
+    concurrency: 8
+
+# -- Provider API keys, surfaced to the proxy as environment variables and
+# referenced from the model list as `os.environ/NAME`.
+providerCredentials:
+  # -- Name of a Secret you create and own. Every key in it becomes an
+  # environment variable of the same name. This is the supported path for any
+  # installation whose credentials matter.
+  existingSecret: ""
+  # -- Inline credentials, for evaluation only. Values are written into a
+  # chart-managed Secret and are visible to anyone who can read the release.
+  inline: {}
+
+# -- Gateway platform credentials. These are distinct from provider keys and
+# from the virtual keys that agents use.
+auth:
+  # -- Admin API key for LiteLLM's management API. Generated with an `sk-`
+  # prefix, like LiteLLM's other keys, and preserved across upgrades when no
+  # existing Secret is given.
+  masterKey:
+    # -- Name of a Secret holding the master key
+    existingSecret: ""
+    # -- Key within that Secret
+    key: master-key
+
+  # -- Encrypts provider credentials that LiteLLM stores in its database.
+  #
+  # THIS VALUE MUST NEVER CHANGE. There is no rotation path: when it changes,
+  # the proxy starts normally and reports healthy while every model stored in
+  # the database silently disappears. Restoring the original value recovers
+  # them, so the real risk is losing it rather than rotating it.
+  #
+  # When no existing Secret is given the chart generates one and reads it back
+  # on upgrade, so it survives. Supplying your own Secret is still recommended
+  # for anything you intend to keep.
+  saltKey:
+    # -- Name of a Secret holding the salt key
+    existingSecret: ""
+    # -- Key within that Secret
+    key: salt-key
+
+  # -- Sign-in for LiteLLM's built-in admin console.
+  adminUI:
+    # -- Enable the admin console. It is served on the same port as the API and
+    # is reached with `kubectl port-forward`; the chart creates no Ingress.
+    # Turning it off hides the console rather than removing it; see the README.
+    enabled: true
+    # -- Path prefix the console is served under, such as /ai-gateway, when an
+    # ingress routes that prefix to the Gateway. Empty serves it at /ui.
+    rootPath: ""
+    # -- Console username
+    username: admin
+    # -- Console password. Kept separate from the master key on purpose: when
+    # LiteLLM has no UI password it accepts the master key instead, which turns
+    # a console sign-in into full management API access.
+    passwordSecret:
+      # -- Name of a Secret holding the console password
+      existingSecret: ""
+      # -- Key within that Secret
+      key: ui-password
+
+# -- PostgreSQL holds virtual keys, spend records and models added through the
+# console. It is required: bundled, or your own.
+postgresql:
+  # -- A single-instance PostgreSQL deployed with the Gateway, on a persistent
+  # volume. Suitable for evaluation, demos and small installations; for
+  # anything that needs backups or high availability, disable it and point
+  # urlSecret at a managed database.
+  #
+  # Its password is generated, kept on uninstall and reused by the next
+  # install, like the salt key: the volume outlives the release, and a new
+  # password would lock the Gateway out of its own data.
+  bundled:
+    # -- Deploy the bundled PostgreSQL
+    enabled: true
+    # -- PostgreSQL image, from MCR, pinned by digest
+    image:
+      repository: mcr.microsoft.com/azurelinux/base/postgres
+      tag: "16"
+      digest: sha256:704bb1636af09043b9fc4ae49b33188d6429405b87d28d227953152730f4db79
+    # -- Persistent volume for the database
+    persistence:
+      # -- Volume size. The database keeps the spend log of every agent that
+      # uses the Gateway, and the size is fixed at install (see the chart
+      # README), so the default leaves room to grow.
+      size: 100Gi
+      # -- Storage class. Empty uses the cluster default.
+      storageClass: ""
+    # -- Resource requests and limits of the PostgreSQL container. Empty, so
+    # nothing is reserved. See the README's Resources section.
+    resources: {}
+  # -- Your own PostgreSQL, when bundled.enabled is false. The connection URL,
+  # in the form postgresql://user:password@host:5432/dbname, is read from a
+  # Secret you create.
+  urlSecret:
+    # -- Name of a Secret holding the connection URL
+    existingSecret: ""
+    # -- Key within that Secret
+    key: database-url
+
+# -- Redis coordinates budget and rate-limit state between replicas.
+#
+# This is not a performance option. Each replica otherwise tracks its own copy
+# of a key's budget, so with two replicas a $100 budget permits $200 of spend.
+# Recording is unaffected - spend totals and usage reporting stay accurate
+# without it - but enforcement is not.
+#
+# Required whenever replicaCount is above 1. The chart rejects that combination
+# rather than installing something that looks healthy and overspends.
+#
+# Nothing durable lives here: the record of spend is in PostgreSQL and Redis
+# only holds in-flight coordination, so it needs no persistence or backup.
+redis:
+  # -- A single-instance Valkey, the Redis-compatible server, deployed with the
+  # Gateway. Password-protected, with no persistence, since it holds nothing
+  # durable. Disable it to use your own Redis or Valkey through host.
+  #
+  # Its password is generated unless passwordSecret below supplies one.
+  bundled:
+    # -- Deploy the bundled Valkey
+    enabled: true
+    # -- Valkey image, from MCR, pinned by digest
+    image:
+      repository: mcr.microsoft.com/azurelinux/base/valkey
+      tag: "8"
+      digest: sha256:1f9457e9e325de0301c85d0c18765777820e06290c03849545868b4d22781496
+    # -- Resource requests and limits of the Valkey container. Empty, so
+    # nothing is reserved. See the README's Resources section.
+    resources: {}
+  # -- Your own Redis or Valkey hostname, when bundled.enabled is false
+  host: ""
+  # -- Its port
+  port: 6379
+  # -- The Redis password, from a Secret you create. For your own server, set
+  # it if the server requires one. For the bundled Valkey it replaces the
+  # generated password: Valkey and the Gateway both read it from this Secret.
+  # Required with the bundled Valkey when the chart is rendered with
+  # helm template, as Argo CD does, since a generated password would change
+  # with every render. After changing the value, restart Valkey and the
+  # Gateway.
+  passwordSecret:
+    # -- Name of a Secret holding the Redis password
+    existingSecret: ""
+    # -- Key within that Secret
+    key: redis-password
+
+# -- A record of every model call, as one JSON line on the Gateway's stdout,
+# for whatever collects the cluster's container logs: Container Insights into a
+# Log Analytics workspace, for example. LiteLLM writes no such record itself,
+# and its export to Azure Blob Storage needs a LiteLLM Enterprise license.
+#
+# A line carries the call's metadata: the virtual key's alias and hash, the
+# user, the Team, and the Agent the CetiRun operator recorded on the key; the
+# model and provider; tokens, cached tokens among them; spend; duration and
+# time to first token; the client's address and user agent; and, for a failed
+# call, the error. It carries no request or response content. With Container
+# Insights:
+#
+#   ContainerLogV2
+#   | where ContainerName == "gateway"
+#   | where tostring(LogMessage.log_type) == "cetirun.ai_gateway.request"
+#
+# The collected lines are kept where the collector puts them, apart from the
+# Gateway's database.
+#
+# The image's entrypoint registers the callback that writes the lines, rather
+# than LiteLLM's configuration, so settings saved through the console cannot
+# remove it. An image built before the request log ignores this setting.
+requestLog:
+  # -- Write the line for each call
+  enabled: true
+
+# -- LiteLLM's own record of each call, in its database table LiteLLM_SpendLogs,
+# which the console's request log pages read. It grows by one row per call;
+# retention below keeps it short. Spend, budgets and the daily usage totals the
+# console's usage pages show are kept either way. Prompts and responses are
+# stored by default; set storePrompts=false to omit them. The request log above
+# keeps metadata outside the database, for as long as the log collector keeps it.
+#
+# It is turned off only together with the request log: the image's entrypoint
+# does both, so an image built before the request log keeps writing the table.
+spendLogs:
+  # -- Write a row to LiteLLM_SpendLogs for each call. false needs
+  # requestLog.enabled and storePrompts=false.
+  enabled: true
+  # -- Store prompts and responses in LiteLLM_SpendLogs by default. true requires
+  # enabled=true. This can persist sensitive content. Both true and false render
+  # general_settings.store_prompts_in_spend_logs. A general_settings block saved
+  # in LiteLLM's database can override this value. This does not add content to
+  # the stdout request log. The rows use retention below.
+  storePrompts: true
+  # -- How long LiteLLM keeps those rows, and the stored health check results:
+  # a number with h, d, w or mo, such as 7d. Each Gateway pod deletes older
+  # ones every hour, the first time an hour after it starts. Empty keeps them
+  # forever.
+  retention: 7d
+
+# -- LiteLLM's Prometheus metrics: requests, failures, tokens, spend and
+# latency by model, virtual key, user and Team, and the budget left on each.
+#
+# A separate process serves them on their own port, so a scrape never waits
+# behind model traffic. That port has no authentication: anything that can
+# reach it can read every key alias, user, Team and spend figure on it. Keep it
+# inside the cluster, and restrict it with a NetworkPolicy where other
+# workloads should not read it. CetiRun Agents reach only the Service port,
+# where LiteLLM also serves /metrics and requires a key.
+metrics:
+  # -- Serve the metrics
+  enabled: false
+  # -- Port of the metrics endpoint, at /metrics. Unset, it is 9090, or 9091
+  # when service.port is 9090.
+  port: null
+  # -- Labels left out of every metric. A client's address and user agent
+  # change with every Agent restart and client version, so each would start a
+  # new series; the user's email address is personal data that the other labels
+  # make unnecessary.
+  excludeLabels:
+    - client_ip
+    - user_agent
+    - user_email
+  # -- A PodMonitor for the Gateway pods, for a Prometheus that discovers
+  # targets that way.
+  podMonitor:
+    # -- Create the PodMonitor when the cluster serves its API. On a cluster
+    # without it, such as one without Azure Monitor managed Prometheus, the
+    # chart creates none rather than fail to install.
+    enabled: false
+    # -- azmonitoring.coreos.com/v1 for Azure Monitor managed Prometheus, or
+    # monitoring.coreos.com/v1 for the Prometheus Operator
+    apiVersion: azmonitoring.coreos.com/v1
+    # -- Scrape interval
+    interval: 30s
+    # -- Extra labels on the PodMonitor, for a Prometheus that selects
+    # monitors by label
+    labels: {}
+
+# -- Service exposing the Gateway inside the cluster
+service:
+  # -- Service type. The Gateway is an internal endpoint; exposing it is the
+  # administrator's decision, so the chart creates no Ingress.
+  type: ClusterIP
+  # -- Service port
+  port: 4000
+
+# -- Service account configuration
+serviceAccount:
+  # -- Specifies whether a service account should be created
+  create: true
+  # -- Annotations to add to the service account
+  annotations: {}
+  # -- The name of the service account to use. Generated from the fullname
+  # template when empty.
+  name: ""
+
+# -- Apply database migrations from an init container in each Gateway pod,
+# before the proxy starts. Pods take turns, so replicas never migrate at the
+# same time, and the proxies start with schema updates disabled.
+migrations:
+  # -- Enable the migrate init container
+  enabled: true
+
+# -- Annotations to add to the Gateway pods
+podAnnotations: {}
+
+# -- Pod-level security context. The image runs as its nonroot user.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+
+# -- Container-level security context
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
+
+# -- Resource requests and limits of the Gateway container, also used by its
+# migrate init container. Empty, so nothing is reserved. Each pod runs one
+# LiteLLM worker. See the README's Resources section for LiteLLM's sizing and
+# measured figures.
+resources: {}
+
+# -- Liveness probe settings
+livenessProbe:
+  initialDelaySeconds: 30
+  periodSeconds: 20
+  timeoutSeconds: 5
+  failureThreshold: 6
+
+# -- Readiness probe settings
+readinessProbe:
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 6
+
+# -- Total seconds before Kubernetes forcibly stops a replaced or evicted replica.
+# The proxy gets 90% of this period to finish accepted requests (540 seconds by
+# default), leaving 10% for shutdown cleanup (60 seconds by default). A replica
+# exits when its work and cleanup finish; it need not wait for the full period.
+terminationGracePeriodSeconds: 600
+
+# -- Node selector for pod assignment
+nodeSelector: {}
+
+# -- Tolerations for pod assignment
+tolerations: []
+
+# -- Affinity rules for pod assignment
+affinity: {}

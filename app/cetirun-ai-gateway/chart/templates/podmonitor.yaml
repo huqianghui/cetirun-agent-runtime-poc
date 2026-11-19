@@ -1,0 +1,22 @@
+{{- $podMonitor := (include "cetirun-ai-gateway.logsAndMetrics" . | fromJson).metrics.podMonitor }}
+{{- if and $podMonitor.enabled (include "cetirun-ai-gateway.podMonitorAvailable" .) }}
+{{- /* Scrapes the metrics port of every Gateway pod, which a Service-based
+monitor would not: each replica serves only its own samples. */}}
+apiVersion: {{ $podMonitor.apiVersion }}
+kind: PodMonitor
+metadata:
+  name: {{ include "cetirun-ai-gateway.fullname" . }}
+  labels:
+    {{- include "cetirun-ai-gateway.labels" . | nindent 4 }}
+    {{- with $podMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "cetirun-ai-gateway.gatewaySelectorLabels" . | nindent 6 }}
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      interval: {{ $podMonitor.interval }}
+{{- end }}

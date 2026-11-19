@@ -1,0 +1,173 @@
+# -- Shared release coordinates. An umbrella chart can set these once for all
+# CetiRun subcharts.
+global:
+  # -- Optional registry hostname override for the Portal image.
+  # Empty preserves image.repository below.
+  registry: ""
+  # -- Optional shared image and component version override.
+  # Empty preserves image.tag and Chart.appVersion defaults.
+  version: ""
+  registryCredentialNamespace: ""
+
+# -- Created by the Operator chart, never by the Portal.
+registryCredentials:
+  namespace: cetirun-registry-credentials
+
+# -- Number of portal replicas.
+replicaCount: 2
+
+# -- Optional Custom Chat. History stays in the user's browser.
+chat:
+  enabled: false
+  identityRealm: ""
+  # Empty uses aiGateway.catalogNamespace, the operator namespace.
+  sandboxStateNamespace: ""
+
+# -- Portal container image.
+image:
+  repository: mcr.microsoft.com/aks/ai-runtime/cetirun/cetirun-portal
+  pullPolicy: IfNotPresent
+  tag: "" # Defaults to .Chart.AppVersion
+  # -- Image digest for pinning (e.g. sha256:abc123...). When set, pins the image; the tag is kept for readability.
+  digest: ""
+
+# -- Image pull secrets.
+imagePullSecrets: []
+
+# -- Optional notice banner message displayed in the portal UI.
+# Set to a non-empty string to show a dismissible banner. Empty means no banner.
+noticeBanner: ""
+
+# -- Istio ingress configuration.
+istio:
+  # -- Hostname for the portal VirtualService.
+  host: ""
+  # -- Istio gateway reference.
+  gateway: "aks-istio-ingress/cetirun-gateway"
+  # -- Namespace of the Istio ingress gateway (used by AuthorizationPolicy).
+  gatewayNamespace: "aks-istio-ingress"
+  # -- Service account name of the Istio ingress gateway (used by AuthorizationPolicy).
+  gatewayServiceAccount: "aks-istio-ingressgateway-external"
+  # -- Optional legacy hostname to redirect to istio.host with a 301.
+  # Set to the old portal subdomain (e.g. portal.example.com) to redirect old users.
+  # Leave empty to disable.
+  legacyHost: ""
+  # -- Confirm the target namespace has Istio sidecar injection enabled.
+  # Must be set to true; the AuthorizationPolicy requires mTLS enforcement.
+  sidecarInjection: true
+  # -- Require mesh mTLS on the internal ownership endpoint. Enable together
+  # with the Istio chart's portalAuth.mtls settings before forwarding ID tokens.
+  internalAuthMTLS: false
+
+# -- Resource requests/limits.
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# -- Service account configuration.
+serviceAccount:
+  create: true
+  name: cetirun-portal
+  annotations: {}
+
+# -- Node selector.
+nodeSelector: {}
+
+# -- Tolerations.
+tolerations: []
+
+# -- Affinity rules.
+affinity: {}
+
+# -- Additional pod annotations.
+podAnnotations: {}
+
+# -- Admin configuration. Aliases listed here can access /admin/* routes
+# and admin APIs in the portal. Keep this list in sync with the istio chart's
+# `authPolicy.adminAliases` (the istio deploy script sources both from the
+# same `ADMIN_ALIASES` environment variable).
+admins:
+  aliases: []
+
+# -- Feature flags. These control which features are exposed in the portal UI.
+features:
+  # -- Enable the Tailscale integration feature.
+  tailscaleEnabled: false
+  # -- Maximum number of Agents a user may create. 0 = unlimited.
+  maxInstancesPerUser: 1
+  # -- Agent types users can create. Remove custom to disable Custom self-service.
+  allowedAgentTypes:
+    - hermes
+    - openclaw
+    - custom
+  # -- Enable the Microsoft Entra Agent Identity lifecycle for new Agents.
+  agentIdentityEnabled: false
+  # -- Enable owner-scoped account connections and Agent tool grants.
+  agentToolsEnabled: false
+  # -- Expose the platform AI Gateway: model sources for new OpenClaw and
+  # Hermes Agents, the GitHub Copilot sign-in and each Agent's model list.
+  # Every new Agent then needs a Team.
+  # Keep it in step with the operator's aiGateway.enabled; the platform chart
+  # requires both.
+  aiGatewayEnabled: true
+
+# -- Allow missing Sandbox runtime profiles when the Operator's common executor
+# is enabled with sandboxSources.nativeExecution. Keep false when native
+# execution is disabled.
+# The platform chart rejects this opt-in without the matching Operator settings.
+sandboxRuntimeDefaultsFromController: false
+
+# -- Approved built-in runtime pins for Sandbox creation. Required unless
+# sandboxRuntimeDefaultsFromController explicitly delegates missing profiles to
+# the common controller, which pins inputs from its selected trusted chart.
+# Each configured entry still needs chartVersion, a digest-pinned image and
+# the matching port (OpenClaw 18789 or Hermes 8642); invalid entries reject
+# creation before any Kubernetes write. Explicit requests remain unchanged.
+sandboxRuntimeProfiles: {}
+
+# -- Read-only source for approved Sandbox HOME StorageClasses. The Portal
+# offers only the currently verified classes pinned by this platform ConfigMap.
+# Configure platformNamespace and platformConfigMapName together; leave both
+# empty for an unconfigured standalone Portal. defaultStorageClassName is only
+# a UI preference and does not approve a StorageClass.
+sandboxStorage:
+  platformNamespace: ""
+  platformConfigMapName: ""
+  defaultStorageClassName: ""
+
+aiGateway:
+  # -- Namespace where the operator publishes the shared-model catalog (the
+  # operator's namespace).
+  catalogNamespace: cetirun-system
+
+# -- Skill Marketplace: Team skills from one synchronized Git repository.
+# When enabled, every Team skill without the npm: prefix is a marketplace
+# skill: Team saves check new skills against the marketplace catalog, Policy
+# saves keep skills a Team still selects, and Agent details show the Team's
+# skills. Keep it in step with the operator's skillMarketplace.enabled.
+skillMarketplace:
+  enabled: false
+  # -- Namespace where the marketplace publishes its catalog (the operator's
+  # namespace).
+  catalogNamespace: cetirun-system
+
+# -- Optional UID-pinned authority shared with strict Sandbox admission.
+# Configure all three fields when protected AgentPolicy updates and deletions
+# must use the platform's configuration-change coordination protocol.
+configurationCoordination:
+  namespace: ""
+  name: ""
+  uid: ""
+
+agentIdentity:
+  tenantId: ""
+  portalClientId: ""
+  brokerURL: "http://cetirun-agent-broker.cetirun-credentials.svc.cluster.local:8080"
+
+agentTools:
+  runtimeTypes: [hermes, openclaw]
+  brokerURL: "http://cetirun-agent-broker.cetirun-credentials.svc.cluster.local:8080"

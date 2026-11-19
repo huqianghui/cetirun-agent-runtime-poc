@@ -1,0 +1,29 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
+apiVersion: cetirun.microsoft.com/v1alpha1
+kind: Agent
+metadata:
+  name: vscode-example
+spec:
+  team: example-team
+  sandboxRef: standard
+  modelAccess:
+    sharedModels: true
+    githubCopilot: false
+  user:
+    alias: example-user
+    displayName: Example User
+  agent:
+    type: custom
+    image: registry.example.com/cetirun-vscode@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    username: vibe
+    port: 8080
+    webUI: true
+  helm:
+    version: "0.1.1"
+    values:
+      desktop:
+        enabled: false
+      ttyd:
+        enabled: false

@@ -1,0 +1,16 @@
+{{- if and .Values.skills.shared (not .Values.skills.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "cetirun.sharedSkillsPVCName" . }}
+  labels:
+    {{- include "cetirun.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: {{ .Values.skills.storageSize | quote }}
+  storageClassName: {{ .Values.skills.storageClassName | quote }}
+  volumeName: {{ include "cetirun.sharedSkillsPVName" . }}
+{{- end }}

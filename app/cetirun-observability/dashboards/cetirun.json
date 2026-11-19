@@ -1,0 +1,477 @@
+{
+  "$schema": "https://dataexplorer.azure.com/static/d/schema/87/dashboard.json",
+  "id": "1c78ef7b-6076-485d-bf67-f36d5b399a5b",
+  "title": "CetiRun",
+  "schema_version": 87,
+  "changeDetection": {
+    "kind": "liveUpdates",
+    "minRefreshRate": "30s",
+    "fallbackRefreshRate": "1m"
+  },
+  "tiles": [
+    {
+      "id": "0ea1f1e8-2e52-4048-87d9-d19e2e52c6e6",
+      "title": "Calls and spend by Agent",
+      "visualType": "table",
+      "pageId": "cf85c80d-87fd-4f9b-8252-57b289cac8da",
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 24,
+        "height": 8
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "edf5282c-079c-487c-bc34-aacee84443ec"
+      },
+      "visualOptions": {
+        "table__enableRenderLinks": true,
+        "colorRulesDisabled": true,
+        "crossFilterDisabled": false,
+        "drillthroughDisabled": false,
+        "crossFilter": [],
+        "drillthrough": [],
+        "table__renderLinks": [],
+        "colorRules": []
+      }
+    },
+    {
+      "id": "05b098cd-d867-4d73-b5ee-45c40a328983",
+      "title": "Calls over time",
+      "visualType": "stackedcolumn",
+      "pageId": "cf85c80d-87fd-4f9b-8252-57b289cac8da",
+      "layout": {
+        "x": 0,
+        "y": 8,
+        "width": 12,
+        "height": 8
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "05a753b5-5871-4393-8eae-292ae6473208"
+      },
+      "visualOptions": {
+        "multipleYAxes": {
+          "base": {
+            "id": "-1",
+            "columns": [],
+            "label": "",
+            "yAxisMinimumValue": null,
+            "yAxisMaximumValue": null,
+            "yAxisScale": "linear",
+            "horizontalLines": []
+          },
+          "additional": [],
+          "showMultiplePanels": false
+        },
+        "hideLegend": false,
+        "xColumnTitle": "",
+        "xColumn": null,
+        "yColumns": null,
+        "seriesColumns": null,
+        "xAxisScale": "linear",
+        "verticalLine": "",
+        "crossFilterDisabled": false,
+        "drillthroughDisabled": false,
+        "crossFilter": [],
+        "drillthrough": []
+      }
+    },
+    {
+      "id": "99600128-0178-4e19-b392-cc9483b393b7",
+      "title": "Tokens by model",
+      "visualType": "bar",
+      "pageId": "cf85c80d-87fd-4f9b-8252-57b289cac8da",
+      "layout": {
+        "x": 12,
+        "y": 8,
+        "width": 12,
+        "height": 8
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "79120d3b-73a2-419e-bcfc-98240740b5cb"
+      },
+      "visualOptions": {
+        "multipleYAxes": {
+          "base": {
+            "id": "-1",
+            "columns": [],
+            "label": "",
+            "yAxisMinimumValue": null,
+            "yAxisMaximumValue": null,
+            "yAxisScale": "linear",
+            "horizontalLines": []
+          },
+          "additional": [],
+          "showMultiplePanels": false
+        },
+        "hideLegend": false,
+        "xColumnTitle": "",
+        "xColumn": null,
+        "yColumns": null,
+        "seriesColumns": null,
+        "xAxisScale": "linear",
+        "verticalLine": "",
+        "crossFilterDisabled": false,
+        "drillthroughDisabled": false,
+        "crossFilter": [],
+        "drillthrough": []
+      }
+    },
+    {
+      "id": "8a39ddb0-42cd-4ffe-a395-7bc4df64d0b8",
+      "title": "Failed calls",
+      "visualType": "table",
+      "pageId": "cf85c80d-87fd-4f9b-8252-57b289cac8da",
+      "layout": {
+        "x": 0,
+        "y": 16,
+        "width": 12,
+        "height": 8
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "0154d615-2977-4288-b054-5f1757d2c557"
+      },
+      "visualOptions": {
+        "table__enableRenderLinks": true,
+        "colorRulesDisabled": true,
+        "crossFilterDisabled": false,
+        "drillthroughDisabled": false,
+        "crossFilter": [],
+        "drillthrough": [],
+        "table__renderLinks": [],
+        "colorRules": []
+      }
+    },
+    {
+      "id": "0eebbd1d-53a7-43df-99a1-1602e128e4c1",
+      "title": "Latency by model (ms)",
+      "visualType": "table",
+      "pageId": "cf85c80d-87fd-4f9b-8252-57b289cac8da",
+      "layout": {
+        "x": 12,
+        "y": 16,
+        "width": 12,
+        "height": 8
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "3f10c604-0ff8-4fe9-957a-26fdc9bd4567"
+      },
+      "visualOptions": {
+        "table__enableRenderLinks": true,
+        "colorRulesDisabled": true,
+        "crossFilterDisabled": false,
+        "drillthroughDisabled": false,
+        "crossFilter": [],
+        "drillthrough": [],
+        "table__renderLinks": [],
+        "colorRules": []
+      }
+    },
+    {
+      "id": "47788252-d2ce-4c74-a0a8-ab33c91db115",
+      "title": "Collection health",
+      "visualType": "table",
+      "pageId": "3685b896-5e04-425d-8c9c-856f592d2ce1",
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 24,
+        "height": 8
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "53c268d5-bbdb-4d9e-ba42-38efff47c2aa"
+      },
+      "visualOptions": {
+        "table__enableRenderLinks": true,
+        "colorRulesDisabled": true,
+        "crossFilterDisabled": false,
+        "drillthroughDisabled": false,
+        "crossFilter": [],
+        "drillthrough": [],
+        "table__renderLinks": [],
+        "colorRules": []
+      }
+    },
+    {
+      "id": "e26b8a28-709a-46aa-8937-5891f9ee4b6a",
+      "title": "Container restarts in the time range",
+      "visualType": "table",
+      "pageId": "3685b896-5e04-425d-8c9c-856f592d2ce1",
+      "layout": {
+        "x": 0,
+        "y": 8,
+        "width": 24,
+        "height": 8
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "56c269fa-ea60-4493-8db9-2f206dc1449e"
+      },
+      "visualOptions": {
+        "table__enableRenderLinks": true,
+        "colorRulesDisabled": true,
+        "crossFilterDisabled": false,
+        "drillthroughDisabled": false,
+        "crossFilter": [],
+        "drillthrough": [],
+        "table__renderLinks": [],
+        "colorRules": []
+      }
+    },
+    {
+      "id": "f5a7b19a-3b18-4c43-99d9-db720c44657e",
+      "title": "Warning events",
+      "visualType": "table",
+      "pageId": "3685b896-5e04-425d-8c9c-856f592d2ce1",
+      "layout": {
+        "x": 0,
+        "y": 16,
+        "width": 24,
+        "height": 8
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "8866a54a-64fe-4c31-a297-d061e37774b5"
+      },
+      "visualOptions": {
+        "table__enableRenderLinks": true,
+        "colorRulesDisabled": true,
+        "crossFilterDisabled": false,
+        "drillthroughDisabled": false,
+        "crossFilter": [],
+        "drillthrough": [],
+        "table__renderLinks": [],
+        "colorRules": []
+      }
+    },
+    {
+      "id": "6ad16259-e44e-46b0-8825-ec914afa55c0",
+      "title": "Agents",
+      "visualType": "table",
+      "pageId": "3685b896-5e04-425d-8c9c-856f592d2ce1",
+      "layout": {
+        "x": 0,
+        "y": 24,
+        "width": 24,
+        "height": 8
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "8ab4a1ba-cfe5-4154-bcb0-fe6bd231a855"
+      },
+      "visualOptions": {
+        "table__enableRenderLinks": true,
+        "colorRulesDisabled": true,
+        "crossFilterDisabled": false,
+        "drillthroughDisabled": false,
+        "crossFilter": [],
+        "drillthrough": [],
+        "table__renderLinks": [],
+        "colorRules": []
+      }
+    }
+  ],
+  "baseQueries": [],
+  "parameters": [
+    {
+      "kind": "duration",
+      "id": "8ef8ad7c-d905-426c-ba02-bb46f0469699",
+      "displayName": "Time range",
+      "description": "",
+      "beginVariableName": "_startTime",
+      "endVariableName": "_endTime",
+      "defaultValue": {
+        "kind": "dynamic",
+        "count": 24,
+        "unit": "hours"
+      },
+      "showOnPages": {
+        "kind": "all"
+      }
+    },
+    {
+      "kind": "string",
+      "id": "a4877cec-018e-4a07-8719-b7e1ffdd0d17",
+      "displayName": "Cluster",
+      "description": "",
+      "variableName": "_cluster",
+      "selectionType": "array",
+      "includeAllOption": false,
+      "defaultValue": {
+        "kind": "values",
+        "values": [
+          "example"
+        ]
+      },
+      "dataSource": {
+        "kind": "query",
+        "columns": {
+          "value": "Cluster"
+        },
+        "queryRef": {
+          "kind": "query",
+          "queryId": "c0ce6725-2493-45d9-ab7a-94e73750f7f7"
+        }
+      },
+      "showOnPages": {
+        "kind": "all"
+      }
+    }
+  ],
+  "dataSources": [
+    {
+      "id": "c8c707fd-0d04-4932-956c-20b4ff09ccf3",
+      "kind": "manual-kusto",
+      "name": "Logs",
+      "clusterUri": "https://example.australiaeast.kusto.windows.net/",
+      "database": "CetiRunLogs"
+    },
+    {
+      "id": "d74468b0-4dfd-4bc9-8f28-772354ebf950",
+      "kind": "manual-kusto",
+      "name": "Metrics",
+      "clusterUri": "https://example.australiaeast.kusto.windows.net/",
+      "database": "CetiRunMetrics"
+    }
+  ],
+  "pages": [
+    {
+      "name": "AI Gateway",
+      "id": "cf85c80d-87fd-4f9b-8252-57b289cac8da"
+    },
+    {
+      "id": "3685b896-5e04-425d-8c9c-856f592d2ce1",
+      "name": "Platform health"
+    }
+  ],
+  "queries": [
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "c8c707fd-0d04-4932-956c-20b4ff09ccf3"
+      },
+      "text": "GatewayRequests()\n| where Timestamp between (_startTime .. _endTime) and Cluster in (_cluster) and CallOrigin != \"health_check\"\n| summarize Calls = count(), Failed = countif(Status == \"failure\"), Spend = round(sum(Spend), 4),\n    PromptTokens = sum(PromptTokens), CompletionTokens = sum(CompletionTokens) by Cluster, Agent, Owner, Team\n| order by Spend desc",
+      "id": "edf5282c-079c-487c-bc34-aacee84443ec",
+      "usedVariables": [
+        "_cluster",
+        "_endTime",
+        "_startTime"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "c8c707fd-0d04-4932-956c-20b4ff09ccf3"
+      },
+      "text": "GatewayRequests()\n| where Timestamp between (_startTime .. _endTime) and Cluster in (_cluster) and CallOrigin != \"health_check\"\n| summarize Calls = count() by bin(Timestamp, (_endTime - _startTime) / 60), Status",
+      "id": "05a753b5-5871-4393-8eae-292ae6473208",
+      "usedVariables": [
+        "_cluster",
+        "_endTime",
+        "_startTime"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "c8c707fd-0d04-4932-956c-20b4ff09ccf3"
+      },
+      "text": "GatewayRequests()\n| where Timestamp between (_startTime .. _endTime) and Cluster in (_cluster) and CallOrigin != \"health_check\"\n| summarize Prompt = sum(PromptTokens), Cached = sum(CachedTokens), Completion = sum(CompletionTokens) by Model\n| order by Prompt desc",
+      "id": "79120d3b-73a2-419e-bcfc-98240740b5cb",
+      "usedVariables": [
+        "_cluster",
+        "_endTime",
+        "_startTime"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "c8c707fd-0d04-4932-956c-20b4ff09ccf3"
+      },
+      "text": "GatewayRequests()\n| where Timestamp between (_startTime .. _endTime) and Cluster in (_cluster) and CallOrigin != \"health_check\" and Status == \"failure\"\n| summarize Calls = count(), Last = max(Timestamp), Example = take_any(ErrorMessage)\n    by Cluster, Model, ErrorClass, ErrorCode, RateLimitType, BudgetEntityType\n| order by Calls desc",
+      "id": "0154d615-2977-4288-b054-5f1757d2c557",
+      "usedVariables": [
+        "_cluster",
+        "_endTime",
+        "_startTime"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "c8c707fd-0d04-4932-956c-20b4ff09ccf3"
+      },
+      "text": "GatewayRequests()\n| where Timestamp between (_startTime .. _endTime) and Cluster in (_cluster) and CallOrigin != \"health_check\" and Status == \"success\"\n| summarize Calls = count(), P50 = round(percentile(DurationMs, 50)), P95 = round(percentile(DurationMs, 95)),\n    FirstTokenP50 = round(percentile(TimeToFirstTokenMs, 50)) by Model\n| order by Calls desc",
+      "id": "3f10c604-0ff8-4fe9-957a-26fdc9bd4567",
+      "usedVariables": [
+        "_cluster",
+        "_endTime",
+        "_startTime"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "d74468b0-4dfd-4bc9-8f28-772354ebf950"
+      },
+      "text": "CollectionHealth()\n| where Cluster in (_cluster)\n| order by case(Status == \"Failed\", 0, Status == \"Warning\", 1, 2) asc, Cluster asc, Check asc",
+      "id": "53c268d5-bbdb-4d9e-ba42-38efff47c2aa",
+      "usedVariables": [
+        "_cluster"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "d74468b0-4dfd-4bc9-8f28-772354ebf950"
+      },
+      "text": "KubePodContainerStatusRestartsTotal\n| where Timestamp between (_startTime .. _endTime) and Cluster in (_cluster)\n| extend Namespace = tostring(Labels.namespace), PodName = tostring(Labels.pod), Container = tostring(Labels.container)\n| summarize Restarts = max(Value) - min(Value) by Cluster, Namespace, PodName, Container\n| where Restarts > 0\n// CetiRun's own namespaces first, then AKS add-ons.\n| extend CetiRun = Namespace startswith \"cetirun-\" or Namespace startswith \"aks-istio-\"\n| order by CetiRun desc, Restarts desc\n| project-away CetiRun",
+      "id": "56c269fa-ea60-4493-8db9-2f206dc1449e",
+      "usedVariables": [
+        "_cluster",
+        "_endTime",
+        "_startTime"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "c8c707fd-0d04-4932-956c-20b4ff09ccf3"
+      },
+      "text": "KubeEvents()\n| where Timestamp between (_startTime .. _endTime) and Cluster in (_cluster) and Type == \"Warning\"\n| summarize Count = sum(Count), Last = max(Timestamp), Message = take_any(Message)\n    by Cluster, ObjectNamespace, ObjectKind, ObjectName, Reason\n// CetiRun's own namespaces first, then AKS add-ons and nodes.\n| extend CetiRun = ObjectNamespace startswith \"cetirun-\" or ObjectNamespace startswith \"aks-istio-\"\n| order by CetiRun desc, Last desc\n| project-away CetiRun",
+      "id": "8866a54a-64fe-4c31-a297-d061e37774b5",
+      "usedVariables": [
+        "_cluster",
+        "_endTime",
+        "_startTime"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "c8c707fd-0d04-4932-956c-20b4ff09ccf3"
+      },
+      "text": "AgentInventory()\n| where Cluster in (_cluster)\n| project Cluster, AgentName, AgentType, Owner, Team, Policy, Sandbox, Phase, Suspended, AgentNamespace, Created\n| order by Cluster asc, AgentName asc",
+      "id": "8ab4a1ba-cfe5-4154-bcb0-fe6bd231a855",
+      "usedVariables": [
+        "_cluster"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "c8c707fd-0d04-4932-956c-20b4ff09ccf3"
+      },
+      "text": "union (Platform | where Timestamp > ago(1d) | distinct Cluster)",
+      "id": "c0ce6725-2493-45d9-ab7a-94e73750f7f7",
+      "usedVariables": []
+    }
+  ],
+  "embeddedApps": []
+}

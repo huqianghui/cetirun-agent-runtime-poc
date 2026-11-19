@@ -1,0 +1,20 @@
+# API example only: Custom runtime support is a separate delivery.
+apiVersion: cetirun.microsoft.com/v1alpha1
+kind: Agent
+metadata:
+  name: example-custom
+spec:
+  team: example-team
+  sandboxRef: standard
+  user:
+    alias: alice
+    displayName: Example User
+  agent:
+    type: custom
+    image: registry.example.com/team/agent:1.0.0
+    username: vibe
+    port: 8080
+    # Portal generates this optional source reference for a private registry.
+    # It is not the name of a Secret to pre-create in the runtime namespace.
+    # registrySecretRef:
+    #   name: registry-example-custom
