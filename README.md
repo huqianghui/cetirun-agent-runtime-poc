@@ -27,7 +27,7 @@
 
 ### 准备
 
-本机工具：`az`、`kubelogin`、`helm`、`skopeo`、`jq`、`make`、`python3`（带 `pyyaml`、`certifi`）、`openssl`、`ssh`。`kubectl` 不需要预装，部署脚本第一次运行时会下载一个与集群版本匹配的到 `bin/`。
+本机工具：`az`、`kubelogin`、`helm`、`skopeo`、`jq`、`make`、`python3`（带 `pyyaml`、`certifi`）、`openssl`。`kubectl` 不需要预装，部署脚本第一次运行时会下载一个与集群版本匹配的到 `bin/`。
 
 Azure 侧：一个有 Owner 权限的订阅，并且能在租户里创建 Entra 组和应用。
 
@@ -36,7 +36,7 @@ git clone https://github.com/huqianghui/cetirun-agent-runtime-poc.git && cd ceti
 cp config.env.example config.env    # 填订阅、模型账号名、门户域名前缀和管理员别名
 ```
 
-所有脚本都从 `config.env` 读配置，运行中生成的 ID、证书、私钥和 kubeconfig 写进 `state/`，生成的部署配置在 `generated/`（都已被 `.gitignore` 排除）。
+每个配置项的含义、哪些必须改、生成的文件在哪里，见 [部署配置说明](docs/DEPLOYMENT.md)。所有脚本都从 `config.env` 读配置，运行中生成的 ID、证书、私钥和 kubeconfig 写进 `state/`，生成的部署配置在 `generated/`（都已被 `.gitignore` 排除）。
 
 ### 按编号执行
 
@@ -50,23 +50,29 @@ cp config.env.example config.env    # 填订阅、模型账号名、门户域名
 | 4 | `deploy/30-identity.sh` | 登录组、门户登录应用、Agent Identity Blueprint、授权应用、加密身份、Key Vault 密钥 | 3 分钟 |
 | 5 | `deploy/40-platform-prereqs.sh` | Blob NFS 存储、命名空间、内部 TLS 证书、AI 网关密钥 | 3 分钟 |
 | 6 | `ACR_ONLY=1 deploy/45-registry.sh` | 建镜像仓库 ACR 并挂到集群 | 2 分钟 |
-| 7 | `deploy/46-build-publish.sh` | 在构建机上用本仓库源码 `make publish`：13 个镜像、9 个 chart 推到 ACR，完成后构建机解除分配 | 30~60 分钟 |
+| 7 | `deploy/46-build-publish.sh` | 在构建机上用本仓库源码 `make publish`：镜像和 chart 推到 ACR，完成后构建机解除分配。命令全部经 `az vm run-command` 下发，构建机不开任何入站端口 | 30~60 分钟 |
 | 8 | `deploy/47-registry-pull.sh` | Operator 拉 agent chart 用的只读 ACR token | 1 分钟 |
 | 9 | `deploy/50-environment.sh` | 生成部署配置 `generated/environment.yaml`，离线跑一遍 `deploy-plan` 校验 | 1 分钟 |
-| 10 | `deploy/56-local-deploy.sh` | 在本机以本人身份 `make deploy`：平台组件、公网 IP 与域名、Let's Encrypt 证书 | 15 分钟 |
-| 11 | `deploy/58-ai-gateway-console.sh` | 把 AI 网关控制台挂到门户域名的 `/ai-gateway/ui/` | 2 分钟 |
+| 10 | `deploy/56-local-deploy.sh` | 在本机以本人身份 `make deploy`：平台组件、公网 IP 与域名、Let's Encrypt 证书。部署前后会自动调用 `55-sandbox-platform.sh`，生成沙箱执行需要的 HOME 盘 StorageClass 和平台登记 | 20~40 分钟 |
+| 11 | `deploy/58-ai-gateway-console.sh` | 加一条入口路由，把 AI 网关控制台挂到门户域名的 `/ai-gateway/ui/` | 1 分钟 |
 
-完成后打开 `https://<DNS_LABEL>.<LOCATION>.cloudapp.azure.com/`，用 `cetirun-poc-users` 组里的账号登录。执行部署的人（`OWNER_ALIAS`）同时是门户管理员和准入 webhook 的部署管理员；其他用户把他们加进这个组即可。
+完成后打开 `https://<DNS_LABEL>.<LOCATION>.cloudapp.azure.com/`，用 `cetirun-poc-users` 组里的账号登录。执行部署的人（`OWNER_ALIAS`）同时是门户管理员和准入 webhook 的部署管理员。
+
+### 给其他人开权限
+
+- **能登录、建自己的 agent**：把他们加进 `cetirun-poc-users` 组。外部账号（B2B 来宾）也可以；
+- **进管理员后台**：再把他们的 alias 写进 `config.env` 的 `PORTAL_ADMIN_ALIASES`（空格分隔），重跑 `50` 和 `56`。alias 是 Entra 登录名（`preferred_username`）`@` 前面那段，不一定和邮箱相同：来宾账号的 UPN 形如 `lialex_contoso.com#EXT#@...`，alias 就是 `lialex`；
+- **每人可建几个 agent**：`config.env` 的 `MAX_AGENTS_PER_USER`，默认 1，0 为不限。
 
 ### 为什么在本机部署
 
-`make deploy` 会写 CetiAdmin 的配置，而这份配置只允许准入管理员名单里的人修改，名单在首次安装时定下，之后的 `make deploy` 不允许改。所以部署要以首次安装那个人的身份执行。`55-remote-deploy.sh`（在构建机上用托管身份部署）因此走不通，留作参考。
+`make deploy` 会写 CetiAdmin 的配置，而这份配置只允许准入管理员名单里的人修改，名单在首次安装时定下，之后的 `make deploy` 不允许改。所以部署要以首次安装那个人的身份执行。
 
 本机部署只用到仓库 `bin/` 下的两个工具：`kubectl`（脚本自动下载，部署脚本要求与集群版本差不超过一个小版本）和 `docker`（一个 skopeo 替身，只实现部署时检查镜像是否存在的 `buildx imagetools inspect`），不在系统里装任何东西。
 
 ### 版本号
 
-源码版本是 `0.1.1-src.20261111`：`46-build-publish.sh` 在构建机上执行 `make set-version` 后构建，镜像和 chart 用同一个版本号。VS Code Server 镜像没有构建（需要接受它的许可条款），所以没有 VS Code 类型的实例。
+源码版本是 `0.1.1-src.20261119`：`46-build-publish.sh` 在构建机上执行 `make set-version` 后构建，镜像和 chart 用同一个版本号。VS Code Server 镜像没有构建（需要接受它的许可条款），所以没有 VS Code 类型的实例。
 
 ## 使用
 
@@ -98,7 +104,8 @@ kubectl get secret -n cetirun-system cetirun-ai-gateway-auth -o jsonpath='{.data
 - **委托连接要管理员同意**："代表你访问 ARM / Graph"需要租户管理员同意，同意之前用不了。
 - **HOME 盘随实例删除**：默认 StorageClass 的回收策略是 Delete，删实例会删数据。
 - **内部证书一年有效**：内部 TLS 用 `state/tls/` 下的自签 CA，叶子证书到期前要轮换，否则准入 webhook 会拒绝所有受管写入。
-- **订阅的后台安全自动化**：构建机 NSG 的 SSH 入站规则即使打了 `securityControl=Ignore` 也会被删，跑 `46` 前脚本会重新加。
+- **重新部署前先重新构建**：`56` 部署的是 ACR 里 `BUILD_VERSION` 那一版的镜像和 chart。改了源码不重跑 `46`，部署会把线上打回旧版本，门户的 AI Gateway 页面和入口规则都会消失。
+- **TLS 状态目录在仓库外**：Let's Encrypt 的账号和证书状态放在 `~/.cetirun-poc/public-tls`，`make deploy` 拒绝把它放在源码仓库里。换机器部署时把这个目录一起带过去，否则会重新申请证书。
 - **本机 GSA**：Global Secure Access 的 Private Access 会截获 `*.cognitiveservices.azure.com`、`*.vault.azure.net`、`*.azurecr.io` 等域名，部署和运维时要关掉 GSA。
 
 ## 相关文章

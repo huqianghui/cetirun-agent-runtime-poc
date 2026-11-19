@@ -24,7 +24,7 @@ CetiRun 是**常驻型** runtime：每人一个长期运行的 agent 实例，�
 门户分两部分：
 
 - **用户侧**（`/`）：My Agents、工作区、Connections；
-- **管理员后台**（`/admin`）：Teams、Agent policies、Sandboxes、Agents、AI Gateway，只有门户管理员能看到（部署时 `OWNER_ALIAS` 指定的人）。
+- **管理员后台**（`/admin`）：Teams、Agent policies、Sandboxes、Agents、AI Gateway，只有门户管理员能看到：部署人 `OWNER_ALIAS`，加上 `config.env` 里 `PORTAL_ADMIN_ALIASES` 列出的人。不在名单里的人打开 `/admin` 会看到 403 Admin access required，这不是登录失败。怎么给别人开权限见 [README](../README.md#给其他人开权限)。
 
 ## 二、管理员：第一次准备
 
@@ -111,7 +111,7 @@ Sandbox 被 Team 引用时删不掉，要先让 Team 不再引用它。
 ![My Agents](images/screens/my-agents.png)
 
 > [!NOTE]
-> 每个用户默认只能建 1 个 agent（门户的 `MAX_INSTANCES_PER_USER`，chart 里是 `maxInstancesPerUser: 1`），这是"每人一个常驻实例"的设计。名额满了 New Agent 按钮会变灰，提示 Limit reached。当前环境为了演示临时调成了 2。
+> 每人可建的 agent 数由 `config.env` 的 `MAX_AGENTS_PER_USER` 决定（写进门户 chart 的 `features.maxInstancesPerUser`），默认 1，对应"每人一个常驻实例"的设计。当前环境为了演示设成了 2。名额满了 New Agent 按钮会变灰，提示 Limit reached。
 
 ### 2. 工作区
 
@@ -151,8 +151,12 @@ Terminal 是这台机器唯一正式的 shell 入口。集群上的准入策略�
 
 Desktop 用来处理 agent 自己过不了的关，比如需要验证码或 MFA 的登录：人在桌面里登录一次，cookie 留在这个 Chrome 里，agent 之后接着用。agent 通过本机 CDP 端口操作这个浏览器，人能实时看到。
 
-> [!WARNING]
-> 当前环境里 Desktop 打不开，页面报 `upstream connect error ... connection timeout`。原因是 operator 为 agent 生成的 CiliumNetworkPolicy 只放行了入口网关到 `7681`（Terminal）、`8642`（Agent UI）、`9120`、`18789` 这几个端口，没有 noVNC 的 `6080`。入口 mTLS 关闭时 Desktop 走 6080 直连，就被丢包了。修复要改 operator 生成网络策略的逻辑，单独跟进。
+![Desktop](images/screens/desktop.png)
+
+打开后是 noVNC 远程桌面，里面就是 agent 用的 Chrome。顶部的 `--no-sandbox` 提示是正常的：Chrome 自身不开沙箱，隔离靠 Kata 虚拟机和入口的 owner 检查，把 agent 开给别人用之前要清楚这一点。
+
+> [!NOTE]
+> Desktop 能不能连上，取决于平台登记（`cetirun-system/sandbox-platform`）里入口网关可访问的端口有没有 noVNC 的 `6080`。这份登记由 `deploy/55-sandbox-platform.sh` 生成，端口列表在 `config.env` 的 `SANDBOX_INGRESS_PORTS`。少了 6080，页面会报 `upstream connect error ... connection timeout`。
 
 ### 6. Connections：让 agent 代表你访问 Microsoft 服务
 
@@ -287,8 +291,7 @@ Team 详情页的 Rate Limits、Budget 都是 Unlimited，Models 是 All proxy m
 
 ## 已知限制
 
-- **Desktop 打不开**：见第三节第 5 小节，网络策略缺 6080 端口；
 - **建实例时不要开 Agent Identity**：operator 删除身份所需的 Graph 权限还没验证；
 - **删实例会删 HOME 盘**，数据不可恢复；
-- **AI Gateway 页面目前是临时恢复的**：ACR 里的 chart 还是旧版，在用最新源码重新构建之前，再跑一次 `56-local-deploy.sh` 会把门户和入口规则打回旧版，AI Gateway 菜单会消失；
+- **改了源码要先重新构建再部署**：AI Gateway 页面要门户镜像和 Istio 入口规则都是新版才能用。`56-local-deploy.sh` 部署的是 ACR 里 `BUILD_VERSION` 那一版，不重跑 `46` 就部署，会把两者打回旧版，AI Gateway 菜单消失、嵌入的控制台报 refused to connect；
 - 其余见 [README](../README.md#已知限制)。
