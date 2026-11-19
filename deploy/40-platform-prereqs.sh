@@ -68,8 +68,8 @@ mk cetirun-system cetirun-ai-gateway-auth generic --from-literal=master-key="sk-
 mk cetirun-system gateway-valkey-auth generic --from-literal=redis-password="$(rnd)"
 
 log "5. cert-manager chart 包"
-CM="$ROOT/state/cert-manager-v1.21.3.tgz"
-[ -f "$CM" ] || helm pull oci://quay.io/jetstack/charts/cert-manager --version v1.21.3 --destination "$ROOT/state"
+CM="$ROOT/state/cert-manager-$CERT_MANAGER_VERSION.tgz"
+[ -f "$CM" ] || helm pull oci://quay.io/jetstack/charts/cert-manager --version "$CERT_MANAGER_VERSION" --destination "$ROOT/state"
 save CERT_MANAGER_ARCHIVE "$CM"
 
 tag_rg "$RG"; tag_rg "$NODE_RG"

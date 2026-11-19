@@ -20,7 +20,7 @@ cat > "$ROOT/generated/cluster.parameters.json" <<EOF
     "resourceGroupName": {"value": "$RG"},
     "location": {"value": "$LOCATION"},
     "clusterName": {"value": "$CLUSTER_NAME"},
-    "kubernetesVersion": {"value": "1.37"},
+    "kubernetesVersion": {"value": "$K8S_VERSION"},
     "dnsPrefix": {"value": "$CLUSTER_NAME"},
     "nodeResourceGroup": {"value": "$NODE_RG"},
     "skuTier": {"value": "Standard"},
@@ -31,9 +31,9 @@ cat > "$ROOT/generated/cluster.parameters.json" <<EOF
     "agentNodePoolVmSize": {"value": "$AGENT_VM"},
     "agentNodePoolMinCount": {"value": $AGENT_MIN},
     "agentNodePoolMaxCount": {"value": $AGENT_MAX},
-    "agent2NodePoolVmSize": {"value": "Standard_D8s_v5"},
-    "agent2NodePoolMinCount": {"value": 0},
-    "agent2NodePoolMaxCount": {"value": 1}
+    "agent2NodePoolVmSize": {"value": "$AGENT2_VM"},
+    "agent2NodePoolMinCount": {"value": $AGENT2_MIN},
+    "agent2NodePoolMaxCount": {"value": $AGENT2_MAX}
   }
 }
 EOF

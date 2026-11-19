@@ -18,7 +18,7 @@ LOGIN=$(az acr show -n "$ACR" --query loginServer -o tsv)
 az aks update -g "$RG" -n "$CLUSTER_NAME" --attach-acr "$ACR" -o none
 echo "ACR=$ACR" > "$ROOT/state/registry.env"; echo "ACR_LOGIN_SERVER=$LOGIN" >> "$ROOT/state/registry.env"
 # 当前做法只需要 ACR 本身，镜像和 chart 由 46 用源码构建；ACR_ONLY=1 时到此为止
-[ "${ACR_ONLY:-0}" = 1 ] && { log "完成：ACR $LOGIN（ACR_ONLY，跳过从 MCR 复制）"; exit 0; }
+[ "${ACR_ONLY:-0}" = 1 ] && { log "完成：ACR ${LOGIN}（ACR_ONLY，跳过从 MCR 复制）"; exit 0; }
 DEST="$LOGIN/cetirun"
 TOKEN=$(az acr login -n "$ACR" --expose-token --query accessToken -o tsv)
 CREDS="00000000-0000-0000-0000-000000000000:$TOKEN"

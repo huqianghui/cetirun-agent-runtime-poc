@@ -37,9 +37,9 @@ grant_consent() {  # client sp, resource sp, scopes —— 需要管理员权限
 }
 
 log "1. 登录组"
-GROUP_ID=$(az ad group list --display-name cetirun-poc-users --query "[0].id" -o tsv)
+GROUP_ID=$(az ad group list --display-name "$LOGIN_GROUP" --query "[0].id" -o tsv)
 if [ -z "$GROUP_ID" ]; then
-  GROUP_ID=$(az ad group create --display-name cetirun-poc-users --mail-nickname cetirun-poc-users --query id -o tsv)
+  GROUP_ID=$(az ad group create --display-name "$LOGIN_GROUP" --mail-nickname "$LOGIN_GROUP" --query id -o tsv)
 fi
 az ad group member check --group "$GROUP_ID" --member-id "$ME" --query value -o tsv | grep -q true \
   || az ad group member add --group "$GROUP_ID" --member-id "$ME"

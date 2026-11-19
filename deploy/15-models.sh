@@ -9,11 +9,12 @@ az cognitiveservices account show -g "$RG" -n "$AI_ACCOUNT" -o none 2>/dev/null 
 tag_id "$(az cognitiveservices account show -g "$RG" -n "$AI_ACCOUNT" --query id -o tsv)"
 
 log "2. 模型部署"
-for m in gpt-5.6-luna gpt-5.6-terra; do
+for spec in $MODELS; do
+  IFS=: read -r m ver _ _ <<<"$spec"
   az cognitiveservices account deployment show -g "$RG" -n "$AI_ACCOUNT" --deployment-name "$m" -o none 2>/dev/null && continue
   az cognitiveservices account deployment create -g "$RG" -n "$AI_ACCOUNT" --deployment-name "$m" \
-    --model-name "$m" --model-version 2026-07-09 --model-format OpenAI \
-    --sku-name GlobalStandard --sku-capacity 100 -o none
+    --model-name "$m" --model-version "$ver" --model-format OpenAI \
+    --sku-name "$MODEL_SKU" --sku-capacity "$MODEL_CAPACITY" -o none
 done
 az cognitiveservices account deployment list -g "$RG" -n "$AI_ACCOUNT" \
   --query "[].{name:name,sku:sku.name,capacity:sku.capacity}" -o table

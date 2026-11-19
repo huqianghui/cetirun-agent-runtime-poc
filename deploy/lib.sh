@@ -8,6 +8,9 @@ az account set --subscription "$SUBSCRIPTION_ID"
 SSL_CERT_FILE="$(python3 -c 'import certifi; print(certifi.where())')"; export SSL_CERT_FILE
 
 log() { printf '\n==> %s\n' "$*"; }
+die() { printf '\n!! %s\n' "$*" >&2; exit 1; }
+ok() { printf '  ✓ %s\n' "$*"; }
+warn() { printf '  ! %s\n' "$*" >&2; }
 
 # 合并标签到一个资源 ID（不覆盖已有标签）
 tag_id() {

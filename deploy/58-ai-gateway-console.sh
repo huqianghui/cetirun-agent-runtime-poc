@@ -5,10 +5,9 @@ source "$(dirname "$0")/lib.sh"
 export PATH="$ROOT/bin:$PATH" KUBECONFIG="$ROOT/state/kubeconfig"
 HOST="$DNS_LABEL.$LOCATION.cloudapp.azure.com"
 
-log "1. 控制台改在 /ai-gateway 前缀下提供（LiteLLM 需要可写的 UI 副本来改资源路径）"
-kubectl set env -n cetirun-system deploy/cetirun-ai-gateway \
-  SERVER_ROOT_PATH=/ai-gateway LITELLM_UI_PATH=/tmp/litellm-ui
-kubectl rollout status -n cetirun-system deploy/cetirun-ai-gateway --timeout=300s
+log "1. 确认控制台已在 /ai-gateway 前缀下提供（由 50-environment.sh 写进 chart 的 auth.adminUI.rootPath）"
+kubectl get deploy -n cetirun-system cetirun-ai-gateway -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="SERVER_ROOT_PATH")].value}' \
+  | grep -qx /ai-gateway || { echo "AI 网关没有 SERVER_ROOT_PATH=/ai-gateway：先重跑 50-environment.sh 和 56-local-deploy.sh"; exit 1; }
 
 log "2. 入口路由 https://$HOST/ai-gateway/"
 kubectl apply -f - <<EOF

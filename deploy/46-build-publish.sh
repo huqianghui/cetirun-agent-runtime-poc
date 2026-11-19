@@ -6,8 +6,7 @@
 source "$(dirname "$0")/lib.sh"
 # shellcheck disable=SC1091
 source "$ROOT/state/registry.env"
-BUILD_VERSION=0.1.1-src.20261119
-VM=vm-cetirun-build
+VM=$BUILD_VM   # BUILD_VERSION、BUILD_VM* 都在 config.env
 KEY="$ROOT/state/ssh/id_ed25519"
 
 log "1. 源码包与 GIT_SHA"
@@ -18,51 +17,69 @@ COPYFILE_DISABLE=1 tar --no-xattrs --exclude='.DS_Store' --exclude='._*' --exclu
   --exclude="$B/.git" --exclude="$B/state" --exclude="$B/generated" --exclude="$B/bin" --exclude="$B/config.env" \
   --exclude='node_modules' -C "$(dirname "$CETIRUN_SRC")" -czf "$ROOT/state/cetirun-src.tgz" "$B"
 
-log "2. 构建 VM（SSH 只放行本机公网 IP）"
+log "2. 构建 VM（不开任何入站端口，命令都经 az vm run-command 下发）"
+# 公司网络出站拦 22 端口，订阅的安全自动化也会删 SSH 入站规则；run-command 走 ARM，
+# 用的是本机 az login 的 Entra 身份，构建机不需要公网入站
 mkdir -p "$ROOT/state/ssh"; [ -f "$KEY" ] || ssh-keygen -t ed25519 -N '' -f "$KEY" -q
-MYIP=$(curl -s https://api.ipify.org)
 if ! az vm show -g "$RG" -n "$VM" -o none 2>/dev/null; then
   # shellcheck disable=SC2086
-  az vm create -g "$RG" -n "$VM" -l "$LOCATION" --image Ubuntu2404 --size Standard_D8s_v5 \
+  az vm create -g "$RG" -n "$VM" -l "$LOCATION" --image "$BUILD_VM_IMAGE" --size "$BUILD_VM_SIZE" \
     --admin-username azureuser --ssh-key-values "$KEY.pub" --os-disk-size-gb 256 \
     --public-ip-sku Standard --nsg-rule NONE --tags $TAGS -o none
-  az network nsg rule create -g "$RG" --nsg-name "${VM}NSG" -n ssh-from-me --priority 100 \
-    --source-address-prefixes "$MYIP/32" --destination-port-ranges 22 --access Allow --protocol Tcp -o none
 else
   az vm start -g "$RG" -n "$VM" -o none
-  # 订阅的安全自动化会删掉这条规则，所以每次都重建（create 对已有规则是覆盖）
-  az network nsg rule create -g "$RG" --nsg-name "${VM}NSG" -n ssh-from-me --priority 100 \
-    --source-address-prefixes "$MYIP/32" --destination-port-ranges 22 --access Allow --protocol Tcp -o none
 fi
 tag_rg "$RG"
-VMIP=$(az vm show -d -g "$RG" -n "$VM" --query publicIps -o tsv)
-SSH=(ssh -i "$KEY" -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=30 "azureuser@$VMIP")
-for i in $(seq 1 30); do "${SSH[@]}" true 2>/dev/null && break; echo "等待 SSH（${i}）"; sleep 10; done
+vmrun() {   # 在构建机上以 root 执行一段脚本，打印输出；脚本失败时返回非 0
+  local out; out=$(az vm run-command invoke -g "$RG" -n "$VM" --command-id RunShellScript \
+    --scripts "$1" --query "value[0].message" -o tsv)
+  printf '%s\n' "$out" | sed -n '/^\[stdout\]/,/^\[stderr\]/p' | sed '1d;$d'
+  printf '%s\n' "$out" | grep -q '__RC=0__'
+}
 
 log "3. 构建工具"
-"${SSH[@]}" 'set -e; command -v docker >/dev/null || { sudo apt-get update -qq; sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq docker.io docker-buildx make jq python3-yaml >/dev/null; sudo usermod -aG docker azureuser; }
-command -v helm >/dev/null || curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash >/dev/null'
+vmrun 'set -e; command -v docker >/dev/null || { apt-get update -qq; DEBIAN_FRONTEND=noninteractive apt-get install -y -qq docker.io docker-buildx make jq python3-yaml git >/dev/null; }
+command -v helm >/dev/null || curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash >/dev/null
+echo __RC=0__' || die "构建工具安装失败"
 
-log "4. 传源码、改版本号"
-scp -i "$KEY" -q "$ROOT/state/cetirun-src.tgz" "azureuser@$VMIP:/tmp/src.tgz"
+log "4. 传源码（封进 ACR 里的一个只含源码包的镜像）、改版本号"
+SRC_CTX=$(mktemp -d); cp "$ROOT/state/cetirun-src.tgz" "$SRC_CTX/"
+printf 'FROM scratch\nCOPY cetirun-src.tgz /cetirun-src.tgz\n' > "$SRC_CTX/Dockerfile"
+az acr build -r "$ACR" -t "cetirun/build-src:$BUILD_VERSION" "$SRC_CTX" -o none --no-logs
+rm -rf "$SRC_CTX"
+TOKEN=$(az acr login -n "$ACR" --expose-token --query accessToken -o tsv)
+B=$(basename "$CETIRUN_SRC")
 # 源码包没有 .git，而发布脚本用 git ls-files 选文件：在构建副本里 git init，改版本号后提交，
 # GIT_SHA 就是这次提交的 commit（只存在于构建机上的副本，不是上游仓库的 commit）
-"${SSH[@]}" "set -e; rm -rf ~/build && mkdir ~/build && tar -xzf /tmp/src.tgz -C ~/build && cd ~/build/$(basename "$CETIRUN_SRC")
-git init -q && git -c user.name=poc -c user.email=poc@local add -A && git -c user.name=poc -c user.email=poc@local commit -qm 'source 2026-11-11'
-make set-version VERSION=$BUILD_VERSION >/dev/null && git -c user.name=poc -c user.email=poc@local commit -qam 'set-version $BUILD_VERSION'
-grep -m1 '^version' app/cetirun-chart/Chart.yaml"
-GIT_SHA=$("${SSH[@]}" "cd ~/build/$(basename "$CETIRUN_SRC") && git rev-parse HEAD")
-echo "BUILD_VERSION=$BUILD_VERSION" > "$ROOT/state/build.env"; echo "BUILD_GIT_SHA=$GIT_SHA" >> "$ROOT/state/build.env"
-
-log "5. 构建并推送（约 30 到 60 分钟）"
-TOKEN=$(az acr login -n "$ACR" --expose-token --query accessToken -o tsv)
-# 全程以 root 执行：docker / helm 的登录凭据和发布命令用同一个 HOME
-"${SSH[@]}" "sudo -H bash -c 'set -e
+vmrun "set -e; export HOME=/root
 echo $TOKEN | docker login $ACR_LOGIN_SERVER -u 00000000-0000-0000-0000-000000000000 --password-stdin >/dev/null
 echo $TOKEN | helm registry login $ACR_LOGIN_SERVER -u 00000000-0000-0000-0000-000000000000 --password-stdin >/dev/null
-cd /home/azureuser/build/$(basename "$CETIRUN_SRC")
-PLATFORMS=linux/amd64 python3 -B scripts/cetirun-release.py publish \
-  --registry $ACR_LOGIN_SERVER/cetirun --version $BUILD_VERSION --git-sha $GIT_SHA --exclude-image cetirun-vscode'"
+docker rm -f build-src >/dev/null 2>&1 || true
+docker pull -q $ACR_LOGIN_SERVER/cetirun/build-src:$BUILD_VERSION >/dev/null
+docker create --name build-src $ACR_LOGIN_SERVER/cetirun/build-src:$BUILD_VERSION /x >/dev/null
+docker cp build-src:/cetirun-src.tgz /tmp/src.tgz && docker rm build-src >/dev/null
+rm -rf /root/build && mkdir /root/build && tar -xzf /tmp/src.tgz -C /root/build && cd /root/build/$B
+git init -q && git -c user.name=poc -c user.email=poc@local add -A && git -c user.name=poc -c user.email=poc@local commit -qm source
+make set-version VERSION=$BUILD_VERSION >/dev/null && git -c user.name=poc -c user.email=poc@local commit -qam 'set-version $BUILD_VERSION'
+echo GIT_SHA=\$(git rev-parse HEAD); echo __RC=0__" > "$ROOT/state/46-src.out" || { cat "$ROOT/state/46-src.out"; die "传源码失败"; }
+GIT_SHA=$(sed -n 's/^GIT_SHA=//p' "$ROOT/state/46-src.out")
+[ -n "$GIT_SHA" ] || die "没拿到 GIT_SHA"
+echo "BUILD_VERSION=$BUILD_VERSION" > "$ROOT/state/build.env"; echo "BUILD_GIT_SHA=$GIT_SHA" >> "$ROOT/state/build.env"
+
+log "5. 构建并推送（约 30 到 60 分钟，后台执行，每 2 分钟看一次进度）"
+# run-command 单次调用有超时，构建放到后台跑，结束时写退出码
+vmrun "set -e; export HOME=/root; cd /root/build/$B; rm -f /root/build.rc
+nohup bash -c 'PLATFORMS=linux/amd64 python3 -B scripts/cetirun-release.py publish --registry $ACR_LOGIN_SERVER/cetirun --version $BUILD_VERSION --git-sha $GIT_SHA --exclude-image cetirun-vscode > /root/build.log 2>&1; echo \$? > /root/build.rc' >/dev/null 2>&1 &
+echo started; echo __RC=0__" || die "构建启动失败"
+while :; do
+  sleep 120
+  st=$(vmrun 'if [ -f /root/build.rc ]; then echo "RC=$(cat /root/build.rc)"; fi; tail -n 2 /root/build.log | cut -c1-160; echo __RC=0__')
+  echo "  $(date +%H:%M) $(printf '%s' "$st" | grep -v '^RC=' | tail -n 1)"
+  rc=$(printf '%s\n' "$st" | sed -n 's/^RC=//p')
+  [ -z "$rc" ] && continue
+  [ "$rc" = 0 ] && break
+  vmrun 'tail -n 40 /root/build.log; echo __RC=0__'; die "构建失败（退出码 ${rc}），日志在构建机 /root/build.log"
+done
 
 log "6. 停机（解除分配，不再计算费用）"
 az vm deallocate -g "$RG" -n "$VM" -o none
