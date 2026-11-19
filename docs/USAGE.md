@@ -158,9 +158,39 @@ Desktop 用来处理 agent 自己过不了的关，比如需要验证码或 MFA 
 > [!NOTE]
 > Desktop 能不能连上，取决于平台登记（`cetirun-system/sandbox-platform`）里入口网关可访问的端口有没有 noVNC 的 `6080`。这份登记由 `deploy/55-sandbox-platform.sh` 生成，端口列表在 `config.env` 的 `SANDBOX_INGRESS_PORTS`。少了 6080，页面会报 `upstream connect error ... connection timeout`。
 
-### 6. Connections：让 agent 代表你访问 Microsoft 服务
+### 6. Connections：让 agent 代表你访问外部服务
 
-**Connections** 页管理委托连接，授权 agent 以你的身份访问 Microsoft Graph 或 Azure ARM。连接从 agent 侧发起：在工作区 Overview 的 **Identities → Add identity** 里完成授权后，会出现在这里，并显示被哪些 agent 用着。这个功能需要租户管理员同意后才能用。
+**Connections** 页管理委托连接：授权 agent 以你的身份访问外部服务。可选的服务有 **Azure**（Azure Resource Manager、Microsoft Graph）、**GitHub**、**Google**（Gmail、Calendar）；Microsoft 365 在这个环境里是禁用的。连接从 agent 侧发起：在工作区 Overview 的 **Identities → Add identity** 里完成授权后，会出现在这里，并显示被哪些 agent 用着。Azure 这一类需要租户管理员先同意门户的登录应用。
+
+凭据始终留在平台的 agent-broker 里，不进 agent 的环境。agent 通过 connections MCP 的四个工具使用连接：
+
+| 工具 | 作用 |
+|---|---|
+| `connections_status` | 列出这个 agent 绑定了哪些连接、实际拿到的 OAuth 权限和状态，不返回凭据 |
+| `connections_start_link` | 还没连接时，给出门户的连接页面，让你去授权 |
+| `services_list` | 列出可用的服务和各自的 API 根地址 |
+| `service_request` | 用绑定的连接发一个 REST 请求；能不能访问，由你在对方服务里的权限决定 |
+
+**例子：让 agent 看一眼订阅里的 AKS 集群**
+
+1. 工作区 Overview → **Identities → Add identity**，选 **Azure**，用你的 Entra 账号登录并同意，勾选 **Azure Resource Manager**，保存。**Connections** 页会出现这条连接，标注被 `demo-agent` 使用；
+2. 在 Agent UI 里交代任务：
+
+   ```text
+   用我的 Azure 连接，列出订阅 <订阅 ID> 里所有 AKS 集群，
+   给出名字、区域、Kubernetes 版本和电源状态，有停机的单独标出来。
+   ```
+
+3. agent 先调 `connections_status` 确认有一条 Azure 连接，再调 `services_list` 拿到 ARM 的根地址，然后用 `service_request` 发：
+
+   ```text
+   GET /subscriptions/<订阅 ID>/providers/Microsoft.ContainerService/managedClusters?api-version=2024-09-01
+   ```
+
+   ARM 按**你自己**在这个订阅上的 RBAC 角色返回结果。你只是 Reader，agent 也只能读；你看不到的订阅，agent 也看不到；
+4. agent 把返回的集群列表整理成表格回给你。如果还没建连接，第 3 步的 `connections_status` 会返回空，agent 会调 `connections_start_link` 给你一个链接，让你先去授权。
+
+同样的方式可以让 agent 用 Microsoft Graph 读你的日历、用 GitHub 连接读你有权限的仓库和 PR。删除一条连接，或者在 Identities 里取消某个 agent 的使用，它下一次请求就会失败，不用重启 agent。
 
 > [!NOTE]
 > 跑在 Kata 沙箱里的 agent（Team 绑定了 Sandbox），工作区的 Identities 会显示 **Binding storage is unavailable**。原因是沙箱里的 agent 要用委托连接，operator 需要开启 `connectionsMCP.nativeEnabled`，并在平台登记里加上 connections-mcp 作为受管 peer。当前部署没有开启，operator 就不给 agent-broker 授予这个 agent 命名空间里的权限。不在沙箱里跑的 agent（如 CetiAdmin）不受影响。
